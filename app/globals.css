@@ -1,26 +1,183 @@
 @import "tailwindcss";
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Dark Mode — DeWalt Yellow */
+  --bg: #121417;
+  --surface: #1B1E22;
+  --surface-2: #24282D;
+  --border: #2E3339;
+  --ink: #EDEEF0;
+  --ink-muted: #8D949C;
+  --accent: #FEBD11;
+  --accent-hover: #E0A600;
+  --on-accent: #14161A;
+  --accent-soft: rgba(254, 189, 17, 0.10);
+
+  /* Stage colors */
+  --stage-appointment: #8B93A0;
+  --stage-contract: #5B8DEF;
+  --stage-production: #FEBD11;
+  --stage-ready: #A47EE0;
+  --stage-completed: #34B172;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--ink-muted);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .panel {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .panel-hover {
+    transition: background 150ms ease, border-color 150ms ease;
+  }
+  .panel-hover:hover {
+    background-color: var(--surface-2);
+  }
+
+  .btn-primary {
+    background-color: var(--accent);
+    color: var(--on-accent);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    transition: background 150ms ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary:hover {
+    background-color: var(--accent-hover);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink-muted);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 150ms ease;
+  }
+  .btn-ghost:hover {
+    background-color: var(--surface-2);
+    color: var(--ink);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin: 2px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--ink-muted);
+    transition: all 150ms ease;
+    cursor: pointer;
+    position: relative;
+  }
+  .nav-item:hover {
+    background-color: var(--surface-2);
+    color: var(--ink);
+  }
+  .nav-item.active {
+    background-color: var(--accent-soft);
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 20px;
+    background-color: var(--accent);
+    border-radius: 2px;
+  }
+
+  .focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    border-color: var(--accent);
+  }
+
+  /* Stage stepper */
+  .step-node {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 150ms ease;
+  }
+  .step-node.completed {
+    background-color: var(--ink-muted);
+    color: var(--bg);
+  }
+  .step-node.current {
+    background-color: var(--accent);
+    color: var(--on-accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  .step-node.future {
+    background: transparent;
+    border: 2px solid var(--border);
+    color: var(--ink-muted);
+  }
+  .step-line {
+    flex: 1;
+    height: 2px;
+    background-color: var(--border);
+    margin: 0 8px;
+    position: relative;
+    top: 13px;
+  }
+  .step-line.completed {
+    background-color: var(--ink-muted);
+  }
 }

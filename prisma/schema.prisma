@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model checklist_items {
+  id          Int       @id @default(autoincrement())
+  order_id    Int
+  description String    @db.VarChar(255)
+  is_resolved Boolean   @default(false)
+  created_at  DateTime  @default(now()) @db.Timestamp(6)
+  resolved_at DateTime? @db.Timestamp(6)
+  orders      orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_checklist_items_order_id")
+}
+
+model clients {
+  id         Int      @id @default(autoincrement())
+  full_name  String   @db.VarChar(150)
+  phone      String?  @db.VarChar(30)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @default(now()) @db.Timestamp(6)
+  orders     orders[]
+}
+
+model delivery_notes {
+  id               Int       @id @default(autoincrement())
+  order_id         Int
+  remaining_amount Decimal   @default(0) @db.Decimal(10, 2)
+  address          String?   @db.VarChar(255)
+  address_notes    String?
+  longitude        Decimal?  @db.Decimal(10, 7)
+  latitude         Decimal?  @db.Decimal(10, 7)
+  lift_cost        Decimal?  @default(0) @db.Decimal(10, 2)
+  delivered_at     DateTime? @db.Timestamp(6)
+  orders           orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_delivery_notes_order_id")
+}
+
+model order_photos {
+  id          Int      @id @default(autoincrement())
+  order_id    Int
+  photo_url   String   @db.VarChar(500)
+  description String?  @db.VarChar(255)
+  uploaded_at DateTime @default(now()) @db.Timestamp(6)
+  orders      orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_order_photos_order_id")
+}
+
+model orders {
+  id                 Int               @id @default(autoincrement())
+  client_id          Int
+  worker_id          Int?
+  state              order_state       @default(appointment)
+  address            String?           @db.VarChar(255)
+  address_notes      String?
+  longitude          Decimal?          @db.Decimal(10, 7)
+  latitude           Decimal?          @db.Decimal(10, 7)
+  lift_cost          Decimal?          @default(0) @db.Decimal(10, 2)
+  is_fully_completed Boolean           @default(false)
+  created_at         DateTime          @default(now()) @db.Timestamp(6)
+  updated_at         DateTime          @default(now()) @db.Timestamp(6)
+  checklist_items    checklist_items[]
+  delivery_notes     delivery_notes[]
+  order_photos       order_photos[]
+  clients            clients           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workers            workers?          @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments           payments[]
+  vehicle_trips      vehicle_trips[]
+
+  @@index([client_id], map: "idx_orders_client_id")
+  @@index([state], map: "idx_orders_state")
+  @@index([worker_id], map: "idx_orders_worker_id")
+}
+
+model payments {
+  id           Int      @id @default(autoincrement())
+  order_id     Int
+  amount       Decimal  @db.Decimal(10, 2)
+  payment_date DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  note         String?  @db.VarChar(255)
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  orders       orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_payments_order_id")
+}
+
+model vehicle_trips {
+  id         Int      @id @default(autoincrement())
+  vehicle_id Int
+  order_id   Int
+  trip_date  DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  kilometers Decimal  @default(0) @db.Decimal(10, 2)
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vehicles   vehicles @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_vehicle_trips_order_id")
+  @@index([vehicle_id], map: "idx_vehicle_trips_vehicle_id")
+}
+
+model vehicles {
+  id               Int             @id @default(autoincrement())
+  name             String          @db.VarChar(100)
+  plate_number     String          @unique @db.VarChar(20)
+  total_kilometers Decimal         @default(0) @db.Decimal(10, 2)
+  vehicle_trips    vehicle_trips[]
+}
+
+model workers {
+  id           Int                 @id @default(autoincrement())
+  full_name    String              @db.VarChar(150)
+  phone        String?             @db.VarChar(30)
+  hire_date    DateTime?           @db.Date
+  payment_type worker_payment_type
+  created_at   DateTime            @default(now()) @db.Timestamp(6)
+  updated_at   DateTime            @default(now()) @db.Timestamp(6)
+  orders       orders[]
+}
+
+enum order_state {
+  appointment
+  contract
+  in_production
+  ready_to_delivery
+  completed
+}
+
+enum worker_payment_type {
+  hourly
+  per_meter
+}
