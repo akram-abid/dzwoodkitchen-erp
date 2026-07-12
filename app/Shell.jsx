@@ -34,8 +34,6 @@ const navItems = [
   { id: 'Materials', href: '/materials', icon: Icons.materials },
   { id: 'Suppliers', href: '/suppliers', icon: Icons.suppliers },
   { id: 'Budgets', href: '/atelier', icon: Icons.budgets },
-  { id: 'Assets', href: '/assets', icon: Icons.assets },
-  { id: 'Invoices', href: '/invoices', icon: Icons.invoices },
   { id: 'Vehicles', href:'/fleet', icon: Icons.vehicles}
 ];
 

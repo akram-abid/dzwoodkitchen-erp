@@ -11,6 +11,9 @@ model checklist_items {
   id          Int       @id @default(autoincrement())
   order_id    Int
   description String    @db.VarChar(255)
+  quantity    Int?       @default(1)
+  unit        String?    @db.VarChar(20)
+  notes       String?
   is_resolved Boolean   @default(false)
   created_at  DateTime  @default(now()) @db.Timestamp(6)
   resolved_at DateTime? @db.Timestamp(6)
@@ -29,18 +32,35 @@ model clients {
 }
 
 model delivery_notes {
-  id               Int       @id @default(autoincrement())
-  order_id         Int
-  remaining_amount Decimal   @default(0) @db.Decimal(10, 2)
-  address          String?   @db.VarChar(255)
-  address_notes    String?
-  longitude        Decimal?  @db.Decimal(10, 7)
-  latitude         Decimal?  @db.Decimal(10, 7)
-  lift_cost        Decimal?  @default(0) @db.Decimal(10, 2)
-  delivered_at     DateTime? @db.Timestamp(6)
-  orders           orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                Int       @id @default(autoincrement())
+  order_id          Int
+  remaining_amount  Decimal   @default(0) @db.Decimal(10, 2)
+  address           String?   @db.VarChar(255)
+  address_notes     String?
+  longitude         Decimal?  @db.Decimal(10, 7)
+  latitude          Decimal?  @db.Decimal(10, 7)
+  lift_cost         Decimal?  @default(0) @db.Decimal(10, 2)
+  floor             Int?
+  truck_distance_km Decimal?  @db.Decimal(10, 2)
+  delivered_at      DateTime? @db.Timestamp(6)
+  orders            orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([order_id], map: "idx_delivery_notes_order_id")
+}
+
+model order_items {
+  id         Int      @id @default(autoincrement())
+  order_id   Int
+  name       String   @db.VarChar(255)
+  quantity   Int      @default(1)
+  unit       String   @db.VarChar(20)
+  length_cm  Decimal? @db.Decimal(10, 2)
+  width_cm   Decimal? @db.Decimal(10, 2)
+  height_cm  Decimal? @db.Decimal(10, 2)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_order_items_order_id")
 }
 
 model order_photos {
@@ -58,6 +78,9 @@ model orders {
   id                 Int               @id @default(autoincrement())
   client_id          Int
   worker_id          Int?
+  project_name       String?           @db.VarChar(255)
+  total_amount       Decimal?          @db.Decimal(10, 2)
+  due_date           DateTime?         @db.Date
   state              order_state       @default(appointment)
   address            String?           @db.VarChar(255)
   address_notes      String?
@@ -69,6 +92,7 @@ model orders {
   updated_at         DateTime          @default(now()) @db.Timestamp(6)
   checklist_items    checklist_items[]
   delivery_notes     delivery_notes[]
+  order_items        order_items[]
   order_photos       order_photos[]
   clients            clients           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   workers            workers?          @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
