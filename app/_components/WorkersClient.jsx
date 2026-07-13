@@ -1795,18 +1795,14 @@ const DetailScreen = memo(function DetailScreen({
               </div>
               <div className="grid grid-cols-7 gap-1 mb-2">
                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-                  <div key={d} className="text-[10px] font-bold text-center uppercase py-1" style={{ color: "var(--ink-muted)" }}>{d}</div>
-                {
-                    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-                      <div
-                        key={d}
-                        className="text-[10px] font-bold text-center uppercase py-1"
-                        style={{ color: "var(--ink-muted)" }}
-                      >
-                        {d}
-                      </div>
-                    ))
-                  }
+                  <div
+                    key={d}
+                    className="text-[10px] font-bold text-center uppercase py-1"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    {d}
+                  </div>
+                ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
                 {getMonthGrid(viewYear, viewMonth).map((week, wi) =>
