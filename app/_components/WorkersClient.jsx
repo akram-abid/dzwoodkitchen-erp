@@ -1710,10 +1710,10 @@ const DetailScreen = memo(function DetailScreen({
             className="text-base font-bold truncate"
             style={{ color: "var(--ink)" }}
           >
-            {selected.firstName} {selected.lastName}
+            {selected.full_name}
           </div>
           <div className="text-xs" style={{ color: "var(--ink-muted)" }}>
-            {selected.id} · {selected.role}
+            id-{selected.id}  {selected.role}
           </div>
         </div>
         <StatusBadge status={selected.status} />

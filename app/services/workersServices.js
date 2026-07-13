@@ -1,7 +1,13 @@
 import { prisma } from "../../lib/prisma";
 
 async function getAllWorkers() {
-    return await prisma.workers.findMany()
+    const workers = await prisma.workers.findMany()
+
+    return workers.map((w) => ({
+        ...w,
+        shortName: w.full_name.split(' ')[0][0].toUpperCase() + '. ' + w.full_name.split(' ')[1],
+        initials: w.full_name.split(' ')[0][0].toUpperCase() + w.full_name.split(' ')[1][0].toUpperCase()
+    }))
 }
 
 
