@@ -35,30 +35,30 @@ const GlobalStyles = () => (
 /* ─── Icons ─── */
 
 const Icons = {
-  search: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>),
-  x: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>),
-  more: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>),
-  check: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>),
-  clock: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>),
-  calendar: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>),
-  briefcase: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>),
-  star: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>),
-  tool: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>),
-  user: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>),
-  edit: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>),
-  plus: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>),
-  alert: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>),
-  chevronLeft: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>),
-  chevronRight: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>),
-  ruler: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>),
-  money: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>),
-  trash: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>),
-  wallet: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 7v12a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>),
-  print: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>),
-  arrowLeft: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>),
-  home: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>),
-  clipboard: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>),
-  info: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>),
+  search: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>),
+  x: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>),
+  more: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>),
+  check: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>),
+  clock: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>),
+  calendar: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg>),
+  briefcase: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>),
+  star: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>),
+  tool: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>),
+  user: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>),
+  edit: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>),
+  plus: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>),
+  alert: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>),
+  chevronLeft: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>),
+  chevronRight: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>),
+  ruler: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /><path d="m14.5 12.5 2-2" /><path d="m11.5 9.5 2-2" /><path d="m8.5 6.5 2-2" /><path d="m17.5 15.5 2-2" /></svg>),
+  money: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /><path d="M12 18V6" /></svg>),
+  trash: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>),
+  wallet: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 7v12a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>),
+  print: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect width="12" height="8" x="6" y="14" /></svg>),
+  arrowLeft: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg>),
+  home: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>),
+  clipboard: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /></svg>),
+  info: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>),
 };
 
 /* ─── Attendance ─── */
@@ -88,8 +88,8 @@ const TODAY = formatDate(new Date());
 const CURRENT_YEAR = new Date().getFullYear();
 
 const MONTH_NAMES = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
 const monthKey = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
@@ -344,8 +344,12 @@ function PaymentForm({ onSave, onCancel }) {
 
 /* ─── Data ─── */
 
-const WORKERS = [
-  { id: "WRK-001", firstName: "Rachid", lastName: "Said", shortName: "R. Said", initials: "RS", role: "Carpenter", skills: ["Carpenter", "Installer"], phone: "0551 23 45 67", email: "r.said@dzwood.dz", joined: "2019-03-15", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
+// fake worker obj : id ,firstName, lastName, shortName, initials, role, skills, email, joined, paymentType, meterRate, status, attendance, assignments, payments, performance, notes, hourlyRate, timeEntries 
+// db worker obj : id, full_name, phone, hire_date, payment_type, created_at, updated_at
+
+const FAKE_WORKERS = [
+  {
+    id: "WRK-001", firstName: "Rachid", lastName: "Said", shortName: "R. Said", initials: "RS", role: "Carpenter", skills: ["Carpenter", "Installer"], phone: "0551 23 45 67", email: "r.said@dzwood.dz", joined: "2019-03-15", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
     attendance: { [TODAY]: "PRESENT", "2026-07-03": "ABSENT", "2026-07-01": "SICK" },
     assignments: [
       { id: "A-101", project: "Kitchen cabinets", meters: 12.5, date: "2026-07-01", note: "" },
@@ -359,7 +363,8 @@ const WORKERS = [
     performance: { ordersCompleted: 47, onTimeRate: 92, avgQuality: 4.6 },
     notes: "Excellent with oak. Prefers morning shifts.",
   },
-  { id: "WRK-002", firstName: "Amine", lastName: "Benali", shortName: "A. Benali", initials: "AB", role: "Finisher", skills: ["Finisher", "Carpenter"], phone: "0770 88 99 00", email: "a.benali@dzwood.dz", joined: "2020-06-01", paymentType: "hours", hourlyRate: 1100, status: "ACTIVE",
+  {
+    id: "WRK-002", firstName: "Amine", lastName: "Benali", shortName: "A. Benali", initials: "AB", role: "Finisher", skills: ["Finisher", "Carpenter"], phone: "0770 88 99 00", email: "a.benali@dzwood.dz", joined: "2020-06-01", paymentType: "hours", hourlyRate: 1100, status: "ACTIVE",
     attendance: { [TODAY]: "PRESENT", "2026-07-04": "SICK", "2026-07-03": "SICK" },
     timeEntries: [
       { date: "2026-07-01", clockIn: "08:00", clockOut: "17:00", extraHours: 0, extraNote: "" },
@@ -370,35 +375,40 @@ const WORKERS = [
     performance: { ordersCompleted: 38, onTimeRate: 88, avgQuality: 4.4 },
     notes: "Specialist in varnish and lacquer finishes.",
   },
-  { id: "WRK-003", firstName: "Karim", lastName: "Amrani", shortName: "K. Amrani", initials: "KA", role: "Installer", skills: ["Installer", "Carpenter"], phone: "0540 11 22 33", email: "k.amrani@dzwood.dz", joined: "2021-01-10", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
+  {
+    id: "WRK-003", firstName: "Karim", lastName: "Amrani", shortName: "K. Amrani", initials: "KA", role: "Installer", skills: ["Installer", "Carpenter"], phone: "0540 11 22 33", email: "k.amrani@dzwood.dz", joined: "2021-01-10", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
     attendance: { [TODAY]: "PRESENT", "2026-07-02": "ABSENT" },
     assignments: [{ id: "A-201", project: "Site measure Constantine", meters: 5.5, date: "2026-07-02", note: "" }],
     payments: [],
     performance: { ordersCompleted: 29, onTimeRate: 85, avgQuality: 4.2 },
     notes: "Good with client relations. Travels often.",
   },
-  { id: "WRK-004", firstName: "Mohamed", lastName: "Draoui", shortName: "M. Draoui", initials: "MD", role: "Carpenter", skills: ["Carpenter", "Designer"], phone: "0555 44 55 66", email: "m.draoui@dzwood.dz", joined: "2018-11-20", paymentType: "hours", hourlyRate: 1400, status: "OFF",
+  {
+    id: "WRK-004", firstName: "Mohamed", lastName: "Draoui", shortName: "M. Draoui", initials: "MD", role: "Carpenter", skills: ["Carpenter", "Designer"], phone: "0555 44 55 66", email: "m.draoui@dzwood.dz", joined: "2018-11-20", paymentType: "hours", hourlyRate: 1400, status: "OFF",
     attendance: { [TODAY]: "SICK" },
     timeEntries: [{ date: "2026-07-01", clockIn: "08:00", clockOut: "16:00", extraHours: 0, extraNote: "" }],
     payments: [{ id: "P-001", date: "2026-07-01", amount: 40000, note: "Monthly advance" }],
     performance: { ordersCompleted: 62, onTimeRate: 95, avgQuality: 4.8 },
     notes: "Senior carpenter. Mentors new hires.",
   },
-  { id: "WRK-005", firstName: "Yasmine", lastName: "Touati", shortName: "Y. Touati", initials: "YT", role: "Designer", skills: ["Designer", "Carpenter"], phone: "0661 77 88 99", email: "y.touati@dzwood.dz", joined: "2022-09-01", paymentType: "hours", hourlyRate: 1300, status: "ACTIVE",
+  {
+    id: "WRK-005", firstName: "Yasmine", lastName: "Touati", shortName: "Y. Touati", initials: "YT", role: "Designer", skills: ["Designer", "Carpenter"], phone: "0661 77 88 99", email: "y.touati@dzwood.dz", joined: "2022-09-01", paymentType: "hours", hourlyRate: 1300, status: "ACTIVE",
     attendance: { [TODAY]: "PRESENT" },
     timeEntries: [{ date: "2026-07-01", clockIn: "08:30", clockOut: "17:30", extraHours: 0, extraNote: "" }],
     payments: [],
     performance: { ordersCompleted: 18, onTimeRate: 90, avgQuality: 4.7 },
     notes: "CAD specialist. Handles complex designs.",
   },
-  { id: "WRK-006", firstName: "Hakim", lastName: "Zeroual", shortName: "H. Zeroual", initials: "HZ", role: "Carpenter", skills: ["Carpenter"], phone: "0790 12 34 56", email: "h.zeroual@dzwood.dz", joined: "2023-02-15", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
+  {
+    id: "WRK-006", firstName: "Hakim", lastName: "Zeroual", shortName: "H. Zeroual", initials: "HZ", role: "Carpenter", skills: ["Carpenter"], phone: "0790 12 34 56", email: "h.zeroual@dzwood.dz", joined: "2023-02-15", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
     attendance: { [TODAY]: "ABSENT", "2026-07-01": "ABSENT" },
     assignments: [],
     payments: [],
     performance: { ordersCompleted: 12, onTimeRate: 75, avgQuality: 3.8 },
     notes: "New hire. Needs supervision on complex joints.",
   },
-  { id: "WRK-007", firstName: "Nadia", lastName: "Bensalem", shortName: "N. Bensalem", initials: "NB", role: "Finisher", skills: ["Finisher", "Designer"], phone: "0560 66 77 88", email: "n.bensalem@dzwood.dz", joined: "2020-04-10", paymentType: "hours", hourlyRate: 1150, status: "ACTIVE",
+  {
+    id: "WRK-007", firstName: "Nadia", lastName: "Bensalem", shortName: "N. Bensalem", initials: "NB", role: "Finisher", skills: ["Finisher", "Designer"], phone: "0560 66 77 88", email: "n.bensalem@dzwood.dz", joined: "2020-04-10", paymentType: "hours", hourlyRate: 1150, status: "ACTIVE",
     attendance: { [TODAY]: "PRESENT", "2026-07-03": "SICK" },
     timeEntries: [
       { date: "2026-07-01", clockIn: "08:00", clockOut: "17:00", extraHours: 0, extraNote: "" },
@@ -415,7 +425,7 @@ const WORKERS = [
 /* ─── Heavy memoized components (module level) ─── */
 
 const WorkerCard = memo(function WorkerCard({ worker, vKey, orders, onOpen, onAttendanceChange }) {
-  const todayStatus = worker.attendance[TODAY];
+  const todayStatus = worker.attendance?.[TODAY] || "FAKE_PRESENT";
   const todayColor = todayStatus ? ATTENDANCE_COLORS[todayStatus] : ATTENDANCE_COLORS["NOT SET"];
 
   const monthlyEarnings = useMemo(
@@ -438,7 +448,7 @@ const WorkerCard = memo(function WorkerCard({ worker, vKey, orders, onOpen, onAt
             <StatusBadge status={worker.status} />
           </div>
           <div className="flex flex-wrap gap-1">
-            {worker.skills.map((s) => <SkillTag key={s} skill={s} />)}
+            {(worker.skills || ["fakeCarpenter", "fakeSkill451"]).map((s) => <SkillTag key={s} skill={s} />)}
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -532,7 +542,7 @@ const WeekStrip = memo(function WeekStrip({ year, weekIndex, yearWeeks, currentW
       <div className="text-xs font-medium mb-3 text-center" style={{ color: "var(--accent)" }}>{weekRangeLabel}</div>
       <div className="grid grid-cols-7 gap-1.5">
         {currentWeek.map((d) => {
-          const status = selected.attendance[d];
+          const status = selected.attendance?.[d];
           const color = status ? ATTENDANCE_COLORS[status] : ATTENDANCE_COLORS["NOT SET"];
           const isToday = d === TODAY;
           return (
@@ -623,7 +633,7 @@ const ListScreen = memo(function ListScreen({
 
       <div className="flex gap-2 px-4 mb-3 shrink-0">
         {["ACTIVE", "OFF"].map((s) => {
-          const count = WORKERS.filter((w) => w.status === s).length;
+          const count = workers.filter((w) => w.status === s).length;
           const active = statusFilter === s;
           return (
             <button key={s} onClick={() => setStatusFilter(statusFilter === s ? "All" : s)}
@@ -712,7 +722,7 @@ const DetailScreen = memo(function DetailScreen({
                 <MonthNav year={viewYear} month={viewMonth} onPrev={onPrevMonth} onNext={onNextMonth} onToday={onTodayMonth} />
               </div>
               <div className="grid grid-cols-7 gap-1 mb-2">
-                {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d) => (
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
                   <div key={d} className="text-[10px] font-bold text-center uppercase py-1" style={{ color: "var(--ink-muted)" }}>{d}</div>
                 ))}
               </div>
@@ -720,7 +730,7 @@ const DetailScreen = memo(function DetailScreen({
                 {getMonthGrid(viewYear, viewMonth).map((week, wi) =>
                   week.map((day, di) => {
                     if (!day) return <div key={`${wi}-${di}`} />;
-                    const status = selected.attendance[day.date];
+                    const status = selected.attendance?.[day.date];
                     const isToday = day.date === TODAY;
                     const color = status ? ATTENDANCE_COLORS[status] : ATTENDANCE_COLORS["NOT SET"];
                     return (
@@ -989,13 +999,13 @@ const DetailScreen = memo(function DetailScreen({
 
 /* ─── Main App ─── */
 
-export default function WorkersApp({ orders = [] }) {
+export default function WorkersApp({ workersData, orders = [] }) {
   const [screen, setScreen] = useState("list");
   const [activeTab, setActiveTab] = useState("attendance");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [selectedId, setSelectedId] = useState(WORKERS[0].id);
+  const [selectedId, setSelectedId] = useState(workersData[0].id);
   const [year, setYearState] = useState(CURRENT_YEAR);
   const [weekIndex, setWeekIndexState] = useState(() => {
     const weeks = getYearWeeks(CURRENT_YEAR);
@@ -1004,7 +1014,9 @@ export default function WorkersApp({ orders = [] }) {
   });
   const [viewMonth, setViewMonthState] = useState(new Date().getMonth());
   const [viewYear, setViewYearState] = useState(CURRENT_YEAR);
-  const [workers, setWorkers] = useState(WORKERS);
+  // const [workers, setWorkers] = useState(WORKERS);
+  const [workers, setWorkers] = useState(workersData);
+
   const [showTimeEntryModal, setShowTimeEntryModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
@@ -1029,16 +1041,16 @@ export default function WorkersApp({ orders = [] }) {
   const currentWeek = useMemo(() => getWeekDates(year, weekIndex), [year, weekIndex]);
   const vKey = useMemo(() => monthKey(viewYear, viewMonth), [viewYear, viewMonth]);
   const weekRangeLabel = useMemo(() => getWeekRangeLabel(currentWeek), [currentWeek]);
-  const roles = useMemo(() => ["All", ...new Set(WORKERS.map((w) => w.role))], []);
+  const roles = useMemo(() => ["All", ...new Set(workersData.map((w) => w.role || '/'))], []);
   const filtered = useMemo(() => workers.filter((w) => {
-    const haystack = `${w.firstName} ${w.lastName} ${w.shortName} ${w.id} ${w.skills.join(" ")}`.toLowerCase();
+    const haystack = `${w.firstName} ${w.lastName} ${w.shortName} ${w.id} ${(w.skills || []).join(" ")}`.toLowerCase();
     return haystack.includes(search.toLowerCase()) &&
       (roleFilter === "All" || w.role === roleFilter) &&
       (statusFilter === "All" || w.status === statusFilter);
   }), [search, roleFilter, statusFilter, workers]);
-  const todayPresent = useMemo(() => workers.filter((w) => w.attendance[TODAY] === "PRESENT").length, [workers]);
-  const todayAbsent = useMemo(() => workers.filter((w) => ["ABSENT", "SICK"].includes(w.attendance[TODAY])).length, [workers]);
-  const todayNotSet = useMemo(() => workers.filter((w) => !w.attendance[TODAY]).length, [workers]);
+  const todayPresent = useMemo(() => workers.filter((w) => (w.attendance || { [TODAY]: "PRESENT", "2026-07-04": "SICK", "2026-07-03": "SICK" })[TODAY] === "PRESENT").length, [workers]);
+  const todayAbsent = useMemo(() => workers.filter((w) => ["ABSENT", "SICK"].includes(w.attendance?.[TODAY])).length, [workers]);
+  const todayNotSet = useMemo(() => workers.filter((w) => !w.attendance?.[TODAY]).length, [workers]);
 
   const monthlyEarned = useMemo(() => getMonthlyEarnings(selected, vKey, orders), [selected, vKey, orders]);
   const monthlyPaid = useMemo(() => getMonthlyPayments(selected, vKey), [selected, vKey]);
