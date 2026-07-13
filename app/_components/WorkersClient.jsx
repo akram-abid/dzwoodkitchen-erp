@@ -1272,7 +1272,7 @@ const SalarySummary = memo(function SalarySummary({
             className="text-base font-bold"
             style={{ color: "var(--stage-completed)" }}
           >
-            {monthlyEarned.toLocaleString()}
+            {monthlyEarned?.toLocaleString()}
           </div>
         </div>
         <div
@@ -1910,8 +1910,8 @@ const DetailScreen = memo(function DetailScreen({
               </div>
               <div className="text-xs" style={{ color: "var(--ink-muted)" }}>
                 {selected.paymentType === "meters"
-                  ? `${monthlyMetersData.totalMeters.toFixed(1)} m @ ${selected.meterRate.toLocaleString()} DZD/m`
-                  : `${getMonthlyHours(selected, vKey).toFixed(1)} h @ ${selected.hourlyRate.toLocaleString()} DZD/h`}
+                  ? `${monthlyMetersData.totalMeters.toFixed(1)} m @ ${selected.meterRate?.toLocaleString() || "5000"} DZD/m`
+                  : `${getMonthlyHours(selected, vKey).toFixed(1)} h @ ${selected.hourlyRate?.toLocaleString() || "1000"} DZD/h`}
               </div>
             </div>
 
@@ -2353,7 +2353,7 @@ const DetailScreen = memo(function DetailScreen({
                     className="text-xl font-bold"
                     style={{ color: "var(--accent)" }}
                   >
-                    {selected.performance.ordersCompleted}
+                    {selected.performance?.ordersCompleted}
                   </div>
                   <div
                     className="text-[10px] uppercase tracking-wider mt-1"
@@ -2373,12 +2373,12 @@ const DetailScreen = memo(function DetailScreen({
                     className="text-xl font-bold"
                     style={{
                       color:
-                        selected.performance.onTimeRate >= 90
+                        selected.performance?.onTimeRate >= 90
                           ? "var(--stage-completed)"
                           : "var(--accent)",
                     }}
                   >
-                    {selected.performance.onTimeRate}%
+                    {selected.performance?.onTimeRate || 10}%
                   </div>
                   <div
                     className="text-[10px] uppercase tracking-wider mt-1"
@@ -2398,7 +2398,7 @@ const DetailScreen = memo(function DetailScreen({
                     className="text-xl font-bold flex items-center justify-center gap-1"
                     style={{ color: "var(--stage-production)" }}
                   >
-                    {selected.performance.avgQuality}
+                    {selected.performance?.avgQuality}
                     <span style={{ color: "var(--accent)" }}>
                       <Icons.star />
                     </span>
@@ -2706,7 +2706,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
   const markAllPresent = useCallback(() => {
     setWorkers((prev) =>
       prev.map((w) =>
-        w.attendance[TODAY]
+        w.attendance?.[TODAY]
           ? w
           : { ...w, attendance: { ...w.attendance, [TODAY]: "PRESENT" } },
       ),
