@@ -430,19 +430,17 @@ const Icons = {
 
 /* ─── Attendance ─── */
 
-const ATTENDANCE_OPTIONS = ["PRESENT", "ABSENT", "SICK"];
+const ATTENDANCE_OPTIONS = ["PRESENT", "ABSENT"];
 
 const ATTENDANCE_COLORS = {
   PRESENT: "#16a34a",
   ABSENT: "#dc2626",
-  SICK: "#ea580c",
   "NOT SET": "#3a3f4b",
 };
 
 const ATTENDANCE_LABELS = {
   PRESENT: "Present",
   ABSENT: "Absent",
-  SICK: "Sick",
   "NOT SET": "—",
 };
 
@@ -950,7 +948,7 @@ function PaymentForm({ onSave, onCancel }) {
 const FAKE_WORKERS = [
   {
     id: "WRK-001", firstName: "Rachid", lastName: "Said", shortName: "R. Said", initials: "RS", role: "Carpenter", skills: ["Carpenter", "Installer"], phone: "0551 23 45 67", email: "r.said@dzwood.dz", joined: "2019-03-15", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
-    attendance: { [TODAY]: "PRESENT", "2026-07-03": "ABSENT", "2026-07-01": "SICK" },
+    attendance: { [TODAY]: "PRESENT", "2026-07-03": "ABSENT", "2026-07-01": "ABSENT" },
     assignments: [
       {
         id: "A-101",
@@ -988,7 +986,7 @@ const FAKE_WORKERS = [
   },
   {
     id: "WRK-002", firstName: "Amine", lastName: "Benali", shortName: "A. Benali", initials: "AB", role: "Finisher", skills: ["Finisher", "Carpenter"], phone: "0770 88 99 00", email: "a.benali@dzwood.dz", joined: "2020-06-01", paymentType: "hours", hourlyRate: 1100, status: "ACTIVE",
-    attendance: { [TODAY]: "PRESENT", "2026-07-04": "SICK", "2026-07-03": "SICK" },
+    attendance: { [TODAY]: "PRESENT", "2026-07-04": "ABSENT", "2026-07-03": "ABSENT" },
     timeEntries: [
       {
         date: "2026-07-01",
@@ -1041,7 +1039,7 @@ const FAKE_WORKERS = [
   },
   {
     id: "WRK-004", firstName: "Mohamed", lastName: "Draoui", shortName: "M. Draoui", initials: "MD", role: "Carpenter", skills: ["Carpenter", "Designer"], phone: "0555 44 55 66", email: "m.draoui@dzwood.dz", joined: "2018-11-20", paymentType: "hours", hourlyRate: 1400, status: "OFF",
-    attendance: { [TODAY]: "SICK" },
+    attendance: { [TODAY]: "ABSENT" },
     timeEntries: [
       {
         date: "2026-07-01",
@@ -1088,7 +1086,7 @@ const FAKE_WORKERS = [
   },
   {
     id: "WRK-007", firstName: "Nadia", lastName: "Bensalem", shortName: "N. Bensalem", initials: "NB", role: "Finisher", skills: ["Finisher", "Designer"], phone: "0560 66 77 88", email: "n.bensalem@dzwood.dz", joined: "2020-04-10", paymentType: "hours", hourlyRate: 1150, status: "ACTIVE",
-    attendance: { [TODAY]: "PRESENT", "2026-07-03": "SICK" },
+    attendance: { [TODAY]: "PRESENT", "2026-07-03": "ABSENT" },
     timeEntries: [
       {
         date: "2026-07-01",
@@ -2542,8 +2540,8 @@ export default function WorkersApp({ workersData, orders = [] }) {
       (roleFilter === "All" || w.role === roleFilter) &&
       (statusFilter === "All" || w.status === statusFilter);
   }), [search, roleFilter, statusFilter, workers]);
-  const todayPresent = useMemo(() => workers.filter((w) => (w.attendance || { [TODAY]: "PRESENT", "2026-07-04": "SICK", "2026-07-03": "SICK" })[TODAY] === "PRESENT").length, [workers]);
-  const todayAbsent = useMemo(() => workers.filter((w) => ["ABSENT", "SICK"].includes(w.attendance?.[TODAY])).length, [workers]);
+  const todayPresent = useMemo(() => workers.filter((w) => (w.attendance || { [TODAY]: "PRESENT", "2026-07-04": "ABSENT", "2026-07-03": "ABSENT" })[TODAY] === "PRESENT").length, [workers]);
+  const todayAbsent = useMemo(() => workers.filter((w) => ["ABSENT"].includes(w.attendance?.[TODAY])).length, [workers]);
   const todayNotSet = useMemo(() => workers.filter((w) => !w.attendance?.[TODAY]).length, [workers]);
 
   const monthlyEarned = useMemo(
