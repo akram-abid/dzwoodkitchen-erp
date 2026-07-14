@@ -446,7 +446,8 @@ const ATTENDANCE_LABELS = {
 
 /* ─── Helpers ─── */
 
-const formatDate = (d) => d.toISOString().split("T")[0];
+const formatDate = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 const TODAY = formatDate(new Date());
 
@@ -1128,7 +1129,7 @@ const FAKE_WORKERS = [
 /* ─── Heavy memoized components (module level) ─── */
 
 const WorkerCard = memo(function WorkerCard({ worker, vKey, orders, onOpen, onAttendanceChange }) {
-  const todayStatus = worker.attendance?.[TODAY] || "FAKE_PRESENT";
+  const todayStatus = worker.attendance?.[TODAY];
   const todayColor = todayStatus ? ATTENDANCE_COLORS[todayStatus] : ATTENDANCE_COLORS["NOT SET"];
 
   // Local memoized derivation — only recomputes when this worker's data changes
@@ -2540,7 +2541,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
       (roleFilter === "All" || w.role === roleFilter) &&
       (statusFilter === "All" || w.status === statusFilter);
   }), [search, roleFilter, statusFilter, workers]);
-  const todayPresent = useMemo(() => workers.filter((w) => (w.attendance || { [TODAY]: "PRESENT", "2026-07-04": "ABSENT", "2026-07-03": "ABSENT" })[TODAY] === "PRESENT").length, [workers]);
+  const todayPresent = useMemo(() => workers.filter((w) => w.attendance[TODAY] === "PRESENT").length, [workers]);
   const todayAbsent = useMemo(() => workers.filter((w) => ["ABSENT"].includes(w.attendance?.[TODAY])).length, [workers]);
   const todayNotSet = useMemo(() => workers.filter((w) => !w.attendance?.[TODAY]).length, [workers]);
 
