@@ -1,4 +1,5 @@
 import WorkersClient from '../_components/WorkersClient';
+
 import { getAllWorkers } from '../services/workersServices';
 
 export const metadata = {

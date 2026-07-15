@@ -32,23 +32,399 @@ const GlobalStyles = () => (
 
 /* ─── Icons ─── */
 const Icons = {
-  check: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>),
-  chevronLeft: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>),
-  chevronRight: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>),
   search: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>),
   x: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>),
-  arrowLeft: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg>),
+  more: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>),
+  check: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>),
+  clock: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>),
   calendar: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg>),
   briefcase: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>),
-  wallet: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 7v12a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>),
-  info: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>),
-  plus: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>),
   star: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>),
-  print: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect width="12" height="8" x="6" y="14" /></svg>),
+  tool: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>),
+  user: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>),
   edit: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>),
+  plus: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>),
+  alert: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>),
+  chevronLeft: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>),
+  chevronRight: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>),
+  ruler: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /><path d="m14.5 12.5 2-2" /><path d="m11.5 9.5 2-2" /><path d="m8.5 6.5 2-2" /><path d="m17.5 15.5 2-2" /></svg>),
+  money: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /><path d="M12 18V6" /></svg>),
   trash: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>),
-  clock: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>),
+  wallet: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 7v12a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>),
+  print: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect width="12" height="8" x="6" y="14" /></svg>),
+  arrowLeft: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg>),
+  home: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>),
+  clipboard: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /></svg>),
+  info: () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>),
+  search: () => (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  ),
+  x: () => (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  ),
+  more: () => (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+      <circle cx="5" cy="12" r="1" />
+    </svg>
+  ),
+  check: () => (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ),
+  clock: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  calendar: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+      <line x1="16" x2="16" y1="2" y2="6" />
+      <line x1="8" x2="8" y1="2" y2="6" />
+      <line x1="3" x2="21" y1="10" y2="10" />
+    </svg>
+  ),
+  briefcase: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+    </svg>
+  ),
+  star: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  ),
+  tool: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </svg>
+  ),
+  user: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  edit: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </svg>
+  ),
+  plus: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12h14" />
+      <path d="M12 5v14" />
+    </svg>
+  ),
+  alert: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </svg>
+  ),
+  chevronLeft: () => (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  ),
+  chevronRight: () => (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  ),
+  ruler: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" />
+      <path d="m14.5 12.5 2-2" />
+      <path d="m11.5 9.5 2-2" />
+      <path d="m8.5 6.5 2-2" />
+      <path d="m17.5 15.5 2-2" />
+    </svg>
+  ),
+  money: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+      <path d="M12 18V6" />
+    </svg>
+  ),
+  trash: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    </svg>
+  ),
+  wallet: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+      <path d="M3 7v12a2 2 0 0 0 2 2h16v-5" />
+      <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+    </svg>
+  ),
+  print: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect width="12" height="8" x="6" y="14" />
+    </svg>
+  ),
+  arrowLeft: () => (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m12 19-7-7 7-7" />
+      <path d="M19 12H5" />
+    </svg>
+  ),
+  home: () => (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  ),
+  clipboard: () => (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    </svg>
+  ),
+  info: () => (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4" />
+      <path d="M12 8h.01" />
+    </svg>
+  ),
 };
+
 
 /* ─── Attendance ─── */
 const ATTENDANCE_OPTIONS = ["PRESENT", "ABSENT"];
@@ -155,16 +531,60 @@ const getMonthlyTimeEntries = (w, vKey) =>
 const getMonthlyHours = (w, vKey) =>
   getMonthlyTimeEntries(w, vKey).reduce((sum, e) => sum + calcEntryHours(e), 0);
 
-const getMonthlyEarnings = (w, vKey, orders) => {
-  if (w.paymentType === "meters") {
-    const assignments = (w.assignments || []).filter((a) => a.date.startsWith(vKey));
-    return Math.round(assignments.reduce((s, a) => s + a.meters, 0) * (w.meterRate || 0));
+const getMonthlyMetersData = (w, vKey, orders) => {
+  if (orders && orders.length > 0) {
+    const workerOrders = orders.filter(
+      (o) => o.worker === w.shortName && o.created?.startsWith(vKey),
+    );
+    const kitchens = workerOrders.map((o) => {
+      const totalM = (o.items || []).reduce(
+        (sum, item) => sum + (Number(item.l) || 0) / 100,
+        0,
+      );
+      return {
+        name: o.project,
+        orderId: o.id,
+        meters: totalM,
+        amount: Math.round(totalM * (w.meterRate || 0)),
+      };
+    });
+    return {
+      totalMeters: kitchens.reduce((s, k) => s + k.meters, 0),
+      kitchens,
+      source: "orders",
+    };
   }
-  return Math.round(getMonthlyHours(w, vKey) * (w.hourlyRate || 0));
+  const assignments = (w.assignments || []).filter((a) =>
+    a.date.startsWith(vKey),
+  );
+  return {
+    totalMeters: assignments.reduce((s, a) => s + a.meters, 0),
+    kitchens: assignments.map((a) => ({
+      name: a.project,
+      orderId: a.id,
+      meters: a.meters,
+      amount: Math.round(a.meters * (w.meterRate || 0)),
+    })),
+    source: "assignments",
+  };
+};
+
+const getMonthlyEarnings = (w, vKey, orders) => {
+  if (w.paymentType === "meters")
+    return Math.round(
+      getMonthlyMetersData(w, vKey, orders).totalMeters * w.meterRate,
+    );
+  return Math.round(getMonthlyHours(w, vKey) * w.hourlyRate);
 };
 
 const getMonthlyPayments = (w, vKey) =>
-  (w.payments || []).filter((p) => p.date.startsWith(vKey)).reduce((s, p) => s + p.amount, 0);
+  (w.payments || [])
+    .filter((p) => p.date.startsWith(vKey))
+    .reduce((s, p) => s + p.amount, 0);
+
+const getBalance = (w, vKey, orders) =>
+  getMonthlyEarnings(w, vKey, orders) - getMonthlyPayments(w, vKey);
+
 
 /* ─── Memoized Components ─── */
 const SkillTag = memo(({ skill }) => {
@@ -193,6 +613,8 @@ const StatusBadge = memo(({ status }) => (
     {status === "ACTIVE" ? "On Duty" : "Off Duty"}
   </span>
 ));
+StatusBadge.displayName = "StatusBadge";
+
 
 const MonthNav = memo(({ year, month, onPrev, onNext, onToday }) => (
   <div className="flex items-center gap-2">
@@ -212,6 +634,8 @@ const MonthNav = memo(({ year, month, onPrev, onNext, onToday }) => (
     )}
   </div>
 ));
+MonthNav.displayName = "MonthNav";
+
 
 /* ─── Forms ─── */
 function TimeEntryForm({ initial, existingDates = [], onSave, onCancel }) {
@@ -316,6 +740,191 @@ function PaymentForm({ onSave, onCancel }) {
   );
 }
 
+/* ─── Data ─── */
+
+// fake worker obj : id ,firstName, lastName, shortName, initials, role, skills, email, joined, paymentType, meterRate, status, attendance, assignments, payments, performance, notes, hourlyRate, timeEntries 
+// db worker obj : id, full_name, phone, hire_date, payment_type, created_at, updated_at
+
+const FAKE_WORKERS = [
+  {
+    id: "WRK-001", firstName: "Rachid", lastName: "Said", shortName: "R. Said", initials: "RS", role: "Carpenter", skills: ["Carpenter", "Installer"], phone: "0551 23 45 67", email: "r.said@dzwood.dz", joined: "2019-03-15", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
+    attendance: { [TODAY]: "PRESENT", "2026-07-03": "ABSENT", "2026-07-01": "ABSENT" },
+    assignments: [
+      {
+        id: "A-101",
+        project: "Kitchen cabinets",
+        meters: 12.5,
+        date: "2026-07-01",
+        note: "",
+      },
+      {
+        id: "A-102",
+        project: "Wardrobe doors",
+        meters: 8.0,
+        date: "2026-07-03",
+        note: "",
+      },
+      {
+        id: "A-103",
+        project: "Office shelves",
+        meters: 5.0,
+        date: "2026-06-15",
+        note: "Last month",
+      },
+    ],
+    payments: [
+      { id: "P-003", date: "2026-07-05", amount: 50000, note: "Advance" },
+      {
+        id: "P-004",
+        date: "2026-07-01",
+        amount: 30000,
+        note: "Start of month",
+      },
+    ],
+    performance: { ordersCompleted: 47, onTimeRate: 92, avgQuality: 4.6 },
+    notes: "Excellent with oak. Prefers morning shifts.",
+  },
+  {
+    id: "WRK-002", firstName: "Amine", lastName: "Benali", shortName: "A. Benali", initials: "AB", role: "Finisher", skills: ["Finisher", "Carpenter"], phone: "0770 88 99 00", email: "a.benali@dzwood.dz", joined: "2020-06-01", paymentType: "hours", hourlyRate: 1100, status: "ACTIVE",
+    attendance: { [TODAY]: "PRESENT", "2026-07-04": "ABSENT", "2026-07-03": "ABSENT" },
+    timeEntries: [
+      {
+        date: "2026-07-01",
+        clockIn: "08:00",
+        clockOut: "17:00",
+        extraHours: 0,
+        extraNote: "",
+      },
+      {
+        date: "2026-07-02",
+        clockIn: "08:00",
+        clockOut: "18:30",
+        extraHours: 1.5,
+        extraNote: "Urgent delivery prep",
+      },
+      {
+        date: "2026-07-05",
+        clockIn: "08:00",
+        clockOut: "17:00",
+        extraHours: 0,
+        extraNote: "",
+      },
+    ],
+    payments: [
+      {
+        id: "P-005",
+        date: "2026-07-05",
+        amount: 25000,
+        note: "Weekly advance",
+      },
+    ],
+    performance: { ordersCompleted: 38, onTimeRate: 88, avgQuality: 4.4 },
+    notes: "Specialist in varnish and lacquer finishes.",
+  },
+  {
+    id: "WRK-003", firstName: "Karim", lastName: "Amrani", shortName: "K. Amrani", initials: "KA", role: "Installer", skills: ["Installer", "Carpenter"], phone: "0540 11 22 33", email: "k.amrani@dzwood.dz", joined: "2021-01-10", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
+    attendance: { [TODAY]: "PRESENT", "2026-07-02": "ABSENT" },
+    assignments: [
+      {
+        id: "A-201",
+        project: "Site measure Constantine",
+        meters: 5.5,
+        date: "2026-07-02",
+        note: "",
+      },
+    ],
+    payments: [],
+    performance: { ordersCompleted: 29, onTimeRate: 85, avgQuality: 4.2 },
+    notes: "Good with client relations. Travels often.",
+  },
+  {
+    id: "WRK-004", firstName: "Mohamed", lastName: "Draoui", shortName: "M. Draoui", initials: "MD", role: "Carpenter", skills: ["Carpenter", "Designer"], phone: "0555 44 55 66", email: "m.draoui@dzwood.dz", joined: "2018-11-20", paymentType: "hours", hourlyRate: 1400, status: "OFF",
+    attendance: { [TODAY]: "ABSENT" },
+    timeEntries: [
+      {
+        date: "2026-07-01",
+        clockIn: "08:00",
+        clockOut: "16:00",
+        extraHours: 0,
+        extraNote: "",
+      },
+    ],
+    payments: [
+      {
+        id: "P-001",
+        date: "2026-07-01",
+        amount: 40000,
+        note: "Monthly advance",
+      },
+    ],
+    performance: { ordersCompleted: 62, onTimeRate: 95, avgQuality: 4.8 },
+    notes: "Senior carpenter. Mentors new hires.",
+  },
+  {
+    id: "WRK-005", firstName: "Yasmine", lastName: "Touati", shortName: "Y. Touati", initials: "YT", role: "Designer", skills: ["Designer", "Carpenter"], phone: "0661 77 88 99", email: "y.touati@dzwood.dz", joined: "2022-09-01", paymentType: "hours", hourlyRate: 1300, status: "ACTIVE",
+    attendance: { [TODAY]: "PRESENT" },
+    timeEntries: [
+      {
+        date: "2026-07-01",
+        clockIn: "08:30",
+        clockOut: "17:30",
+        extraHours: 0,
+        extraNote: "",
+      },
+    ],
+    payments: [],
+    performance: { ordersCompleted: 18, onTimeRate: 90, avgQuality: 4.7 },
+    notes: "CAD specialist. Handles complex designs.",
+  },
+  {
+    id: "WRK-006", firstName: "Hakim", lastName: "Zeroual", shortName: "H. Zeroual", initials: "HZ", role: "Carpenter", skills: ["Carpenter"], phone: "0790 12 34 56", email: "h.zeroual@dzwood.dz", joined: "2023-02-15", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
+    attendance: { [TODAY]: "ABSENT", "2026-07-01": "ABSENT" },
+    assignments: [],
+    payments: [],
+    performance: { ordersCompleted: 12, onTimeRate: 75, avgQuality: 3.8 },
+    notes: "New hire. Needs supervision on complex joints.",
+  },
+  {
+    id: "WRK-007", firstName: "Nadia", lastName: "Bensalem", shortName: "N. Bensalem", initials: "NB", role: "Finisher", skills: ["Finisher", "Designer"], phone: "0560 66 77 88", email: "n.bensalem@dzwood.dz", joined: "2020-04-10", paymentType: "hours", hourlyRate: 1150, status: "ACTIVE",
+    attendance: { [TODAY]: "PRESENT", "2026-07-03": "ABSENT" },
+    timeEntries: [
+      {
+        date: "2026-07-01",
+        clockIn: "08:00",
+        clockOut: "17:00",
+        extraHours: 0,
+        extraNote: "",
+      },
+      {
+        date: "2026-07-02",
+        clockIn: "08:00",
+        clockOut: "19:00",
+        extraHours: 2,
+        extraNote: "Color matching urgent job",
+      },
+      {
+        date: "2026-07-04",
+        clockIn: "08:00",
+        clockOut: "17:00",
+        extraHours: 0,
+        extraNote: "",
+      },
+      {
+        date: "2026-07-05",
+        clockIn: "08:00",
+        clockOut: "17:00",
+        extraHours: 0,
+        extraNote: "",
+      },
+    ],
+    payments: [
+      { id: "P-002", date: "2026-07-03", amount: 35000, note: "Mid-month" },
+    ],
+    performance: { ordersCompleted: 41, onTimeRate: 91, avgQuality: 4.5 },
+    notes: "Excellent eye for color matching.",
+  },
+];
+
 /* ─── WorkerCard ─── */
 const WorkerCard = memo(function WorkerCard({ worker, vKey, orders, onOpen, onAttendanceChange, isSaving }) {
   const todayStatus = worker.attendance?.[TODAY];
@@ -376,6 +985,126 @@ const WorkerCard = memo(function WorkerCard({ worker, vKey, orders, onOpen, onAt
           style={{ background: todayColor, color: "#fff" }}>
           {todayStatus ? ATTENDANCE_LABELS[todayStatus] : "Not Set"}
         </button>
+      </div>
+    </div>
+  );
+});
+
+/* ___SalarySummary____*/
+const SalarySummary = memo(function SalarySummary({
+  selected,
+  monthlyEarned,
+  monthlyPaid,
+  monthlyBalance,
+  viewMonth,
+  viewYear,
+  monthlyMetersData,
+  onPrevMonth,
+  onNextMonth,
+  onTodayMonth,
+}) {
+  return (
+    <div
+      className="p-4 rounded-2xl"
+      style={{
+        background: "var(--accent-soft)",
+        border: "1px solid rgba(254,189,17,0.15)",
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <h3
+          className="text-xs font-bold uppercase tracking-wider"
+          style={{ color: "var(--accent)" }}
+        >
+          {MONTH_NAMES[viewMonth]} {viewYear}
+        </h3>
+        <MonthNav
+          year={viewYear}
+          month={viewMonth}
+          onPrev={onPrevMonth}
+          onNext={onNextMonth}
+          onToday={onTodayMonth}
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <div
+          className="p-3 rounded-xl text-center"
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <div
+            className="text-[10px] uppercase tracking-wider mb-1"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            Earned
+          </div>
+          <div
+            className="text-base font-bold"
+            style={{ color: "var(--stage-completed)" }}
+          >
+            {monthlyEarned?.toLocaleString()}
+          </div>
+        </div>
+        <div
+          className="p-3 rounded-xl text-center"
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <div
+            className="text-[10px] uppercase tracking-wider mb-1"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            Paid
+          </div>
+          <div
+            className="text-base font-bold"
+            style={{ color: "var(--stage-appointment)" }}
+          >
+            {monthlyPaid.toLocaleString()}
+          </div>
+        </div>
+        <div
+          className="p-3 rounded-xl text-center"
+          style={{
+            background: "var(--surface)",
+            border: `1px solid ${monthlyBalance >= 0 ? "var(--stage-completed)" : "var(--stage-contract)"}`,
+          }}
+        >
+          <div
+            className="text-[10px] uppercase tracking-wider mb-1"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            {monthlyBalance >= 0 ? "Remaining" : "Overpaid"}
+          </div>
+          <div
+            className="text-base font-bold"
+            style={{
+              color:
+                monthlyBalance >= 0 ? "var(--ink)" : "var(--stage-contract)",
+            }}
+          >
+            {Math.abs(monthlyBalance).toLocaleString()}
+          </div>
+        </div>
+      </div>
+      <div
+        className="h-2 w-full rounded-full overflow-hidden"
+        style={{ background: "var(--surface-2)" }}
+      >
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${monthlyEarned > 0 ? Math.min(100, (monthlyPaid / monthlyEarned) * 100) : 0}%`,
+            background:
+              monthlyPaid >= monthlyEarned
+                ? "var(--stage-completed)"
+                : "var(--accent)",
+          }}
+        />
       </div>
     </div>
   );
@@ -703,17 +1432,203 @@ const DetailScreen = memo(function DetailScreen({
 
         {activeTab === "info" && (
           <div className="p-4 space-y-4">
-            <div className="p-4 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--ink-muted)" }}>Contact</h3>
+            <div
+              className="p-4 rounded-2xl"
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <h3
+                className="text-xs font-bold uppercase tracking-wider mb-3"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                Contact
+              </h3>
               <div className="space-y-2">
-                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
+                <div
+                  className="flex items-center gap-3 p-3 rounded-xl"
+                  style={{
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
                   <span style={{ color: "var(--stage-appointment)" }}>📱</span>
-                  <span className="text-sm font-medium" style={{ color: "var(--ink)" }}>{selected.phone}</span>
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: "var(--ink)" }}
+                  >
+                    {selected.phone}
+                  </span>
                 </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
+                <div
+                  className="flex items-center gap-3 p-3 rounded-xl"
+                  style={{
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
                   <span style={{ color: "var(--stage-appointment)" }}>✉️</span>
-                  <span className="text-sm" style={{ color: "var(--ink)" }}>{selected.email}</span>
+                  <span className="text-sm" style={{ color: "var(--ink)" }}>
+                    {selected.email}
+                  </span>
                 </div>
+              </div>
+            </div>
+            <div
+              className="p-4 rounded-2xl"
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <h3
+                className="text-xs font-bold uppercase tracking-wider mb-3"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                Performance
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                <div
+                  className="p-3 rounded-xl text-center"
+                  style={{
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <div
+                    className="text-xl font-bold"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    {selected.performance?.ordersCompleted}
+                  </div>
+                  <div
+                    className="text-[10px] uppercase tracking-wider mt-1"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    Orders Done
+                  </div>
+                </div>
+                <div
+                  className="p-3 rounded-xl text-center"
+                  style={{
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <div
+                    className="text-xl font-bold"
+                    style={{
+                      color:
+                        selected.performance?.onTimeRate >= 90
+                          ? "var(--stage-completed)"
+                          : "var(--accent)",
+                    }}
+                  >
+                    {selected.performance?.onTimeRate || 10}%
+                  </div>
+                  <div
+                    className="text-[10px] uppercase tracking-wider mt-1"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    On-Time Rate
+                  </div>
+                </div>
+                <div
+                  className="p-3 rounded-xl text-center"
+                  style={{
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <div
+                    className="text-xl font-bold flex items-center justify-center gap-1"
+                    style={{ color: "var(--stage-production)" }}
+                  >
+                    {selected.performance?.avgQuality}
+                    <span style={{ color: "var(--accent)" }}>
+                      <Icons.star />
+                    </span>
+                  </div>
+                  <div
+                    className="text-[10px] uppercase tracking-wider mt-1"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    Avg Quality
+                  </div>
+                </div>
+                <div
+                  className="p-3 rounded-xl text-center"
+                  style={{
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <div
+                    className="text-xl font-bold"
+                    style={{ color: "var(--stage-appointment)" }}
+                  >
+                    {selected.paymentType === "meters"
+                      ? `${monthlyMetersData.totalMeters.toFixed(1)}m`
+                      : `${getMonthlyHours(selected, vKey).toFixed(1)}h`}
+                  </div>
+                  <div
+                    className="text-[10px] uppercase tracking-wider mt-1"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    {MONTH_NAMES[viewMonth]}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              className="p-4 rounded-2xl"
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <h3
+                className="text-xs font-bold uppercase tracking-wider mb-2"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                Notes
+              </h3>
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: "var(--ink)" }}
+              >
+                {selected.notes}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                className="w-full justify-center text-sm font-bold px-4 py-3 rounded-xl flex items-center gap-2"
+                style={{ background: "var(--accent)", color: "#000" }}
+              >
+                <Icons.briefcase /> Assign to Order
+              </button>
+              <div className="flex gap-2">
+                <button
+                  className="flex-1 justify-center text-sm font-bold px-4 py-3 rounded-xl flex items-center gap-2"
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    color: "var(--ink)",
+                  }}
+                >
+                  <Icons.edit /> Edit Profile
+                </button>
+                <button
+                  className="flex-1 justify-center text-sm font-bold px-4 py-3 rounded-xl flex items-center gap-2"
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    color: "var(--ink)",
+                  }}
+                >
+                  <Icons.calendar /> Time Off
+                </button>
               </div>
             </div>
           </div>
