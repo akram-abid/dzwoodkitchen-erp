@@ -176,6 +176,6 @@ enum order_state {
 }
 
 enum worker_payment_type {
-  hourly
-  per_meter
+  hours
+  meters
 }
