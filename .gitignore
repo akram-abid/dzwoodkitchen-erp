@@ -42,5 +42,6 @@ next-env.d.ts
 
 /app/generated/prisma
 
-dzwoodkitchen-erp-db.html
 /prisma/seed.sql
+/dzwoodkitchen-erp-db.html
+
