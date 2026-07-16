@@ -570,7 +570,7 @@ const getMonthlyMetersData = (w, vKey, orders) => {
 };
 
 const getMonthlyEarnings = (w, vKey, orders) => {
-  if (w.paymentType === "meters")
+  if (w.payment_type === "meters")
     return Math.round(
       getMonthlyMetersData(w, vKey, orders).totalMeters * w.meterRate,
     );
@@ -742,12 +742,12 @@ function PaymentForm({ onSave, onCancel }) {
 
 /* ─── Data ─── */
 
-// fake worker obj : id ,firstName, lastName, shortName, initials, role, skills, email, joined, paymentType, meterRate, status, attendance, assignments, payments, performance, notes, hourlyRate, timeEntries 
+// fake worker obj : id ,firstName, lastName, shortName, initials, role, skills, email, joined, payment_type, meterRate, status, attendance, assignments, payments, performance, notes, hourlyRate, timeEntries 
 // db worker obj : id, full_name, phone, hire_date, payment_type, created_at, updated_at
 
 const FAKE_WORKERS = [
   {
-    id: "WRK-001", firstName: "Rachid", lastName: "Said", shortName: "R. Said", initials: "RS", role: "Carpenter", skills: ["Carpenter", "Installer"], phone: "0551 23 45 67", email: "r.said@dzwood.dz", joined: "2019-03-15", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
+    id: "WRK-001", firstName: "Rachid", lastName: "Said", shortName: "R. Said", initials: "RS", role: "Carpenter", skills: ["Carpenter", "Installer"], phone: "0551 23 45 67", email: "r.said@dzwood.dz", joined: "2019-03-15", payment_type: "meters", meterRate: 5000, status: "ACTIVE",
     attendance: { [TODAY]: "PRESENT", "2026-07-03": "ABSENT", "2026-07-01": "ABSENT" },
     assignments: [
       {
@@ -785,7 +785,7 @@ const FAKE_WORKERS = [
     notes: "Excellent with oak. Prefers morning shifts.",
   },
   {
-    id: "WRK-002", firstName: "Amine", lastName: "Benali", shortName: "A. Benali", initials: "AB", role: "Finisher", skills: ["Finisher", "Carpenter"], phone: "0770 88 99 00", email: "a.benali@dzwood.dz", joined: "2020-06-01", paymentType: "hours", hourlyRate: 1100, status: "ACTIVE",
+    id: "WRK-002", firstName: "Amine", lastName: "Benali", shortName: "A. Benali", initials: "AB", role: "Finisher", skills: ["Finisher", "Carpenter"], phone: "0770 88 99 00", email: "a.benali@dzwood.dz", joined: "2020-06-01", payment_type: "hours", hourlyRate: 1100, status: "ACTIVE",
     attendance: { [TODAY]: "PRESENT", "2026-07-04": "ABSENT", "2026-07-03": "ABSENT" },
     timeEntries: [
       {
@@ -822,7 +822,7 @@ const FAKE_WORKERS = [
     notes: "Specialist in varnish and lacquer finishes.",
   },
   {
-    id: "WRK-003", firstName: "Karim", lastName: "Amrani", shortName: "K. Amrani", initials: "KA", role: "Installer", skills: ["Installer", "Carpenter"], phone: "0540 11 22 33", email: "k.amrani@dzwood.dz", joined: "2021-01-10", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
+    id: "WRK-003", firstName: "Karim", lastName: "Amrani", shortName: "K. Amrani", initials: "KA", role: "Installer", skills: ["Installer", "Carpenter"], phone: "0540 11 22 33", email: "k.amrani@dzwood.dz", joined: "2021-01-10", payment_type: "meters", meterRate: 5000, status: "ACTIVE",
     attendance: { [TODAY]: "PRESENT", "2026-07-02": "ABSENT" },
     assignments: [
       {
@@ -838,7 +838,7 @@ const FAKE_WORKERS = [
     notes: "Good with client relations. Travels often.",
   },
   {
-    id: "WRK-004", firstName: "Mohamed", lastName: "Draoui", shortName: "M. Draoui", initials: "MD", role: "Carpenter", skills: ["Carpenter", "Designer"], phone: "0555 44 55 66", email: "m.draoui@dzwood.dz", joined: "2018-11-20", paymentType: "hours", hourlyRate: 1400, status: "OFF",
+    id: "WRK-004", firstName: "Mohamed", lastName: "Draoui", shortName: "M. Draoui", initials: "MD", role: "Carpenter", skills: ["Carpenter", "Designer"], phone: "0555 44 55 66", email: "m.draoui@dzwood.dz", joined: "2018-11-20", payment_type: "hours", hourlyRate: 1400, status: "OFF",
     attendance: { [TODAY]: "ABSENT" },
     timeEntries: [
       {
@@ -861,7 +861,7 @@ const FAKE_WORKERS = [
     notes: "Senior carpenter. Mentors new hires.",
   },
   {
-    id: "WRK-005", firstName: "Yasmine", lastName: "Touati", shortName: "Y. Touati", initials: "YT", role: "Designer", skills: ["Designer", "Carpenter"], phone: "0661 77 88 99", email: "y.touati@dzwood.dz", joined: "2022-09-01", paymentType: "hours", hourlyRate: 1300, status: "ACTIVE",
+    id: "WRK-005", firstName: "Yasmine", lastName: "Touati", shortName: "Y. Touati", initials: "YT", role: "Designer", skills: ["Designer", "Carpenter"], phone: "0661 77 88 99", email: "y.touati@dzwood.dz", joined: "2022-09-01", payment_type: "hours", hourlyRate: 1300, status: "ACTIVE",
     attendance: { [TODAY]: "PRESENT" },
     timeEntries: [
       {
@@ -877,7 +877,7 @@ const FAKE_WORKERS = [
     notes: "CAD specialist. Handles complex designs.",
   },
   {
-    id: "WRK-006", firstName: "Hakim", lastName: "Zeroual", shortName: "H. Zeroual", initials: "HZ", role: "Carpenter", skills: ["Carpenter"], phone: "0790 12 34 56", email: "h.zeroual@dzwood.dz", joined: "2023-02-15", paymentType: "meters", meterRate: 5000, status: "ACTIVE",
+    id: "WRK-006", firstName: "Hakim", lastName: "Zeroual", shortName: "H. Zeroual", initials: "HZ", role: "Carpenter", skills: ["Carpenter"], phone: "0790 12 34 56", email: "h.zeroual@dzwood.dz", joined: "2023-02-15", payment_type: "meters", meterRate: 5000, status: "ACTIVE",
     attendance: { [TODAY]: "ABSENT", "2026-07-01": "ABSENT" },
     assignments: [],
     payments: [],
@@ -885,7 +885,7 @@ const FAKE_WORKERS = [
     notes: "New hire. Needs supervision on complex joints.",
   },
   {
-    id: "WRK-007", firstName: "Nadia", lastName: "Bensalem", shortName: "N. Bensalem", initials: "NB", role: "Finisher", skills: ["Finisher", "Designer"], phone: "0560 66 77 88", email: "n.bensalem@dzwood.dz", joined: "2020-04-10", paymentType: "hours", hourlyRate: 1150, status: "ACTIVE",
+    id: "WRK-007", firstName: "Nadia", lastName: "Bensalem", shortName: "N. Bensalem", initials: "NB", role: "Finisher", skills: ["Finisher", "Designer"], phone: "0560 66 77 88", email: "n.bensalem@dzwood.dz", joined: "2020-04-10", payment_type: "hours", hourlyRate: 1150, status: "ACTIVE",
     attendance: { [TODAY]: "PRESENT", "2026-07-03": "ABSENT" },
     timeEntries: [
       {
@@ -931,7 +931,7 @@ const WorkerCard = memo(function WorkerCard({ worker, vKey, orders, onOpen, onAt
   const todayColor = todayStatus ? ATTENDANCE_COLORS[todayStatus] : ATTENDANCE_COLORS["NOT SET"];
 
   const monthlyEarnings = useMemo(() => {
-    if (worker.paymentType === "meters") {
+    if (worker.payment_type === "meters") {
       const assignments = (worker.assignments || []).filter((a) => a.date.startsWith(vKey));
       return Math.round(assignments.reduce((s, a) => s + a.meters, 0) * (worker.meterRate || 0));
     }
@@ -969,10 +969,10 @@ const WorkerCard = memo(function WorkerCard({ worker, vKey, orders, onOpen, onAt
           <span className="text-xs" style={{ color: "var(--ink-muted)" }}>{worker.id}</span>
           <span className="text-xs px-2 py-0.5 rounded-md font-bold"
             style={{
-              background: worker.paymentType === "meters" ? "var(--stage-appointment)15" : "var(--stage-completed)15",
-              color: worker.paymentType === "meters" ? "var(--stage-appointment)" : "var(--stage-completed)"
+              background: worker.payment_type === "meters" ? "var(--stage-appointment)15" : "var(--stage-completed)15",
+              color: worker.payment_type === "meters" ? "var(--stage-appointment)" : "var(--stage-completed)"
             }}>
-            {worker.paymentType === "meters" ? "Meters" : "Hourly"}
+            {worker.payment_type === "meters" ? "Meters" : "Hours"}
           </span>
         </div>
         <button
@@ -1242,6 +1242,7 @@ const DetailScreen = memo(function DetailScreen({
   viewMonth, viewYear, vKey, orders, onYearChange, onPrevWeek, onNextWeek,
   onJumpToToday, onPrevMonth, onNextMonth, onTodayMonth, onAttendanceClick,
   weekRangeLabel, monthlyEarned, monthlyPaid, monthlyBalance, monthlyEntries,
+  monthlyMetersData,
   onAddTimeEntry, onEditTimeEntry, onDeleteTimeEntry, onPrint, onAddPayment,
   onDeletePayment, isSaving,
 }) {
@@ -1332,68 +1333,333 @@ const DetailScreen = memo(function DetailScreen({
 
         {activeTab === "work" && (
           <div className="p-4 space-y-4">
-            <div className="p-4 rounded-2xl" style={{ background: "var(--accent-soft)", border: "1px solid rgba(254,189,17,0.15)" }}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--accent)" }}>{MONTH_NAMES[viewMonth]} {viewYear}</h3>
-                <MonthNav year={viewYear} month={viewMonth} onPrev={onPrevMonth} onNext={onNextMonth} onToday={onTodayMonth} />
+            <SalarySummary
+              selected={selected}
+              monthlyEarned={monthlyEarned}
+              monthlyPaid={monthlyPaid}
+              monthlyBalance={monthlyBalance}
+              viewMonth={viewMonth}
+              viewYear={viewYear}
+              monthlyMetersData={monthlyMetersData}
+              onPrevMonth={onPrevMonth}
+              onNextMonth={onNextMonth}
+              onTodayMonth={onTodayMonth}
+            />
+
+            <div
+              className="p-4 rounded-2xl"
+              style={{
+                background:
+                  selected.payment_type === "meters"
+                    ? "var(--stage-appointment)08"
+                    : "var(--stage-completed)08",
+                border: `1px solid ${selected.payment_type === "meters" ? "var(--stage-appointment)30" : "var(--stage-completed)30"}`,
+              }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <h3
+                  className="text-xs font-bold uppercase tracking-wider"
+                  style={{
+                    color:
+                      selected.payment_type === "meters"
+                        ? "var(--stage-appointment)"
+                        : "var(--stage-completed)",
+                  }}
+                >
+                  {selected.payment_type === "meters"
+                    ? "Meter-Based"
+                    : "Hourly Payment"}
+                </h3>
+                <span
+                  className="text-lg font-bold"
+                  style={{
+                    color:
+                      selected.payment_type === "meters"
+                        ? "var(--stage-appointment)"
+                        : "var(--stage-completed)",
+                  }}
+                >
+                  {monthlyEarned.toLocaleString()} DZD
+                </span>
               </div>
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <div className="p-3 rounded-xl text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                  <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--ink-muted)" }}>Earned</div>
-                  <div className="text-base font-bold" style={{ color: "var(--stage-completed)" }}>{monthlyEarned?.toLocaleString()}</div>
-                </div>
-                <div className="p-3 rounded-xl text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                  <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--ink-muted)" }}>Paid</div>
-                  <div className="text-base font-bold" style={{ color: "var(--stage-appointment)" }}>{monthlyPaid.toLocaleString()}</div>
-                </div>
-                <div className="p-3 rounded-xl text-center" style={{ background: "var(--surface)", border: `1px solid ${monthlyBalance >= 0 ? "var(--stage-completed)" : "var(--stage-contract)"}` }}>
-                  <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--ink-muted)" }}>{monthlyBalance >= 0 ? "Remaining" : "Overpaid"}</div>
-                  <div className="text-base font-bold" style={{ color: monthlyBalance >= 0 ? "var(--ink)" : "var(--stage-contract)" }}>{Math.abs(monthlyBalance).toLocaleString()}</div>
-                </div>
+              <div className="text-xs" style={{ color: "var(--ink-muted)" }}>
+                {selected.payment_type === "meters"
+                  ? `${monthlyMetersData.totalMeters.toFixed(1)} m @ ${selected.meterRate?.toLocaleString() || "5000"} DZD/m`
+                  : `${getMonthlyHours(selected, vKey).toFixed(1)} h @ ${selected.hourlyRate?.toLocaleString() || "1000"} DZD/h`}
               </div>
             </div>
 
-            {selected.paymentType === "hours" && (
-              <div className="p-4 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            {selected.payment_type === "hours" && (
+              <div
+                className="p-4 rounded-2xl"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                }}
+              >
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--ink-muted)" }}>Time Entries</h3>
+                  <h3
+                    className="text-xs font-bold uppercase tracking-wider"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    Time Entries
+                  </h3>
                   <div className="flex items-center gap-2">
-                    <button onClick={onPrint} disabled={monthlyEntries.length === 0} className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-30"
-                      style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}>
+                    <button
+                      onClick={onPrint}
+                      disabled={monthlyEntries.length === 0}
+                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-30"
+                      style={{
+                        background: "var(--bg)",
+                        border: "1px solid var(--border)",
+                        color: "var(--ink)",
+                      }}
+                    >
                       <Icons.print /> Print
                     </button>
-                    <button onClick={() => onAddTimeEntry(null)} className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1"
-                      style={{ background: "var(--stage-completed)", color: "#fff" }}>
+                    <button
+                      onClick={() => onAddTimeEntry(null)}
+                      className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1"
+                      style={{
+                        background: "var(--stage-completed)",
+                        color: "#fff",
+                      }}
+                    >
                       <Icons.plus /> Add
                     </button>
                   </div>
                 </div>
                 {monthlyEntries.length === 0 ? (
-                  <div className="text-sm text-center py-6 rounded-xl" style={{ background: "var(--bg)", border: "1px dashed var(--border)", color: "var(--ink-muted)" }}>No time entries this month.</div>
+                  <div
+                    className="text-sm text-center py-6 rounded-xl"
+                    style={{
+                      background: "var(--bg)",
+                      border: "1px dashed var(--border)",
+                      color: "var(--ink-muted)",
+                    }}
+                  >
+                    No time entries for {MONTH_NAMES[viewMonth]} {viewYear}.
+                  </div>
                 ) : (
                   <div className="space-y-2">
-                    {[...monthlyEntries].sort((a, b) => b.date.localeCompare(a.date)).map((e, idx) => {
-                      const [iH, iM] = e.clockIn.split(":").map(Number);
-                      const [oH, oM] = e.clockOut.split(":").map(Number);
-                      const regH = oH + oM / 60 - (iH + iM / 60);
-                      const totalH = regH + (e.extraHours || 0);
-                      const pay = Math.round(totalH * selected.hourlyRate);
-                      return (
-                        <div key={`${e.date}-${idx}`} className="p-3 rounded-xl flex items-center justify-between" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
-                          <div>
-                            <div className="text-sm font-bold" style={{ color: "var(--ink)" }}>{e.date.slice(5)} · {e.clockIn} - {e.clockOut}</div>
-                            <div className="text-xs" style={{ color: "var(--ink-muted)" }}>{totalH.toFixed(1)}h {e.extraHours > 0 && <span style={{ color: "var(--stage-contract)" }}>+{e.extraHours}h extra</span>} · {e.extraNote || "Regular"}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-bold tabular-nums" style={{ color: "var(--stage-completed)" }}>{pay.toLocaleString()} DZD</div>
-                            <div className="flex items-center justify-end gap-2 mt-1">
-                              <button onClick={() => onEditTimeEntry(e)} style={{ color: "var(--stage-appointment)" }}><Icons.edit /></button>
-                              <button onClick={() => onDeleteTimeEntry(e.date)} style={{ color: "var(--stage-contract)" }}><Icons.trash /></button>
+                    {[...monthlyEntries]
+                      .sort((a, b) => b.date.localeCompare(a.date))
+                      .map((e, idx) => {
+                        const [iH, iM] = e.clockIn.split(":").map(Number);
+                        const [oH, oM] = e.clockOut.split(":").map(Number);
+                        const regH = oH + oM / 60 - (iH + iM / 60);
+                        const totalH = regH + (e.extraHours || 0);
+                        const pay = Math.round(totalH * selected.hourlyRate);
+                        return (
+                          <div
+                            key={`${e.date}-${idx}`}
+                            className="p-3 rounded-xl flex items-center justify-between"
+                            style={{
+                              background: "var(--bg)",
+                              border: "1px solid var(--border)",
+                            }}
+                          >
+                            <div>
+                              <div
+                                className="text-sm font-bold"
+                                style={{ color: "var(--ink)" }}
+                              >
+                                {e.date.slice(5)} · {e.clockIn} - {e.clockOut}
+                              </div>
+                              <div
+                                className="text-xs"
+                                style={{ color: "var(--ink-muted)" }}
+                              >
+                                {totalH.toFixed(1)}h{" "}
+                                {e.extraHours > 0 && (
+                                  <span
+                                    style={{ color: "var(--stage-contract)" }}
+                                  >
+                                    +{e.extraHours}h extra
+                                  </span>
+                                )}{" "}
+                                · {e.extraNote || "Regular"}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div
+                                className="text-sm font-bold tabular-nums"
+                                style={{ color: "var(--stage-completed)" }}
+                              >
+                                {pay.toLocaleString()} DZD
+                              </div>
+                              <div className="flex items-center justify-end gap-2 mt-1">
+                                <button
+                                  onClick={() => onEditTimeEntry(e)}
+                                  style={{ color: "var(--stage-appointment)" }}
+                                >
+                                  <Icons.edit />
+                                </button>
+                                <button
+                                  onClick={() => onDeleteTimeEntry(e.date)}
+                                  style={{ color: "var(--stage-contract)" }}
+                                >
+                                  <Icons.trash />
+                                </button>
+                              </div>
                             </div>
                           </div>
+                        );
+                      })}
+                    <div
+                      className="p-3 rounded-xl flex items-center justify-between mt-2"
+                      style={{
+                        background: "var(--surface-2)",
+                        border: "1px solid var(--border)",
+                      }}
+                    >
+                      <span
+                        className="text-xs font-bold"
+                        style={{ color: "var(--ink-muted)" }}
+                      >
+                        Total ({monthlyEntries.length} days)
+                      </span>
+                      <div className="flex items-center gap-4">
+                        <span
+                          className="text-sm font-bold"
+                          style={{ color: "var(--ink)" }}
+                        >
+                          {getMonthlyHours(selected, vKey).toFixed(1)}h
+                        </span>
+                        <span
+                          className="text-sm font-bold"
+                          style={{ color: "var(--stage-completed)" }}
+                        >
+                          {monthlyEarned.toLocaleString()} DZD
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selected.payment_type === "meters" && (
+              <div
+                className="p-4 rounded-2xl"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3
+                    className="text-xs font-bold uppercase tracking-wider"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    Monthly Work
+                  </h3>
+                  <div
+                    className="text-[10px] px-2 py-1 rounded font-bold"
+                    style={{
+                      background: "var(--stage-appointment)15",
+                      color: "var(--stage-appointment)",
+                    }}
+                  >
+                    {monthlyMetersData.source === "orders"
+                      ? "Auto from orders"
+                      : "From records"}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div
+                    className="p-3 rounded-xl text-center"
+                    style={{
+                      background: "var(--bg)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    <div
+                      className="text-[10px] uppercase tracking-wider mb-1"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      Total Meters
+                    </div>
+                    <div
+                      className="text-xl font-bold"
+                      style={{ color: "var(--stage-appointment)" }}
+                    >
+                      {monthlyMetersData.totalMeters.toFixed(1)} m
+                    </div>
+                  </div>
+                  <div
+                    className="p-3 rounded-xl text-center"
+                    style={{
+                      background: "var(--bg)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    <div
+                      className="text-[10px] uppercase tracking-wider mb-1"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      Kitchens
+                    </div>
+                    <div
+                      className="text-xl font-bold"
+                      style={{ color: "var(--stage-appointment)" }}
+                    >
+                      {monthlyMetersData.kitchens.length}
+                    </div>
+                  </div>
+                </div>
+                {monthlyMetersData.kitchens.length === 0 ? (
+                  <div
+                    className="text-sm text-center py-6 rounded-xl"
+                    style={{
+                      background: "var(--bg)",
+                      border: "1px dashed var(--border)",
+                      color: "var(--ink-muted)",
+                    }}
+                  >
+                    No kitchens assigned in {MONTH_NAMES[viewMonth]} {viewYear}.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {monthlyMetersData.kitchens.map((k, idx) => (
+                      <div
+                        key={`${k.orderId}-${idx}`}
+                        className="p-3 rounded-xl flex items-center justify-between"
+                        style={{
+                          background: "var(--bg)",
+                          border: "1px solid var(--border)",
+                        }}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className="text-sm font-bold truncate"
+                            style={{ color: "var(--ink)" }}
+                          >
+                            {k.name}
+                          </div>
+                          <div
+                            className="text-[11px]"
+                            style={{ color: "var(--ink-muted)" }}
+                          >
+                            {k.orderId}
+                          </div>
                         </div>
-                      );
-                    })}
+                        <div className="text-right shrink-0">
+                          <div
+                            className="text-sm font-bold"
+                            style={{ color: "var(--stage-appointment)" }}
+                          >
+                            {k.meters.toFixed(1)} m
+                          </div>
+                          <div
+                            className="text-[11px] font-medium"
+                            style={{ color: "var(--stage-completed)" }}
+                          >
+                            {k.amount.toLocaleString()} DZD
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1568,7 +1834,7 @@ const DetailScreen = memo(function DetailScreen({
                     className="text-xl font-bold"
                     style={{ color: "var(--stage-appointment)" }}
                   >
-                    {selected.paymentType === "meters"
+                    {selected.payment_type === "meters"
                       ? `${monthlyMetersData.totalMeters.toFixed(1)}m`
                       : `${getMonthlyHours(selected, vKey).toFixed(1)}h`}
                   </div>
@@ -1710,6 +1976,13 @@ export default function WorkersApp({ workersData, orders = [] }) {
   const monthlyEarned = useMemo(() => getMonthlyEarnings(selected, vKey, orders), [selected, vKey, orders]);
   const monthlyPaid = useMemo(() => getMonthlyPayments(selected, vKey), [selected, vKey]);
   const monthlyEntries = useMemo(() => getMonthlyTimeEntries(selected, vKey), [selected, vKey]);
+  const monthlyMetersData = useMemo(
+    () =>
+      selected.payment_type === "meters"
+        ? getMonthlyMetersData(selected, vKey, orders)
+        : null,
+    [selected, vKey, orders],
+  );
 
   /* ─── Handlers ─── */
   const openWorker = useCallback((id) => {
@@ -1811,8 +2084,11 @@ export default function WorkersApp({ workersData, orders = [] }) {
 
       <div className={`${screen === "detail" ? "flex" : "hidden"} lg:flex flex-1 flex-col min-w-0`}>
         <DetailScreen
-          selected={selected} activeTab={activeTab} setActiveTab={setActiveTab}
-          onBack={goBack} year={year} weekIndex={weekIndex} yearWeeks={yearWeeks}
+          selected={selected}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onBack={goBack}
+          year={year} weekIndex={weekIndex} yearWeeks={yearWeeks}
           currentWeek={currentWeek} viewMonth={viewMonth} viewYear={viewYear} vKey={vKey}
           orders={orders} onYearChange={setYear} onPrevWeek={prevWeek} onNextWeek={nextWeek}
           onJumpToToday={goTodayWeek} onPrevMonth={goPrevMonth} onNextMonth={goNextMonth}
@@ -1820,6 +2096,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
           weekRangeLabel={weekRangeLabel} monthlyEarned={monthlyEarned}
           monthlyPaid={monthlyPaid} monthlyBalance={monthlyEarned - monthlyPaid}
           monthlyEntries={monthlyEntries} onAddTimeEntry={openAddTimeEntry}
+          monthlyMetersData={monthlyMetersData}
           onEditTimeEntry={openEditTimeEntry} onDeleteTimeEntry={deleteTimeEntry}
           onPrint={printMonthlyHours} onAddPayment={() => setShowPaymentModal(true)}
           onDeletePayment={deletePayment} isSaving={isSaving}
