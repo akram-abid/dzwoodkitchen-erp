@@ -572,7 +572,7 @@ const getMonthlyMetersData = (w, vKey, orders) => {
 const getMonthlyEarnings = (w, vKey, orders) => {
   if (w.payment_type === "meters")
     return Math.round(
-      getMonthlyMetersData(w, vKey, orders).totalMeters * w.meterRate,
+      getMonthlyMetersData(w, vKey, orders).totalMeters * (w.meterRate || 0),
     );
   return Math.round(getMonthlyHours(w, vKey) * w.hourlyRate);
 };
