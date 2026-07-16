@@ -20,8 +20,22 @@ async function getAllWorkers() {
     }))
 }
 
+async function createTimeEntry(workerId, data) {
+    const { date, clockIn, clockOut, extraHours, extraNote } = data;
 
+    return await prisma.timeEntries.create({
+        data: {
+            workerId: Number(workerId),
+            date: new Date(date),
+            clockIn,
+            clockOut,
+            extraHours: extraHours || 0,
+            extraNote: extraNote || "",
+        },
+    });
+}
 
 export {
-    getAllWorkers
+    getAllWorkers,
+    createTimeEntry
 }
