@@ -525,11 +525,14 @@ const calcEntryHours = (e) => {
   return outH + outM / 60 - (inH + inM / 60) + (e.extraHours || 0);
 };
 
-const getMonthlyTimeEntries = (w, vKey) =>
-  (w.timeEntries || []).filter((e) => e.date.startsWith(vKey));
+const getMonthlyTimeEntries = (w, vKey) => {
+  return (w.timeEntries || []).filter((e) => formatDate(e.date).startsWith(vKey));
+}
 
-const getMonthlyHours = (w, vKey) =>
-  getMonthlyTimeEntries(w, vKey).reduce((sum, e) => sum + calcEntryHours(e), 0);
+
+const getMonthlyHours = (w, vKey) => {
+  return getMonthlyTimeEntries(w, vKey).reduce((sum, e) => sum + calcEntryHours(e), 0);
+}
 
 const getMonthlyMetersData = (w, vKey, orders) => {
   if (orders && orders.length > 0) {
@@ -555,7 +558,7 @@ const getMonthlyMetersData = (w, vKey, orders) => {
     };
   }
   const assignments = (w.assignments || []).filter((a) =>
-    a.date.startsWith(vKey),
+    formatDate(a.date).startsWith(vKey),
   );
   return {
     totalMeters: assignments.reduce((s, a) => s + a.meters, 0),
@@ -570,16 +573,18 @@ const getMonthlyMetersData = (w, vKey, orders) => {
 };
 
 const getMonthlyEarnings = (w, vKey, orders) => {
-  if (w.payment_type === "meters")
+  if (w.payment_type === "meters") {
     return Math.round(
       getMonthlyMetersData(w, vKey, orders).totalMeters * (w.meterRate || 0),
     );
+  }
+
   return Math.round(getMonthlyHours(w, vKey) * w.hourlyRate);
 };
 
 const getMonthlyPayments = (w, vKey) =>
   (w.payments || [])
-    .filter((p) => p.date.startsWith(vKey))
+    .filter((p) => formatDate(p.date).startsWith(vKey))
     .reduce((s, p) => s + p.amount, 0);
 
 const getBalance = (w, vKey, orders) =>
@@ -932,7 +937,7 @@ const WorkerCard = memo(function WorkerCard({ worker, vKey, orders, onOpen, onAt
 
   const monthlyEarnings = useMemo(() => {
     if (worker.payment_type === "meters") {
-      const assignments = (worker.assignments || []).filter((a) => a.date.startsWith(vKey));
+      const assignments = (worker.assignments || []).filter((a) => formatDate(a.date).startsWith(vKey));
       return Math.round(assignments.reduce((s, a) => s + a.meters, 0) * (worker.meterRate || 0));
     }
     const hours = getMonthlyTimeEntries(worker, vKey).reduce((sum, e) => sum + calcEntryHours(e), 0);
@@ -1443,7 +1448,7 @@ const DetailScreen = memo(function DetailScreen({
                 ) : (
                   <div className="space-y-2">
                     {[...monthlyEntries]
-                      .sort((a, b) => b.date.localeCompare(a.date))
+                      .sort((a, b) => formatDate(b.date).localeCompare(a.date))
                       .map((e, idx) => {
                         const [iH, iM] = e.clockIn.split(":").map(Number);
                         const [oH, oM] = e.clockOut.split(":").map(Number);
@@ -1464,7 +1469,7 @@ const DetailScreen = memo(function DetailScreen({
                                 className="text-sm font-bold"
                                 style={{ color: "var(--ink)" }}
                               >
-                                {e.date.slice(5)} · {e.clockIn} - {e.clockOut}
+                                {formatDate(e.date).slice(5)} · {e.clockIn} - {e.clockOut}
                               </div>
                               <div
                                 className="text-xs"
@@ -1677,8 +1682,8 @@ const DetailScreen = memo(function DetailScreen({
                 </button>
               </div>
               <div className="space-y-2">
-                {selected.payments?.filter((p) => p.date.startsWith(vKey)).length === 0 && <div className="text-sm text-center py-6" style={{ color: "var(--ink-muted)" }}>No payments recorded</div>}
-                {selected.payments?.filter((p) => p.date.startsWith(vKey)).sort((a, b) => b.date.localeCompare(a.date)).map((p) => (
+                {selected.payments?.filter((p) => formatDate(p.date).startsWith(vKey)).length === 0 && <div className="text-sm text-center py-6" style={{ color: "var(--ink-muted)" }}>No payments recorded</div>}
+                {selected.payments?.filter((p) => formatDate(p.date).startsWith(vKey)).sort((a, b) => formatDate(b.date).localeCompare(a.date)).map((p) => (
                   <div key={p.id} className="p-3 rounded-xl flex items-center justify-between" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
                     <div>
                       <div className="text-base font-bold" style={{ color: "var(--ink)" }}>{p.amount.toLocaleString()} DZD</div>
@@ -2054,7 +2059,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
     const win = window.open("", "_blank", "width=900,height=900");
     if (!win) return;
     let totalHours = 0, totalPay = 0;
-    const rows = [...monthlyEntries].sort((a, b) => a.date.localeCompare(b.date)).map((e) => {
+    const rows = [...monthlyEntries].sort((a, b) => formatDate(a.date).localeCompare(b.date)).map((e) => {
       const totalH = calcEntryHours(e);
       const pay = Math.round(totalH * selected.hourlyRate);
       totalHours += totalH;

@@ -150,7 +150,8 @@ model workers {
   hourlyRate Float?
   meterRate  Float?
 
-  attendance Attendance[]
+  attendance  Attendance[]
+  timeEntries TimeEntries[]
 }
 
 model Attendance {
@@ -163,6 +164,18 @@ model Attendance {
   worker   workers @relation(fields: [workerId], references: [id])
 
   @@unique([workerId, date])
+}
+
+model TimeEntries {
+  id         Int      @id @default(autoincrement())
+  date       DateTime
+  clockIn    String   @db.VarChar(5)
+  clockOut   String   @db.VarChar(5)
+  extraHours Int      @default(0)
+  extraNote  String?
+
+  workerId Int
+  worker   workers @relation(fields: [workerId], references: [id])
 }
 
 enum AttendanceStatus {

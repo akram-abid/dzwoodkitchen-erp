@@ -3,7 +3,8 @@ import { prisma } from "../../lib/prisma";
 async function getAllWorkers() {
     const workers = await prisma.workers.findMany({
         include: {
-            attendance: true
+            attendance: true,
+            timeEntries: true
         }
     })
 
