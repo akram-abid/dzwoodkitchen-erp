@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useMemo, useCallback, memo, useRef, useEffect } from "react";
-import { batchUpdateAttendance } from "@/lib/api_helpers/workers.js";
+// for attendance functionalities
+import { batchUpdateAttendance, createTimeEntry } from "@/lib/api_helpers/workers.js";
 import useAttendanceBatchUpdates from "../../hooks/useAttendanceBatchUpdates";
+
+
 
 /* ─── CSS Variables ─── */
 const GlobalStyles = () => (
@@ -654,8 +657,11 @@ function TimeEntryForm({ initial, existingDates = [], onSave, onCancel }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    console.log(date, clockIn, clockOut)
+
     if (dateTaken) return;
-    onSave({ date, clockIn, clockOut, extraHours: parseFloat(extraHours) || 0, extraNote });
+    onSave({ date: new Date(date), clockIn, clockOut, extraHours: parseFloat(extraHours) || 0, extraNote });
   };
 
   return (
@@ -2004,19 +2010,27 @@ export default function WorkersApp({ workersData, orders = [] }) {
     setYearState(CURRENT_YEAR);
   }, []);
 
-  const addTimeEntry = useCallback((entry) => {
-    setWorkers((prev) =>
-      prev.map((w) => {
-        if (w.id !== selectedId) return w;
-        const exists = w.timeEntries?.findIndex((e) => e.date === entry.date);
-        let newEntries = w.timeEntries ? [...w.timeEntries] : [];
-        if (exists >= 0) newEntries[exists] = entry;
-        else newEntries.push(entry);
-        return { ...w, timeEntries: newEntries };
-      }),
-    );
-    setShowTimeEntryModal(false);
-    setEditingEntry(null);
+  const addTimeEntry = useCallback(async (entry) => {
+    try {
+      const result = await createTimeEntry(selectedId, entry);
+      setWorkers((prev) =>
+        prev.map((w) => {
+          if (w.id !== selectedId) return w;
+          const exists = w.timeEntries?.findIndex((e) => e.date === entry.date);
+          let newEntries = w.timeEntries ? [...w.timeEntries] : [];
+          if (exists >= 0) newEntries[exists] = entry;
+          else newEntries.push(entry);
+          return { ...w, timeEntries: newEntries };
+        }),
+      );
+      setShowTimeEntryModal(false);
+      setEditingEntry(null);
+
+    } catch (err) {
+      console.error("Failed to save time entry:", err);
+    }
+
+
   }, [selectedId]);
 
   const deleteTimeEntry = useCallback((date) => {
