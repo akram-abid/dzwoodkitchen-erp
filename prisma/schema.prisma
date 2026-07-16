@@ -147,6 +147,9 @@ model workers {
   updated_at   DateTime            @default(now()) @db.Timestamp(6)
   orders       orders[]
 
+  hourlyRate Float?
+  meterRate  Float?
+
   attendance Attendance[]
 }
 
