@@ -152,6 +152,7 @@ model workers {
 
   attendance  Attendance[]
   timeEntries TimeEntries[]
+  assignments Assignment[]
 }
 
 model Attendance {
@@ -173,6 +174,17 @@ model TimeEntries {
   clockOut   String   @db.VarChar(5)
   extraHours Int      @default(0)
   extraNote  String?
+
+  workerId Int
+  worker   workers @relation(fields: [workerId], references: [id])
+}
+
+model Assignment {
+  id      Int      @id @default(autoincrement())
+  project String
+  meters  Float
+  date    DateTime
+  note    String?
 
   workerId Int
   worker   workers @relation(fields: [workerId], references: [id])

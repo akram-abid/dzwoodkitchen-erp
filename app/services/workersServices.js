@@ -4,7 +4,8 @@ async function getAllWorkers() {
     const workers = await prisma.workers.findMany({
         include: {
             attendance: true,
-            timeEntries: true
+            timeEntries: true,
+            assignments: true
         }
     })
 
