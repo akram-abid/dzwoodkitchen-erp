@@ -5,7 +5,8 @@ async function getAllWorkers() {
         include: {
             attendance: true,
             timeEntries: true,
-            assignments: true
+            assignments: true,
+            workersPayments: true,
         }
     })
 
@@ -17,7 +18,8 @@ async function getAllWorkers() {
             return acc
         }, {}),
         shortName: w.full_name.split(' ')[0][0].toUpperCase() + '. ' + w.full_name.split(' ')[1],
-        initials: w.full_name.split(' ')[0][0].toUpperCase() + w.full_name.split(' ')[1][0].toUpperCase()
+        initials: w.full_name.split(' ')[0][0].toUpperCase() + w.full_name.split(' ')[1][0].toUpperCase(),
+        payments: w.workersPayments,
     }))
 }
 

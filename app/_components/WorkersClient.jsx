@@ -1695,7 +1695,7 @@ const DetailScreen = memo(function DetailScreen({
                   <div key={p.id} className="p-3 rounded-xl flex items-center justify-between" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
                     <div>
                       <div className="text-base font-bold" style={{ color: "var(--ink)" }}>{p.amount.toLocaleString()} DZD</div>
-                      <div className="text-xs" style={{ color: "var(--ink-muted)" }}>{p.date} · {p.note}</div>
+                      <div className="text-xs" style={{ color: "var(--ink-muted)" }}>{formatDate(p.date)} · {p.note}</div>
                     </div>
                     <button onClick={() => onDeletePayment(p.id)} style={{ color: "var(--stage-contract)" }}><Icons.trash /></button>
                   </div>

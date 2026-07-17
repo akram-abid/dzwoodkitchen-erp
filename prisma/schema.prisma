@@ -150,9 +150,10 @@ model workers {
   hourlyRate Float?
   meterRate  Float?
 
-  attendance  Attendance[]
-  timeEntries TimeEntries[]
-  assignments Assignment[]
+  attendance      Attendance[]
+  timeEntries     TimeEntries[]
+  assignments     Assignment[]
+  workersPayments WorkersPayments[]
 }
 
 model Attendance {
@@ -185,6 +186,16 @@ model Assignment {
   meters  Float
   date    DateTime
   note    String?
+
+  workerId Int
+  worker   workers @relation(fields: [workerId], references: [id])
+}
+
+model WorkersPayments {
+  id     Int      @id @default(autoincrement())
+  amount Float
+  date   DateTime
+  note   String?
 
   workerId Int
   worker   workers @relation(fields: [workerId], references: [id])
