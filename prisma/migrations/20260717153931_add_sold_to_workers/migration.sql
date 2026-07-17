@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "workers" ADD COLUMN     "sold" DOUBLE PRECISION NOT NULL DEFAULT 0;

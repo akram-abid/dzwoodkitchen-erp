@@ -150,6 +150,8 @@ model workers {
   hourlyRate Float?
   meterRate  Float?
 
+  sold Float @default(0) // Balance carried from previous months
+
   attendance      Attendance[]
   timeEntries     TimeEntries[]
   assignments     Assignment[]

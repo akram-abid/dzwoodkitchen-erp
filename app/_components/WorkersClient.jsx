@@ -1988,6 +1988,10 @@ export default function WorkersApp({ workersData, orders = [] }) {
   const todayNotSet = useMemo(() => workers.filter((w) => !w.attendance?.[TODAY]).length, [workers]);
   const monthlyEarned = useMemo(() => getMonthlyEarnings(selected, vKey, orders), [selected, vKey, orders]);
   const monthlyPaid = useMemo(() => getMonthlyPayments(selected, vKey), [selected, vKey]);
+  const monthlyBalance = useMemo(
+    () => selected.sold + monthlyEarned - monthlyPaid,
+    [selected.sold, monthlyEarned, monthlyPaid]
+  );
   const monthlyEntries = useMemo(() => getMonthlyTimeEntries(selected, vKey), [selected, vKey]);
   const monthlyMetersData = useMemo(
     () =>
@@ -2185,7 +2189,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
           onJumpToToday={goTodayWeek} onPrevMonth={goPrevMonth} onNextMonth={goNextMonth}
           onTodayMonth={goCurrentMonth} onAttendanceClick={setAttendance}
           weekRangeLabel={weekRangeLabel} monthlyEarned={monthlyEarned}
-          monthlyPaid={monthlyPaid} monthlyBalance={monthlyEarned - monthlyPaid}
+          monthlyPaid={monthlyPaid} monthlyBalance={selected.sold + monthlyEarned - monthlyPaid}
           monthlyEntries={monthlyEntries} onAddTimeEntry={openAddTimeEntry}
           monthlyMetersData={monthlyMetersData}
           onEditTimeEntry={openEditTimeEntry} onDeleteTimeEntry={deleteTimeEntry}

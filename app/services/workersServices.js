@@ -7,6 +7,7 @@ async function getAllWorkers() {
             timeEntries: true,
             assignments: true,
             workersPayments: true,
+
         }
     })
 
@@ -20,6 +21,7 @@ async function getAllWorkers() {
         shortName: w.full_name.split(' ')[0][0].toUpperCase() + '. ' + w.full_name.split(' ')[1],
         initials: w.full_name.split(' ')[0][0].toUpperCase() + w.full_name.split(' ')[1][0].toUpperCase(),
         payments: w.workersPayments,
+        sold: w.sold || 0,
     }))
 }
 
