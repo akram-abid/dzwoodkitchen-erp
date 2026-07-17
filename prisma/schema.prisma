@@ -203,6 +203,13 @@ model WorkersPayments {
   worker   workers @relation(fields: [workerId], references: [id])
 }
 
+// for tracking month-end tasks (updating solds)
+model SystemConfig {
+  id         String   @id @default("soldUpdate")
+  lastUpdate String
+  updatedAt  DateTime @updatedAt
+}
+
 enum AttendanceStatus {
   PRESENT
   ABSENT

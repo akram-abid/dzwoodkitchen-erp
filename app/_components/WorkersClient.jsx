@@ -2225,3 +2225,10 @@ export default function WorkersApp({ workersData, orders = [] }) {
     </div>
   );
 }
+
+
+// export functions for using them in services: 
+export {
+  getMonthlyEarnings,
+  getMonthlyPayments
+}
