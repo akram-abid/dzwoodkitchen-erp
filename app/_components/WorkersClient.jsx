@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, memo, useRef, useEffect } from "react";
 // for attendance functionalities
-import { batchUpdateAttendance, createTimeEntry, updateTimeEntry } from "@/lib/api_helpers/workers.js";
+import { batchUpdateAttendance, createTimeEntry, updateTimeEntry, deleteTimeEntryApiCall } from "@/lib/api_helpers/workers.js";
 import useAttendanceBatchUpdates from "../../hooks/useAttendanceBatchUpdates";
 
 
@@ -445,8 +445,10 @@ const ATTENDANCE_LABELS = {
 };
 
 /* ─── Helpers ─── */
-const formatDate = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const formatDate = (d) => {
+  if (typeof d === "string") return d;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const TODAY = formatDate(new Date());
 const CURRENT_YEAR = new Date().getFullYear();
@@ -1508,7 +1510,7 @@ const DetailScreen = memo(function DetailScreen({
                                   <Icons.edit />
                                 </button>
                                 <button
-                                  onClick={() => onDeleteTimeEntry(e.date)}
+                                  onClick={() => onDeleteTimeEntry(e.id)}
                                   style={{ color: "var(--stage-contract)" }}
                                 >
                                   <Icons.trash />
@@ -2028,13 +2030,21 @@ export default function WorkersApp({ workersData, orders = [] }) {
       setWorkers((prev) =>
         prev.map((w) => {
           if (w.id !== selectedId) return w;
-          const exists = w.timeEntries?.findIndex((e) => e.id === editingEntry.id);
           let newEntries = w.timeEntries ? [...w.timeEntries] : [];
-          if (exists >= 0) newEntries[exists] = entry;
-          else newEntries.push(entry);
+
+          if (editingEntry) {
+            // Update: find by id
+            const exists = newEntries.findIndex((e) => e.id === editingEntry.id);
+            if (exists >= 0) newEntries[exists] = result.data;
+          } else {
+            // Create: push new entry
+            newEntries.push(result.data);
+          }
+
           return { ...w, timeEntries: newEntries };
-        }),
+        })
       );
+
       setShowTimeEntryModal(false);
       setEditingEntry(null);
 
@@ -2043,12 +2053,26 @@ export default function WorkersApp({ workersData, orders = [] }) {
     } finally {
       setIsSubmitting(false);
     }
-
-
   }, [selectedId, editingEntry]);
 
-  const deleteTimeEntry = useCallback((date) => {
-    setWorkers((prev) => prev.map((w) => w.id !== selectedId ? w : { ...w, timeEntries: w.timeEntries?.filter((e) => e.date !== date) }));
+
+  const deleteTimeEntry = useCallback(async (timeEntryId) => {
+
+    try {
+      await deleteTimeEntryApiCall(selectedId, timeEntryId);
+
+      setWorkers((prev) =>
+        prev.map((w) => {
+          if (w.id !== selectedId) return w;
+          return {
+            ...w,
+            timeEntries: w.timeEntries?.filter((e) => e.id !== timeEntryId),
+          };
+        })
+      );
+    } catch (error) {
+      console.error("Failed to delete:", error);
+    }
   }, [selectedId]);
 
   const addPayment = useCallback((payment) => {

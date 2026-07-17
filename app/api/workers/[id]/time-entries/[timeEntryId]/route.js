@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { updateTimeEntry } from "@/app/services/workersServices";
+import { deleteTimeEntry } from "../../../../../services/workersServices";
 
-// PUT /api/workers/id/time-entries/timeEntryId
+// PUT /api/workers/id/time-entries/timeEntryId --update
 export async function PUT(request, { params }) {
     try {
         const { id, timeEntryId } = await params;
@@ -15,6 +16,23 @@ export async function PUT(request, { params }) {
         console.error("API Error:", error);
         return NextResponse.json(
             { error: "Failed to update time entry" },
+            { status: 500 }
+        );
+    }
+}
+
+// DELETE /api/workers/[id]/time-entries/timeEntryId
+
+export async function DELETE(request, { params }) {
+    try {
+        const { timeEntryId } = await params;
+
+        await deleteTimeEntry(timeEntryId)
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        return NextResponse.json(
+            { error: "Failed to delete time entry" },
             { status: 500 }
         );
     }

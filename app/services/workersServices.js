@@ -51,8 +51,15 @@ async function updateTimeEntry(timeEntryId, data) {
     });
 }
 
+async function deleteTimeEntry(timeEntryId) {
+    return await prisma.timeEntries.delete({
+        where: { id: Number(timeEntryId) },
+    });
+}
+
 export {
     getAllWorkers,
     createTimeEntry,
-    updateTimeEntry
+    updateTimeEntry,
+    deleteTimeEntry
 }
