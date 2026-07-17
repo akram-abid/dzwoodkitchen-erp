@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, memo, useRef, useEffect } from "react";
 // for attendance functionalities
-import { batchUpdateAttendance, createTimeEntry, updateTimeEntry, deleteTimeEntryApiCall } from "@/lib/api_helpers/workers.js";
+import { batchUpdateAttendance, createTimeEntry, updateTimeEntry, deleteTimeEntryApiCall, createPayment } from "@/lib/api_helpers/workers.js";
 import useAttendanceBatchUpdates from "../../hooks/useAttendanceBatchUpdates";
 
 
@@ -2078,10 +2078,26 @@ export default function WorkersApp({ workersData, orders = [] }) {
     }
   }, [selectedId]);
 
-  const addPayment = useCallback((payment) => {
-    setWorkers((prev) => prev.map((w) => w.id !== selectedId ? w : { ...w, payments: [...(w.payments || []), { ...payment, id: `P-${Date.now()}` }] }));
-    setShowPaymentModal(false);
+  const addPayment = useCallback(async (payment) => {
+    try {
+      const result = await createPayment(selectedId, payment);
+
+      setWorkers((prev) =>
+        prev.map((w) => {
+          if (w.id !== selectedId) return w;
+          return {
+            ...w,
+            payments: [...(w.payments || []), result.data],
+          };
+        })
+      );
+
+      setShowPaymentModal(false);
+    } catch (error) {
+      console.error("Failed to add payment:", error);
+    }
   }, [selectedId]);
+
 
   const deletePayment = useCallback((pid) => {
     setWorkers((prev) => prev.map((w) => w.id !== selectedId ? w : { ...w, payments: w.payments?.filter((p) => p.id !== pid) }));

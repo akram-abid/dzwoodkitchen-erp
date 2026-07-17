@@ -60,9 +60,24 @@ async function deleteTimeEntry(timeEntryId) {
     });
 }
 
+
+async function createPayment(workerId, data) {
+    const { date, amount, note } = data;
+
+    return await prisma.workersPayments.create({
+        data: {
+            workerId: Number(workerId),
+            amount,
+            date: new Date(date),
+            note: note || "",
+        },
+    });
+}
+
 export {
     getAllWorkers,
     createTimeEntry,
     updateTimeEntry,
-    deleteTimeEntry
+    deleteTimeEntry,
+    createPayment
 }
