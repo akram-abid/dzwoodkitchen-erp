@@ -9,7 +9,7 @@ export async function POST(request, { params }) {
     try {
         const entry = await createTimeEntry(id, body);
 
-        return NextResponse.json({ success: true, data: entry });
+        return NextResponse.json({ success: true, data: { ...entry, id: entry.id } });
     } catch (err) {
 
         return NextResponse.json(

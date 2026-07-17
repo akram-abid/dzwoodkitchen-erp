@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, memo, useRef, useEffect } from "react";
 // for attendance functionalities
-import { batchUpdateAttendance, createTimeEntry } from "@/lib/api_helpers/workers.js";
+import { batchUpdateAttendance, createTimeEntry, updateTimeEntry } from "@/lib/api_helpers/workers.js";
 import useAttendanceBatchUpdates from "../../hooks/useAttendanceBatchUpdates";
 
 
@@ -646,7 +646,7 @@ MonthNav.displayName = "MonthNav";
 
 
 /* ─── Forms ─── */
-function TimeEntryForm({ initial, existingDates = [], onSave, onCancel }) {
+function TimeEntryForm({ initial, existingDates = [], onSave, onCancel, isSubmitting }) {
   const [date, setDate] = useState(initial?.date || formatDate(new Date()));
   const [clockIn, setClockIn] = useState(initial?.clockIn || "08:00");
   const [clockOut, setClockOut] = useState(initial?.clockOut || "17:00");
@@ -705,7 +705,8 @@ function TimeEntryForm({ initial, existingDates = [], onSave, onCancel }) {
         <button type="button" onClick={onCancel} className="flex-1 text-base font-medium py-3 rounded-xl"
           style={{ background: "var(--surface-2)", color: "var(--ink)", border: "1px solid var(--border)" }}>Cancel</button>
         <button type="submit" disabled={dateTaken} className="flex-1 text-base font-bold py-3 rounded-xl text-white disabled:opacity-40"
-          style={{ background: "var(--stage-completed)" }}>Save</button>
+          disabled={isSubmitting}
+          style={{ background: "var(--stage-completed)" }}>{isSubmitting ? "Saving" : "Save"}</button>
       </div>
     </form>
   );
@@ -1995,6 +1996,9 @@ export default function WorkersApp({ workersData, orders = [] }) {
     [selected, vKey, orders],
   );
 
+  /* ─── laoding states ─── */
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   /* ─── Handlers ─── */
   const openWorker = useCallback((id) => {
     setSelectedId(id);
@@ -2011,12 +2015,20 @@ export default function WorkersApp({ workersData, orders = [] }) {
   }, []);
 
   const addTimeEntry = useCallback(async (entry) => {
+    setIsSubmitting(true);
     try {
-      const result = await createTimeEntry(selectedId, entry);
+      let result;
+
+      if (editingEntry) {
+        result = await updateTimeEntry(selectedId, editingEntry.id, entry);
+      } else {
+        result = await createTimeEntry(selectedId, entry);
+      }
+
       setWorkers((prev) =>
         prev.map((w) => {
           if (w.id !== selectedId) return w;
-          const exists = w.timeEntries?.findIndex((e) => e.date === entry.date);
+          const exists = w.timeEntries?.findIndex((e) => e.id === editingEntry.id);
           let newEntries = w.timeEntries ? [...w.timeEntries] : [];
           if (exists >= 0) newEntries[exists] = entry;
           else newEntries.push(entry);
@@ -2028,10 +2040,12 @@ export default function WorkersApp({ workersData, orders = [] }) {
 
     } catch (err) {
       console.error("Failed to save time entry:", err);
+    } finally {
+      setIsSubmitting(false);
     }
 
 
-  }, [selectedId]);
+  }, [selectedId, editingEntry]);
 
   const deleteTimeEntry = useCallback((date) => {
     setWorkers((prev) => prev.map((w) => w.id !== selectedId ? w : { ...w, timeEntries: w.timeEntries?.filter((e) => e.date !== date) }));
@@ -2132,6 +2146,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
               existingDates={(selected.timeEntries || []).map((e) => e.date).filter((d) => d !== editingEntry?.date)}
               onSave={addTimeEntry}
               onCancel={() => { setShowTimeEntryModal(false); setEditingEntry(null); }}
+              isSubmitting={isSubmitting}
             />
           </div>
         </div>
