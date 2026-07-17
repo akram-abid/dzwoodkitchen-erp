@@ -660,7 +660,6 @@ function TimeEntryForm({ initial, existingDates = [], onSave, onCancel, isSubmit
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    console.log(date, clockIn, clockOut)
 
     if (dateTaken) return;
     onSave({ date: new Date(date), clockIn, clockOut, extraHours: parseFloat(extraHours) || 0, extraNote });
@@ -2027,18 +2026,22 @@ export default function WorkersApp({ workersData, orders = [] }) {
         result = await createTimeEntry(selectedId, entry);
       }
 
+      // Convert date to Date object
+      const formattedData = {
+        ...result.data,
+        date: new Date(result.data.date)
+      };
+
       setWorkers((prev) =>
         prev.map((w) => {
           if (w.id !== selectedId) return w;
           let newEntries = w.timeEntries ? [...w.timeEntries] : [];
 
           if (editingEntry) {
-            // Update: find by id
             const exists = newEntries.findIndex((e) => e.id === editingEntry.id);
-            if (exists >= 0) newEntries[exists] = result.data;
+            if (exists >= 0) newEntries[exists] = formattedData;
           } else {
-            // Create: push new entry
-            newEntries.push(result.data);
+            newEntries.push(formattedData);
           }
 
           return { ...w, timeEntries: newEntries };
