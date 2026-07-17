@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, memo, useRef, useEffect } from "react";
 // for attendance functionalities
-import { batchUpdateAttendance, createTimeEntry, updateTimeEntry, deleteTimeEntryApiCall, createPayment } from "@/lib/api_helpers/workers.js";
+import { batchUpdateAttendance, createTimeEntry, updateTimeEntry, deleteTimeEntryApiCall, createPayment, deletePaymentApiCall } from "@/lib/api_helpers/workers.js";
 import useAttendanceBatchUpdates from "../../hooks/useAttendanceBatchUpdates";
 
 
@@ -2099,8 +2099,23 @@ export default function WorkersApp({ workersData, orders = [] }) {
   }, [selectedId]);
 
 
-  const deletePayment = useCallback((pid) => {
-    setWorkers((prev) => prev.map((w) => w.id !== selectedId ? w : { ...w, payments: w.payments?.filter((p) => p.id !== pid) }));
+  const deletePayment = useCallback(async (paymentId) => {
+
+    try {
+      await deletePaymentApiCall(selectedId, paymentId);
+
+      setWorkers((prev) =>
+        prev.map((w) => {
+          if (w.id !== selectedId) return w;
+          return {
+            ...w,
+            payments: w.payments?.filter((p) => p.id !== paymentId),
+          };
+        })
+      );
+    } catch (error) {
+      console.error("Failed to delete payment:", error);
+    }
   }, [selectedId]);
 
   const goPrevMonth = useCallback(() => {

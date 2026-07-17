@@ -74,10 +74,17 @@ async function createPayment(workerId, data) {
     });
 }
 
+async function deletePayment(paymentId) {
+    return await prisma.workersPayments.delete({
+        where: { id: Number(paymentId) },
+    });
+}
+
 export {
     getAllWorkers,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
-    createPayment
+    createPayment,
+    deletePayment
 }
