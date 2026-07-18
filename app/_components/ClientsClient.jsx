@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { createClient } from '../../lib/api_helpers/clients';
 
 /* ─── Reusable UI ─── */
 const StageBadge = ({ stage, size = 'sm', custom }) => {
@@ -222,6 +223,7 @@ export default function ClientsClient({ clientsData = [] }) {
   const selected = clients.find(c => c.id === selectedId);
 
   const filtered = useMemo(() => {
+
     return clients.filter(c => {
       const haystack = `${c.id} ${c.name} ${c.email} ${c.phone} ${c.city}`.toLowerCase();
       return haystack.includes(search.toLowerCase()) &&
@@ -244,24 +246,29 @@ export default function ClientsClient({ clientsData = [] }) {
     setTimeout(() => setCopiedId(null), 1200);
   };
 
-  const handleCreateClient = () => {
+  const handleCreateClient = async () => {
     if (!form.name.trim()) return setFormError('Name is required');
     if (!form.phone.trim()) return setFormError('Phone is required');
     setFormError('');
-    const nextId = `CLT-${String(clients.length + 1).padStart(3, '0')}`;
-    const newClient = {
-      ...form,
-      id: nextId,
-      name: form.name.trim(),
-      phone: form.phone.trim(),
-      email: form.email.trim() || '—',
-      joined: new Date().toISOString().slice(0, 10),
-      orders: [],
-    };
-    setClients(prev => [newClient, ...prev]);
-    setSelectedId(nextId);
-    setForm(emptyForm);
-    setShowNewModal(false);
+    // const newClient = {
+    //   ...form,
+    //   id: nextId,
+    //   name: form.name.trim(),
+    //   phone: form.phone.trim(),
+    //   email: form.email.trim() || '—',
+    //   joined: new Date().toISOString().slice(0, 10),
+    //   orders: [],
+    // };
+
+    try {
+      const newClient = await createClient(form);
+      setClients(prev => [newClient, ...prev]);
+      setSelectedId(newClient.id);
+      setShowNewModal(false);
+      setForm(emptyForm);
+    } catch (error) {
+      setFormError(error.message);
+    }
   };
 
   /* ─── Right panel content (no outer wrapper so it can be reused on mobile) ─── */
