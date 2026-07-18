@@ -30,13 +30,31 @@ model checklist_items {
   @@index([order_id], map: "idx_checklist_items_order_id")
 }
 
+enum client_type {
+  Individual
+  Company
+}
+
+enum client_status {
+  VIP
+  ACTIVE
+  NEW
+  INACTIVE
+}
+
 model clients {
-  id         Int      @id @default(autoincrement())
-  full_name  String   @db.VarChar(150)
-  phone      String?  @db.VarChar(30)
-  created_at DateTime @default(now()) @db.Timestamp(6)
-  updated_at DateTime @default(now()) @db.Timestamp(6)
-  orders     orders[]
+  id       Int           @id @default(autoincrement())
+  name     String
+  type     client_type // "Individual" | "Company"
+  status   client_status // "VIP" | "ACTIVE" | "NEW" | "INACTIVE"
+  phone    String
+  email    String?
+  city     String?
+  district String?
+  address  String?
+  notes    String?
+
+  orders orders[]
 }
 
 model delivery_notes {

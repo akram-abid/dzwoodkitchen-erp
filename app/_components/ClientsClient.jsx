@@ -5,19 +5,19 @@ import { useState, useMemo } from 'react';
 /* ─── Reusable UI ─── */
 const StageBadge = ({ stage, size = 'sm', custom }) => {
   const map = {
-    QUOTE:        { color: 'var(--ink-muted)',          label: 'Quote' },
-    IN_PROGRESS:  { color: 'var(--accent)',             label: 'In Progress' },
-    READY:        { color: 'var(--stage-ready)',        label: 'Ready' },
-    DELIVERED:    { color: 'var(--stage-completed)',    label: 'Delivered' },
-    CANCELLED:    { color: 'var(--stage-contract)',     label: 'Cancelled' },
-    NEW:          { color: '#3b82f6',                   label: 'New' },
-    ACTIVE:       { color: 'var(--stage-completed)',    label: 'Active' },
-    VIP:          { color: 'var(--accent)',             label: 'VIP' },
-    INACTIVE:     { color: 'var(--ink-muted)',          label: 'Inactive' },
-    IN_STOCK:     { color: 'var(--stage-completed)',    label: 'In Stock' },
-    LOW_STOCK:    { color: 'var(--accent)',             label: 'Low Stock' },
-    OUT_OF_STOCK: { color: 'var(--stage-contract)',     label: 'Out of Stock' },
-    ORDERED:      { color: 'var(--stage-ready)',        label: 'Ordered' },
+    QUOTE: { color: 'var(--ink-muted)', label: 'Quote' },
+    IN_PROGRESS: { color: 'var(--accent)', label: 'In Progress' },
+    READY: { color: 'var(--stage-ready)', label: 'Ready' },
+    DELIVERED: { color: 'var(--stage-completed)', label: 'Delivered' },
+    CANCELLED: { color: 'var(--stage-contract)', label: 'Cancelled' },
+    NEW: { color: '#3b82f6', label: 'New' },
+    ACTIVE: { color: 'var(--stage-completed)', label: 'Active' },
+    VIP: { color: 'var(--accent)', label: 'VIP' },
+    INACTIVE: { color: 'var(--ink-muted)', label: 'Inactive' },
+    IN_STOCK: { color: 'var(--stage-completed)', label: 'In Stock' },
+    LOW_STOCK: { color: 'var(--accent)', label: 'Low Stock' },
+    OUT_OF_STOCK: { color: 'var(--stage-contract)', label: 'Out of Stock' },
+    ORDERED: { color: 'var(--stage-ready)', label: 'Ordered' },
   };
   const s = custom || map[stage] || { color: 'var(--ink-muted)', label: stage };
   return (
@@ -37,24 +37,24 @@ const StageBadge = ({ stage, size = 'sm', custom }) => {
 
 /* ─── Icons ─── */
 const Icons = {
-  search: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
-  x: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
-  more: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>,
-  plus: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
-  edit: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>,
-  phone: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
-  mail: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>,
-  pin: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>,
-  user: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-  building: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>,
-  inbox: () => <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>,
-  arrowRight: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>,
-  cal: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>,
-  tag: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.6 2.6 0 0 0 3.678 0l5.426-5.426a2.6 2.6 0 0 0 0-3.678z"/><circle cx="7.5" cy="7.5" r=".5"/></svg>,
-  alert: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>,
-  back: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>,
-  copy: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>,
-  check: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  search: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>,
+  x: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>,
+  more: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>,
+  plus: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>,
+  edit: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>,
+  phone: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>,
+  mail: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>,
+  pin: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>,
+  user: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>,
+  building: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" /><path d="M9 22v-4h6v4" /><path d="M8 6h.01" /><path d="M16 6h.01" /><path d="M12 6h.01" /><path d="M12 10h.01" /><path d="M12 14h.01" /><path d="M16 10h.01" /><path d="M16 14h.01" /><path d="M8 10h.01" /><path d="M8 14h.01" /></svg>,
+  inbox: () => <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></svg>,
+  arrowRight: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>,
+  cal: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>,
+  tag: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.6 2.6 0 0 0 3.678 0l5.426-5.426a2.6 2.6 0 0 0 0-3.678z" /><circle cx="7.5" cy="7.5" r=".5" /></svg>,
+  alert: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>,
+  back: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg>,
+  copy: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>,
+  check: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
 };
 
 /* ─── Data ─── */
@@ -66,8 +66,8 @@ const SEED_CLIENTS = [
     joined: '2024-03-12', notes: 'Prefers walnut finish. Always pays on delivery.',
     orders: [
       { id: '#2042', date: '2026-07-05', deliveryDate: '2026-07-25', status: 'IN_PROGRESS', items: 4, total: 285000, worker: 'R. Said', description: 'Kitchen — walnut finish, quartz countertop' },
-      { id: '#2038', date: '2026-06-15', deliveryDate: '2026-07-02', status: 'DELIVERED',  items: 2, total:  95000, worker: 'A. Benali', description: 'Bedroom wardrobe + side tables' },
-      { id: '#2025', date: '2026-04-20', deliveryDate: '2026-05-15', status: 'DELIVERED',  items: 6, total: 420000, worker: 'R. Said', description: 'Full living room built-ins' },
+      { id: '#2038', date: '2026-06-15', deliveryDate: '2026-07-02', status: 'DELIVERED', items: 2, total: 95000, worker: 'A. Benali', description: 'Bedroom wardrobe + side tables' },
+      { id: '#2025', date: '2026-04-20', deliveryDate: '2026-05-15', status: 'DELIVERED', items: 6, total: 420000, worker: 'R. Said', description: 'Full living room built-ins' },
     ],
   },
   {
@@ -77,7 +77,7 @@ const SEED_CLIENTS = [
     joined: '2025-01-08', notes: 'Commercial contract — net 30.',
     orders: [
       { id: '#2041', date: '2026-07-04', deliveryDate: '2026-07-30', status: 'IN_PROGRESS', items: 8, total: 680000, worker: 'R. Said', description: 'Bar counter + back shelving' },
-      { id: '#2030', date: '2026-05-12', deliveryDate: '2026-06-10', status: 'DELIVERED',   items: 5, total: 410000, worker: 'K. Amrani', description: 'Dining tables ×3 + host stand' },
+      { id: '#2030', date: '2026-05-12', deliveryDate: '2026-06-10', status: 'DELIVERED', items: 5, total: 410000, worker: 'K. Amrani', description: 'Dining tables ×3 + host stand' },
     ],
   },
   {
@@ -86,8 +86,8 @@ const SEED_CLIENTS = [
     city: 'Boumerdès', district: 'Boumerdès Centre', address: 'Cité 200 Logts, Bât. 4',
     joined: '2025-08-22', notes: '',
     orders: [
-      { id: '#2040', date: '2026-06-25', deliveryDate: '2026-07-18', status: 'READY',       items: 3, total: 145000, worker: 'M. Draoui', description: 'Office desk + bookshelf' },
-      { id: '#2028', date: '2026-03-10', deliveryDate: '2026-04-05', status: 'DELIVERED',   items: 2, total:  78000, worker: 'A. Benali', description: 'Bathroom vanity' },
+      { id: '#2040', date: '2026-06-25', deliveryDate: '2026-07-18', status: 'READY', items: 3, total: 145000, worker: 'M. Draoui', description: 'Office desk + bookshelf' },
+      { id: '#2028', date: '2026-03-10', deliveryDate: '2026-04-05', status: 'DELIVERED', items: 2, total: 78000, worker: 'A. Benali', description: 'Bathroom vanity' },
     ],
   },
   {
@@ -97,8 +97,8 @@ const SEED_CLIENTS = [
     joined: '2023-11-04', notes: 'Ongoing multi-year contract. 6 rooms renovated per year.',
     orders: [
       { id: '#2035', date: '2026-06-20', deliveryDate: '2026-08-15', status: 'IN_PROGRESS', items: 12, total: 1850000, worker: 'R. Said', description: 'Suite renovation — phase 2' },
-      { id: '#2018', date: '2026-02-14', deliveryDate: '2026-03-30', status: 'DELIVERED',   items: 10, total: 1620000, worker: 'K. Amrani', description: 'Suite renovation — phase 1' },
-      { id: '#2005', date: '2025-10-08', deliveryDate: '2025-11-25', status: 'DELIVERED',   items:  8, total: 1280000, worker: 'R. Said', description: 'Lobby reception desk' },
+      { id: '#2018', date: '2026-02-14', deliveryDate: '2026-03-30', status: 'DELIVERED', items: 10, total: 1620000, worker: 'K. Amrani', description: 'Suite renovation — phase 1' },
+      { id: '#2005', date: '2025-10-08', deliveryDate: '2025-11-25', status: 'DELIVERED', items: 8, total: 1280000, worker: 'R. Said', description: 'Lobby reception desk' },
     ],
   },
   {
@@ -136,7 +136,7 @@ const SEED_CLIENTS = [
     joined: '2025-06-01', notes: 'Refers clients to us regularly.',
     orders: [
       { id: '#2037', date: '2026-06-18', deliveryDate: '2026-07-20', status: 'IN_PROGRESS', items: 5, total: 320000, worker: 'R. Said', description: 'Custom reception furniture' },
-      { id: '#2029', date: '2026-04-02', deliveryDate: '2026-05-10', status: 'DELIVERED',   items: 3, total: 175000, worker: 'K. Amrani', description: 'Conference table' },
+      { id: '#2029', date: '2026-04-02', deliveryDate: '2026-05-10', status: 'DELIVERED', items: 3, total: 175000, worker: 'K. Amrani', description: 'Conference table' },
     ],
   },
 ];
@@ -204,8 +204,8 @@ const CopyButton = ({ value, id, copiedId, onCopy, className = '', size = 12 }) 
 );
 
 /* ─── Main ─── */
-export default function ClientsClient() {
-  const [clients, setClients] = useState(SEED_CLIENTS);
+export default function ClientsClient({ clientsData = [] }) {
+  const [clients, setClients] = useState(clientsData);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [selectedId, setSelectedId] = useState(null);
@@ -239,7 +239,7 @@ export default function ClientsClient() {
 
   const handleCopy = (value, id) => {
     if (!value || value === '—') return;
-    if (navigator.clipboard) navigator.clipboard.writeText(value).catch(() => {});
+    if (navigator.clipboard) navigator.clipboard.writeText(value).catch(() => { });
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 1200);
   };
