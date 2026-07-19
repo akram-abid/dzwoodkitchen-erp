@@ -24,5 +24,28 @@ export async function createClient(data) {
             address: data.address || null,
             notes: data.notes || null,
         },
+        include: {
+            orders: true
+        }
+    });
+}
+
+export async function updateClient(clientId, data) {
+    return await prisma.clients.update({
+        where: { id: clientId },
+        data: {
+            name: data.name,
+            type: data.type,
+            status: data.status,
+            phone: data.phone,
+            email: data.email || null,
+            city: data.city || null,
+            district: data.district || null,
+            address: data.address || null,
+            notes: data.notes || null,
+        },
+        include: {
+            orders: true
+        }
     });
 }

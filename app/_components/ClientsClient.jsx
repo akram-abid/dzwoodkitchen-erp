@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { createClient } from '../../lib/api_helpers/clients';
+import { useState, useMemo, useEffect } from 'react';
+import { createClient, updateClient } from '../../lib/api_helpers/clients';
 
 /* ─── Reusable UI ─── */
 const StageBadge = ({ stage, size = 'sm', custom }) => {
@@ -187,7 +187,10 @@ const inputStyle = {
 const initials = (name) =>
   name.split(' ').filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase();
 
-const formatDZD = (n) => `${n.toLocaleString()} DZD`;
+const formatDZD = (n) => {
+  if (n === undefined || n === null || isNaN(n)) return '0 DZD';
+  return `${n.toLocaleString()} DZD`;
+};
 
 /* ─── Copy button ─── */
 const CopyButton = ({ value, id, copiedId, onCopy, className = '', size = 12 }) => (
@@ -213,6 +216,15 @@ export default function ClientsClient({ clientsData = [] }) {
   const [copiedId, setCopiedId] = useState(null);
 
   const [showNewModal, setShowNewModal] = useState(false);
+  const [editingClient, setEditingClient] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  const openEdit = (client) => {
+    setEditingClient(client);
+    setForm(client);
+    setShowEditModal(true);
+  };
+
   const emptyForm = {
     name: '', type: 'Individual', status: 'NEW',
     phone: '', email: '', city: '', district: '', address: '', notes: '',
@@ -221,6 +233,11 @@ export default function ClientsClient({ clientsData = [] }) {
   const [formError, setFormError] = useState('');
 
   const selected = clients.find(c => c.id === selectedId);
+
+
+  useEffect(() => {
+    setClients(clientsData);
+  }, [clientsData]);
 
   const filtered = useMemo(() => {
 
@@ -250,21 +267,29 @@ export default function ClientsClient({ clientsData = [] }) {
     if (!form.name.trim()) return setFormError('Name is required');
     if (!form.phone.trim()) return setFormError('Phone is required');
     setFormError('');
-    // const newClient = {
-    //   ...form,
-    //   id: nextId,
-    //   name: form.name.trim(),
-    //   phone: form.phone.trim(),
-    //   email: form.email.trim() || '—',
-    //   joined: new Date().toISOString().slice(0, 10),
-    //   orders: [],
-    // };
 
     try {
       const newClient = await createClient(form);
       setClients(prev => [newClient, ...prev]);
       setSelectedId(newClient.id);
       setShowNewModal(false);
+      setForm(emptyForm);
+    } catch (error) {
+      setFormError(error.message);
+    }
+  };
+
+  const handleEditClient = async () => {
+    if (!form.name.trim()) return setFormError('Name is required');
+    if (!form.phone.trim()) return setFormError('Phone is required');
+    setFormError('');
+
+    try {
+      const updated = await updateClient(editingClient.id, form);
+      setClients(prev => prev.map(c => c.id === updated.id ? updated : c));
+      setSelectedId(updated.id);
+      setShowEditModal(false);
+      setEditingClient(null);
       setForm(emptyForm);
     } catch (error) {
       setFormError(error.message);
@@ -285,9 +310,9 @@ export default function ClientsClient({ clientsData = [] }) {
       );
     }
 
-    const totalSpent = selected.orders.reduce((s, o) => s + o.total, 0);
-    const lastOrder = selected.orders.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
-    const openOrders = selected.orders.filter(o => ['QUOTE', 'IN_PROGRESS', 'READY'].includes(o.status));
+    const totalSpent = selected?.orders?.reduce((s, o) => s + o.total, 0);
+    const lastOrder = selected?.orders?.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
+    const openOrders = selected?.orders?.filter(o => ['QUOTE', 'IN_PROGRESS', 'READY'].includes(o.status));
 
     return (
       <div>
@@ -298,39 +323,39 @@ export default function ClientsClient({ clientsData = [] }) {
               className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-sm sm:text-base font-bold shrink-0"
               style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
             >
-              {initials(selected.name)}
+              {initials(selected?.name)}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-xs font-medium" style={{ color: 'var(--ink-muted)' }}>{selected.id}</span>
-                <StageBadge stage={selected.status} />
+                <span className="text-xs font-medium" style={{ color: 'var(--ink-muted)' }}>{selected?.id}</span>
+                <StageBadge stage={selected?.status} />
                 <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--surface-2)', color: 'var(--ink-muted)' }}>
-                  {selected.type}
+                  {selected?.type}
                 </span>
               </div>
-              <h2 className="text-lg sm:text-xl font-semibold">{selected.name}</h2>
+              <h2 className="text-lg sm:text-xl font-semibold">{selected?.name}</h2>
 
               {/* Contact — phone on one line with copy */}
               <div className="mt-3 space-y-1.5">
                 <ContactRow
                   icon={<Icons.phone />}
-                  value={selected.phone}
-                  copyId={`detail-phone-${selected.id}`}
+                  value={selected?.phone}
+                  copyId={`detail-phone-${selected?.id}`}
                   copiedId={copiedId}
                   onCopy={handleCopy}
                 />
-                {selected.email !== '—' && (
+                {selected?.email !== '—' && (
                   <ContactRow
                     icon={<Icons.mail />}
-                    value={selected.email}
-                    copyId={`detail-email-${selected.id}`}
+                    value={selected?.email}
+                    copyId={`detail-email-${selected?.id}`}
                     copiedId={copiedId}
                     onCopy={handleCopy}
                   />
                 )}
                 <div className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--ink-muted)' }}>
                   <Icons.pin />
-                  <span className="truncate">{selected.city}{selected.district ? `, ${selected.district}` : ''}</span>
+                  <span className="truncate">{selected?.city}{selected.district ? `, ${selected?.district}` : ''}</span>
                 </div>
               </div>
             </div>
@@ -338,14 +363,18 @@ export default function ClientsClient({ clientsData = [] }) {
 
           <div className="flex gap-2 mt-4">
             <button className="btn-primary text-sm px-4 flex-1 sm:flex-none"><Icons.plus /> New Order</button>
-            <button className="btn-ghost text-sm px-4 border flex-1 sm:flex-none" style={{ borderColor: 'var(--border)' }}><Icons.edit /> Edit</button>
+            <button className="btn-ghost text-sm px-4 border flex-1 sm:flex-none"
+              style={{ borderColor: 'var(--border)' }}
+              onClick={() => openEdit(selected)}
+            >
+              <Icons.edit /> Edit</button>
           </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-5 sm:p-6" style={{ borderBottom: '1px solid var(--border)' }}>
-          <Stat label="Total Orders" value={selected.orders.length} icon={Icons.tag} />
-          <Stat label="Open Orders" value={openOrders.length} accent={openOrders.length > 0 ? 'var(--accent)' : undefined} icon={Icons.tag} />
+          <Stat label="Total Orders" value={selected?.orders?.length} icon={Icons.tag} />
+          <Stat label="Open Orders" value={openOrders?.length} accent={openOrders?.length > 0 ? 'var(--accent)' : undefined} icon={Icons.tag} />
           <Stat label="Total Spent" value={formatDZD(totalSpent)} icon={Icons.tag} />
           <Stat label="Last Order" value={lastOrder?.date || '—'} icon={Icons.cal} />
         </div>
@@ -356,17 +385,17 @@ export default function ClientsClient({ clientsData = [] }) {
             <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--ink-muted)' }}>
               Order History
             </h3>
-            <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>{selected.orders.length} total</span>
+            <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>{selected?.orders?.length} total</span>
           </div>
 
-          {selected.orders.length === 0 ? (
+          {selected?.orders?.length === 0 ? (
             <div className="text-center py-12 rounded-lg" style={{ background: 'var(--bg)', border: '1px dashed var(--border)' }}>
               <p className="text-sm" style={{ color: 'var(--ink-muted)' }}>No orders yet for this client.</p>
               <button className="btn-primary text-xs mt-3"><Icons.plus /> Create First Order</button>
             </div>
           ) : (
             <div className="space-y-2">
-              {[...selected.orders].sort((a, b) => b.date.localeCompare(a.date)).map(o => (
+              {[...(selected?.orders ?? [])].sort((a, b) => b.date.localeCompare(a.date)).map(o => (
                 <div
                   key={o.id}
                   className="p-3 sm:p-4 rounded-lg flex items-center gap-3 sm:gap-4 panel-hover cursor-pointer"
@@ -404,11 +433,11 @@ export default function ClientsClient({ clientsData = [] }) {
         </div>
 
         {/* Notes */}
-        {selected.notes && (
+        {selected?.notes && (
           <div className="p-5 sm:p-6" style={{ borderTop: '1px solid var(--border)' }}>
             <h3 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--ink-muted)' }}>Notes</h3>
             <p className="text-sm p-3 rounded-lg" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
-              {selected.notes}
+              {selected?.notes}
             </p>
           </div>
         )}
@@ -496,7 +525,7 @@ export default function ClientsClient({ clientsData = [] }) {
             <tbody>
               {filtered.map(c => {
                 const isSel = selectedId === c.id;
-                const totalSpent = c.orders.reduce((s, o) => s + o.total, 0);
+                const totalSpent = c.orders?.reduce((s, o) => s + o.total, 0);
                 return (
                   <tr
                     key={c.id}
@@ -543,7 +572,7 @@ export default function ClientsClient({ clientsData = [] }) {
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell"><StageBadge stage={c.status} /></td>
-                    <td className="px-4 py-3 text-right font-medium tabular-nums">{c.orders.length}</td>
+                    <td className="px-4 py-3 text-right font-medium tabular-nums">{c.orders?.length}</td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums hidden lg:table-cell whitespace-nowrap">{formatDZD(totalSpent)}</td>
                     <td className="px-4 py-3 text-center">
                       <button className="btn-ghost p-1" onClick={e => e.stopPropagation()}><Icons.more /></button>
@@ -588,7 +617,7 @@ export default function ClientsClient({ clientsData = [] }) {
               <Icons.back />
             </button>
             <span className="ml-2 text-sm font-semibold">Client Details</span>
-            <span className="ml-auto text-xs" style={{ color: 'var(--ink-muted)' }}>{selected.id}</span>
+            <span className="ml-auto text-xs" style={{ color: 'var(--ink-muted)' }}>{selected?.id}</span>
           </div>
           <div className="flex-1 overflow-y-auto">
             <RightPanelContent />
@@ -649,6 +678,121 @@ export default function ClientsClient({ clientsData = [] }) {
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                 placeholder="+213 ..."
                 className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full whitespace-nowrap"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="Email">
+              <input
+                value={form.email}
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="email@example.dz"
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="City">
+              <input
+                value={form.city}
+                onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                placeholder="Algiers, Oran, ..."
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="District">
+              <input
+                value={form.district}
+                onChange={e => setForm(f => ({ ...f, district: e.target.value }))}
+                placeholder="Hydra, Kouba, ..."
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="Full Address" hint="Optional">
+              <input
+                value={form.address}
+                onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                placeholder="Street, building, ..."
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="Notes" hint="Optional">
+              <textarea
+                value={form.notes}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Preferences, payment terms, ..."
+                rows={3}
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring resize-none w-full"
+                style={inputStyle}
+              />
+            </Field>
+          </div>
+
+          {formError && (
+            <div
+              className="mt-4 px-3 py-2 rounded-md text-xs flex items-center gap-2"
+              style={{ background: 'var(--stage-contract)15', color: 'var(--stage-contract)', border: '1px solid var(--stage-contract)40' }}
+            >
+              <Icons.alert /> {formError}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* ─── Edit Client Modal ─── */}
+      {showEditModal && editingClient && (
+        <Modal
+          title="Edit Client"
+          onClose={() => { setShowEditModal(false); setFormError(''); setForm(emptyForm); setEditingClient(null); }}
+          footer={
+            <>
+              <button onClick={() => { setShowEditModal(false); setFormError(''); setForm(emptyForm); setEditingClient(null); }} className="btn-ghost px-4 text-sm">Cancel</button>
+              <button onClick={handleEditClient} className="btn-primary px-4 text-sm"><Icons.edit /> Update</button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Client Name *">
+              <input
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Full name or company"
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="Type *">
+              <select
+                value={form.type}
+                onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                style={inputStyle}
+              >
+                <option>Individual</option>
+                <option>Company</option>
+              </select>
+            </Field>
+            <Field label="Status">
+              <select
+                value={form.status}
+                onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                style={inputStyle}
+              >
+                <option>NEW</option>
+                <option>ACTIVE</option>
+                <option>VIP</option>
+                <option>INACTIVE</option>
+              </select>
+            </Field>
+            <div />
+            <Field label="Phone *">
+              <input
+                value={form.phone}
+                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                placeholder="+213 ..."
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
                 style={inputStyle}
               />
             </Field>
