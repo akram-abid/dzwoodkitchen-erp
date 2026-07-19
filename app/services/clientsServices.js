@@ -49,3 +49,9 @@ export async function updateClient(clientId, data) {
         }
     });
 }
+
+export async function deleteClient(clientId) {
+    return await prisma.clients.delete({
+        where: { id: clientId },
+    });
+}

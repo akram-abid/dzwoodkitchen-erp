@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { createClient, updateClient } from '../../lib/api_helpers/clients';
+import { createClient, updateClient, deleteClient } from '../../lib/api_helpers/clients';
 
 /* ─── Reusable UI ─── */
 const StageBadge = ({ stage, size = 'sm', custom }) => {
@@ -56,6 +56,7 @@ const Icons = {
   back: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg>,
   copy: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>,
   check: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
+  trash: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>),
 };
 
 /* ─── Data ─── */
@@ -296,6 +297,20 @@ export default function ClientsClient({ clientsData = [] }) {
     }
   };
 
+  const handleDeleteClient = async (clientId) => {
+
+    try {
+      await deleteClient(clientId);
+      setClients(prev => prev.filter(c => c.id !== clientId));
+      if (selectedId === clientId) {
+        setSelectedId(clients[0]?.id || null);
+      }
+    } catch (error) {
+      console.error("Failed to delete client:", error);
+    }
+  };
+
+
   /* ─── Right panel content (no outer wrapper so it can be reused on mobile) ─── */
   const RightPanelContent = () => {
     if (!selected) {
@@ -368,7 +383,16 @@ export default function ClientsClient({ clientsData = [] }) {
               onClick={() => openEdit(selected)}
             >
               <Icons.edit /> Edit</button>
+            <button
+              className="btn-ghost text-sm px-4 border flex-1 sm:flex-none"
+              style={{ borderColor: 'var(--stage-contract)' }}
+              onClick={() => handleDeleteClient(selected.id)}
+            >
+              <Icons.trash /> Delete
+            </button>
           </div>
+
+
         </div>
 
         {/* Stats */}
@@ -574,9 +598,10 @@ export default function ClientsClient({ clientsData = [] }) {
                     <td className="px-4 py-3 hidden lg:table-cell"><StageBadge stage={c.status} /></td>
                     <td className="px-4 py-3 text-right font-medium tabular-nums">{c.orders?.length}</td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums hidden lg:table-cell whitespace-nowrap">{formatDZD(totalSpent)}</td>
-                    <td className="px-4 py-3 text-center">
+                    {/* dots btn */}
+                    {/* <td className="px-4 py-3 text-center">
                       <button className="btn-ghost p-1" onClick={e => e.stopPropagation()}><Icons.more /></button>
-                    </td>
+                    </td> */}
                   </tr>
                 );
               })}
