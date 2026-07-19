@@ -3,6 +3,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createClient, updateClient, deleteClient } from '../../lib/api_helpers/clients';
 
+// import order modal 
+import { OrderFormModal } from "./OrdersClient";
+
 /* ─── Reusable UI ─── */
 const StageBadge = ({ stage, size = 'sm', custom }) => {
   const map = {
@@ -220,7 +223,7 @@ const CopyButton = ({ value, id, copiedId, onCopy, className = '', size = 12 }) 
 );
 
 /* ─── Main ─── */
-export default function ClientsClient({ clientsData = [] }) {
+export default function ClientsClient({ clientsData = [], workersData = [] }) {
   const [clients, setClients] = useState(clientsData);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
@@ -230,6 +233,8 @@ export default function ClientsClient({ clientsData = [] }) {
   const [showNewModal, setShowNewModal] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+
 
   const openEdit = (client) => {
     setEditingClient(client);
@@ -393,7 +398,10 @@ export default function ClientsClient({ clientsData = [] }) {
           </div>
 
           <div className="flex gap-2 mt-4">
-            <button className="btn-primary text-sm px-4 flex-1 sm:flex-none"><Icons.plus /> New Order</button>
+            <button className="btn-primary text-sm px-4 flex-1 sm:flex-none"
+              onClick={() => setIsOrderModalOpen(true)}
+            ><Icons.plus /> New Order</button>
+
             <button className="btn-ghost text-sm px-4 border flex-1 sm:flex-none"
               style={{ borderColor: 'var(--border)' }}
               onClick={() => openEdit(selected)}
@@ -431,7 +439,9 @@ export default function ClientsClient({ clientsData = [] }) {
           {selected?.orders?.length === 0 ? (
             <div className="text-center py-12 rounded-lg" style={{ background: 'var(--bg)', border: '1px dashed var(--border)' }}>
               <p className="text-sm" style={{ color: 'var(--ink-muted)' }}>No orders yet for this client.</p>
-              <button className="btn-primary text-xs mt-3"><Icons.plus /> Create First Order</button>
+              <button className="btn-primary text-xs mt-3"
+                onClick={() => setIsOrderModalOpen(true)}
+              ><Icons.plus /> Create First Order</button>
             </div>
           ) : (
             <div className="space-y-2">
@@ -896,6 +906,34 @@ export default function ClientsClient({ clientsData = [] }) {
           )}
         </Modal>
       )}
+
+      {/* ─── New Order Modal ─── */}
+      <OrderFormModal
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        onSave={(newOrder) => {
+          setClients(prev => prev.map(c =>
+            c.id === selected.id
+              ? { ...c, orders: [...c.orders, newOrder] }
+              : c
+          ));
+          setIsOrderModalOpen(false);
+        }}
+        initialData={null}
+        existingClients={
+          selected ? [
+            {
+              client: selected.name,
+              phone: selected.phone,
+              address: selected.address || '',
+              orderCount: selected.orders?.length || 0,
+              totalSpent: selected.orders?.reduce((s, o) => s + Number(o.total_amount || 0), 0) || 0
+            }
+          ] : []
+        }
+        workersList={workersData.map(w => w.full_name)}
+      />
+
     </div>
   );
 }

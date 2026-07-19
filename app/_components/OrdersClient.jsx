@@ -1052,25 +1052,25 @@ const toServerPayload = (order, { workerIdByName, clientIdByName } = {}) => ({
 
   delivery_notes:
     order.technical &&
-    (order.technical.truckDistance !== "" ||
-      order.technical.floor !== "" ||
-      (order.technical.fee !== "" && Number(order.technical.fee) > 0))
+      (order.technical.truckDistance !== "" ||
+        order.technical.floor !== "" ||
+        (order.technical.fee !== "" && Number(order.technical.fee) > 0))
       ? [
-          {
-            truck_distance_km:
-              order.technical.truckDistance === ""
-                ? null
-                : Number(order.technical.truckDistance),
+        {
+          truck_distance_km:
+            order.technical.truckDistance === ""
+              ? null
+              : Number(order.technical.truckDistance),
 
-            floor:
-              order.technical.floor === ""
-                ? null
-                : Number(order.technical.floor),
+          floor:
+            order.technical.floor === ""
+              ? null
+              : Number(order.technical.floor),
 
-            lift_cost:
-              order.technical.fee === "" ? 0 : Number(order.technical.fee) || 0,
-          },
-        ]
+          lift_cost:
+            order.technical.fee === "" ? 0 : Number(order.technical.fee) || 0,
+        },
+      ]
       : [],
 });
 
@@ -1991,17 +1991,17 @@ const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
         prev.map((r) =>
           r.id === row.id
             ? {
-                id: updated.id,
-                amount: Number(updated.amount) || amt,
-                date:
-                  (updated.payment_date &&
-                    new Date(updated.payment_date)
-                      .toISOString()
-                      .split("T")[0]) ||
-                  editDraft.payment_date ||
-                  r.date,
-                note: updated.note ?? editDraft.note ?? "",
-              }
+              id: updated.id,
+              amount: Number(updated.amount) || amt,
+              date:
+                (updated.payment_date &&
+                  new Date(updated.payment_date)
+                    .toISOString()
+                    .split("T")[0]) ||
+                editDraft.payment_date ||
+                r.date,
+              note: updated.note ?? editDraft.note ?? "",
+            }
             : r,
         ),
       );
@@ -2113,9 +2113,8 @@ const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
                       background: isEditing
                         ? "var(--accent-soft)"
                         : "rgba(16,185,129,0.08)",
-                      border: `1px solid ${
-                        isEditing ? "var(--accent)" : "rgba(16,185,129,0.25)"
-                      }`,
+                      border: `1px solid ${isEditing ? "var(--accent)" : "rgba(16,185,129,0.25)"
+                        }`,
                     }}
                   >
                     {isEditing ? (
@@ -2474,6 +2473,7 @@ const OrderFormModal = ({
   onSave,
   initialData = null,
   existingClients = [],
+  workersList = [],
 }) => {
   const [formData, setFormData] = useState({
     client: "",
@@ -2981,7 +2981,7 @@ const OrderFormModal = ({
                 onChange={(e) => handleChange("worker", e.target.value)}
               >
                 <option value="Unassigned">Unassigned</option>
-                {WORKERS_LIST.map((w) => (
+                {workersList.map((w) => (
                   <option key={w} value={w}>
                     {w}
                   </option>
@@ -3198,20 +3198,19 @@ const handlePrint = (order) => {
       <thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Dimensions</th></tr></thead>
       <tbody>
         ${(order.items || [])
-          .map(
-            (i) => `<tr>
+        .map(
+          (i) => `<tr>
           <td>${i.name}</td>
           <td style="text-align:right">${i.qty} ${i.unit}</td>
           <td style="text-align:right;font-family:monospace">${i.l > 0 || i.w > 0 || i.h > 0 ? `${i.l}cm × ${i.w}cm × ${i.h}cm` : "—"}</td>
         </tr>`,
-          )
-          .join("")}
+        )
+        .join("")}
         ${(order.items || []).length === 0 ? '<tr><td colspan="3" style="text-align:center;color:#888;padding:18px">No items listed.</td></tr>' : ""}
       </tbody>
     </table>
 
-    ${
-      (order.missingItems || []).length > 0
+    ${(order.missingItems || []).length > 0
         ? `
     <h2 class="danger">${blocking ? "🚫 BLOCKED — " : ""}Missing Parts (${order.missingItems.length})</h2>
     <div class="${blocking ? "blocked-box" : ""}">
@@ -3219,20 +3218,20 @@ const handlePrint = (order) => {
         <thead><tr><th>Part</th><th style="text-align:right">Qty</th><th>Notes</th></tr></thead>
         <tbody>
           ${order.missingItems
-            .map(
-              (p) => `<tr>
+          .map(
+            (p) => `<tr>
             <td><strong>${p.name}</strong></td>
             <td style="text-align:right">${p.qty} ${p.unit}</td>
             <td style="font-style:italic;color:#666">${p.notes || ""}</td>
           </tr>`,
-            )
-            .join("")}
+          )
+          .join("")}
         </tbody>
       </table>
     </div>
     `
         : ""
-    }
+      }
 
     <h2>Financial</h2>
     <table>
@@ -3584,6 +3583,7 @@ export default function OrdersClient() {
       alert("Failed to save changes. Please try again.");
     }
   };
+
   const handleAssignWorker = async (workerName) => {
     try {
       const res = await patchOrderClient(assigningOrderId, {
@@ -3597,6 +3597,7 @@ export default function OrdersClient() {
       console.error("Failed to assign worker:", err);
       alert("Failed to assign worker. Please try again.");
     }
+
     setIsAssignOpen(false);
   };
   const openAssignModal = (orderId) => {
@@ -3656,6 +3657,7 @@ export default function OrdersClient() {
       setIsReadyConfirmOpen(true);
       return;
     }
+
     try {
       const res = await patchOrderClient(orderId, {
         stage: newStage,
@@ -3668,6 +3670,7 @@ export default function OrdersClient() {
       console.error("Failed to change stage:", err);
       alert("Failed to change stage. Please try again.");
     }
+
   };
 
   const handleReadyConfirm = async ({ missingItems, stage }) => {
@@ -3707,6 +3710,7 @@ export default function OrdersClient() {
     }
   };
 
+
   const handleUpdateTechnical = async (field, value) => {
     const order = orders.find((o) => o.id === selectedId);
     if (!order) return;
@@ -3725,6 +3729,7 @@ export default function OrdersClient() {
     } catch (err) {
       console.error("Failed to update technical:", err);
     }
+
   };
 
   const SortIcon = ({ col }) => {
@@ -5007,4 +5012,8 @@ function OrderDetailPanel({
       </div>
     </div>
   );
+
 }
+
+
+export { OrderFormModal }
