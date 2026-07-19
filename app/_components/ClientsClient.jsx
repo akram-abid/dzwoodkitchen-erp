@@ -19,6 +19,11 @@ const StageBadge = ({ stage, size = 'sm', custom }) => {
     LOW_STOCK: { color: 'var(--accent)', label: 'Low Stock' },
     OUT_OF_STOCK: { color: 'var(--stage-contract)', label: 'Out of Stock' },
     ORDERED: { color: 'var(--stage-ready)', label: 'Ordered' },
+    appointment: { color: 'var(--stage-appointment)', label: 'Appointment' },
+    contract: { color: 'var(--stage-contract)', label: 'Contract' },
+    in_production: { color: 'var(--stage-production)', label: 'In Production' },
+    ready_to_delivery: { color: 'var(--stage-ready)', label: 'Ready' },
+    completed: { color: 'var(--stage-completed)', label: 'Completed' },
   };
   const s = custom || map[stage] || { color: 'var(--ink-muted)', label: stage };
   return (
@@ -193,6 +198,12 @@ const formatDZD = (n) => {
   return `${n.toLocaleString()} DZD`;
 };
 
+const formatDate = (d) => {
+  if (!d) return "";
+  if (typeof d === "string") return d;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 /* ─── Copy button ─── */
 const CopyButton = ({ value, id, copiedId, onCopy, className = '', size = 12 }) => (
   <button
@@ -252,9 +263,10 @@ export default function ClientsClient({ clientsData = [] }) {
   const stats = useMemo(() => {
     const total = clients.length;
     const vip = clients.filter(c => c.status === 'VIP').length;
+    const active = clients.filter(c => c.status === 'ACTIVE').length;
     const newCount = clients.filter(c => c.status === 'NEW').length;
     const inactive = clients.filter(c => c.status === 'INACTIVE').length;
-    return { total, vip, newCount, inactive };
+    return { total, vip, newCount, inactive, active };
   }, [clients]);
 
   const handleCopy = (value, id) => {
@@ -325,9 +337,13 @@ export default function ClientsClient({ clientsData = [] }) {
       );
     }
 
-    const totalSpent = selected?.orders?.reduce((s, o) => s + o.total, 0);
-    const lastOrder = selected?.orders?.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
-    const openOrders = selected?.orders?.filter(o => ['QUOTE', 'IN_PROGRESS', 'READY'].includes(o.status));
+    // const totalSpent = selected?.orders?.reduce((s, o) => s + o.total, 0);
+    // const lastOrder = selected?.orders?.slice().sort((a, b) => formatDate(b.created_at).localeCompare(formatDate(a.created_at)))[0];
+    // const openOrders = selected?.orders?.filter(o => ['QUOTE', 'IN_PROGRESS', 'READY'].includes(o.status));
+
+    const totalSpent = selected?.orders?.reduce((s, o) => s + Number(o.total_amount || 0), 0) || 0;
+    const lastOrder = selected?.orders?.slice().sort((a, b) => formatDate(b.created_at).localeCompare(formatDate(a.created_at)))[0];
+    const openOrders = selected?.orders?.filter(o => ['appointment', 'contract', 'in_production'].includes(o.state)) || [];
 
     return (
       <div>
@@ -400,7 +416,7 @@ export default function ClientsClient({ clientsData = [] }) {
           <Stat label="Total Orders" value={selected?.orders?.length} icon={Icons.tag} />
           <Stat label="Open Orders" value={openOrders?.length} accent={openOrders?.length > 0 ? 'var(--accent)' : undefined} icon={Icons.tag} />
           <Stat label="Total Spent" value={formatDZD(totalSpent)} icon={Icons.tag} />
-          <Stat label="Last Order" value={lastOrder?.date || '—'} icon={Icons.cal} />
+          <Stat label="Last Order" value={formatDate(lastOrder?.created_at) || '—'} icon={Icons.cal} />
         </div>
 
         {/* Orders */}
@@ -419,7 +435,7 @@ export default function ClientsClient({ clientsData = [] }) {
             </div>
           ) : (
             <div className="space-y-2">
-              {[...(selected?.orders ?? [])].sort((a, b) => b.date.localeCompare(a.date)).map(o => (
+              {[...(selected?.orders ?? [])].sort((a, b) => formatDate(b.created_at).localeCompare(formatDate(a.created_at))).map(o => (
                 <div
                   key={o.id}
                   className="p-3 sm:p-4 rounded-lg flex items-center gap-3 sm:gap-4 panel-hover cursor-pointer"
@@ -433,19 +449,19 @@ export default function ClientsClient({ clientsData = [] }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                      <span className="font-semibold text-sm">{o.id}</span>
-                      <StageBadge stage={o.status} />
+                      <span className="font-semibold text-sm">#{o.id}</span>
+                      <StageBadge stage={o.state} />
                     </div>
-                    <div className="text-sm truncate">{o.description}</div>
+                    <div className="text-sm truncate">{o.project_name || o.address_notes || ''}</div>
                     <div className="flex items-center gap-3 mt-1 text-xs flex-wrap" style={{ color: 'var(--ink-muted)' }}>
-                      <span className="flex items-center gap-1 whitespace-nowrap"><Icons.cal /> {o.date}</span>
-                      {o.deliveryDate !== '—' && <span className="whitespace-nowrap">→ {o.deliveryDate}</span>}
-                      <span className="whitespace-nowrap">· {o.items} item{o.items > 1 ? 's' : ''}</span>
-                      <span className="whitespace-nowrap">· {o.worker}</span>
+                      <span className="flex items-center gap-1 whitespace-nowrap"><Icons.cal /> {formatDate(o.created_at)}</span>
+                      {o.due_date && <span className="whitespace-nowrap">→ {formatDate(o.due_date)}</span>}
+                      <span className="whitespace-nowrap">· {o.order_items?.length || 0} item{(o.order_items?.length || 0) > 1 ? 's' : ''}</span>
+                      <span className="whitespace-nowrap">· {o.workers?.full_name || 'Unassigned'}</span>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-sm font-bold tabular-nums whitespace-nowrap">{formatDZD(o.total)}</div>
+                    <div className="text-sm font-bold tabular-nums whitespace-nowrap">{formatDZD(o.total_amount)}</div>
                     <button className="text-xs mt-1 flex items-center gap-1 whitespace-nowrap" style={{ color: 'var(--accent)' }}>
                       View <Icons.arrowRight />
                     </button>
@@ -481,6 +497,7 @@ export default function ClientsClient({ clientsData = [] }) {
           <StatChip label="Total" value={stats.total} />
           <StatChip label="VIP" value={stats.vip} color="var(--accent)" />
           <StatChip label="New" value={stats.newCount} color="#3b82f6" />
+          <StatChip label="Active" value={stats.active} color="var(--stage-completed)" />
           <StatChip label="Inactive" value={stats.inactive} color="var(--ink-muted)" />
         </div>
 
@@ -549,7 +566,7 @@ export default function ClientsClient({ clientsData = [] }) {
             <tbody>
               {filtered.map(c => {
                 const isSel = selectedId === c.id;
-                const totalSpent = c.orders?.reduce((s, o) => s + o.total, 0);
+                const totalSpent = c.orders?.reduce((s, o) => s + o.total_amount, 0);
                 return (
                   <tr
                     key={c.id}
@@ -859,7 +876,7 @@ export default function ClientsClient({ clientsData = [] }) {
             </Field>
             <Field label="Notes" hint="Optional">
               <textarea
-                value={form.notes}
+                value={form.notes || ''}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 placeholder="Preferences, payment terms, ..."
                 rows={3}
