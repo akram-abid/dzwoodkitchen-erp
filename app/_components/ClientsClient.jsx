@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { createClient, updateClient, deleteClient } from '../../lib/api_helpers/clients';
+import { createOrder } from '../../lib/api_helpers/orders';
 
 // import order modal 
 import { OrderFormModal } from "./OrdersClient";
@@ -911,18 +912,33 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
       <OrderFormModal
         isOpen={isOrderModalOpen}
         onClose={() => setIsOrderModalOpen(false)}
-        onSave={(newOrder) => {
-          setClients(prev => prev.map(c =>
-            c.id === selected.id
-              ? { ...c, orders: [...c.orders, newOrder] }
-              : c
-          ));
-          setIsOrderModalOpen(false);
+        onSave={async (newOrder) => {
+          try {
+            // Send to API
+            const result = await createOrder({
+              ...newOrder,
+              client_id: selected.id,
+            });
+
+            // Update local state with result
+            setClients(prev => prev.map(c =>
+              c.id === selected.id
+                ? {
+                  ...c,
+                  orders: [...c.orders, result]
+                }
+                : c
+            ));
+            setIsOrderModalOpen(false);
+          } catch (error) {
+            console.error("Failed to create order:", error);
+          }
         }}
         initialData={null}
         existingClients={
           selected ? [
             {
+              id: selected.id,
               client: selected.name,
               phone: selected.phone,
               address: selected.address || '',

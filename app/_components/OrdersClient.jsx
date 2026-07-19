@@ -2572,19 +2572,39 @@ const OrderFormModal = ({
   const handleSubmit = (e) => {
     console.log("🟢 handleSubmit fired, formData:", formData);
     e.preventDefault();
+
+    // const data = {
+    //   ...formData,
+    //   amount: Number(formData.amount),
+    //   items: formData.items.filter((i) => i.name),
+    //   created: initialData
+    //     ? initialData.created
+    //     : new Date().toISOString().split("T")[0],
+    //   id: initialData
+    //     ? initialData.id
+    //     : `#${Math.floor(Math.random() * 9000) + 1000}`,
+    //   missingItems: formData.missingItems || [],
+    //   completedAt: initialData?.completedAt || null,
+    // };
+
     const data = {
-      ...formData,
-      amount: Number(formData.amount),
-      items: formData.items.filter((i) => i.name),
-      created: initialData
-        ? initialData.created
-        : new Date().toISOString().split("T")[0],
-      id: initialData
-        ? initialData.id
-        : `#${Math.floor(Math.random() * 9000) + 1000}`,
-      missingItems: formData.missingItems || [],
-      completedAt: initialData?.completedAt || null,
+      client_id: parseInt(existingClients[0]?.id) || null,
+      worker_id: formData.worker !== "Unassigned" ? parseInt(formData.worker) : null,
+      project_name: formData.project,
+      total_amount: Number(formData.amount),
+      due_date: formData.dueDate,
+      state: formData.stage.toLowerCase(),
+      address: formData.address,
+      order_items: formData.items.filter((i) => i.name).map((item) => ({
+        name: item.name,
+        quantity: Number(item.qty) || 1,
+        unit: item.unit || "pcs",
+        length_cm: item.l ? parseFloat(item.l) : null,
+        width_cm: item.w ? parseFloat(item.w) : null,
+        height_cm: item.h ? parseFloat(item.h) : null,
+      })),
     };
+
     onSave(data);
     onClose();
   };

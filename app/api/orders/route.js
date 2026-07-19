@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import {
@@ -6,6 +7,7 @@ import {
 } from "../../../lib/validation/order";
 import { ZodError } from "zod";
 import { getAllOrders, createOrder } from "../../services/ordersServices";
+
 
 // GET /api/orders?state=in_production&client_id=3&page=1&pageSize=20
 export async function GET(req) {
@@ -39,9 +41,11 @@ export async function POST(req) {
 
     const data = createOrderSchema.parse(body);
 
+
     const created = await createOrder(data);
 
     return NextResponse.json({ success: true, data: created }, { status: 201 });
+
   } catch (err) {
     if (err.name === "ZodError") {
       return NextResponse.json(
