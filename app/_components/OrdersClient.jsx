@@ -2592,7 +2592,7 @@ const OrderFormModal = ({
       worker_id: formData.worker !== "Unassigned" ? parseInt(formData.worker) : null,
       project_name: formData.project,
       total_amount: Number(formData.amount),
-      due_date: formData.dueDate,
+      due_date: formData.dueDate ? new Date(formData.dueDate) : null,
       state: formData.stage.toLowerCase(),
       address: formData.address,
       order_items: formData.items.filter((i) => i.name).map((item) => ({

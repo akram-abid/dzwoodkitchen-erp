@@ -466,7 +466,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
                     <div className="text-sm truncate">{o.project_name || o.address_notes || ''}</div>
                     <div className="flex items-center gap-3 mt-1 text-xs flex-wrap" style={{ color: 'var(--ink-muted)' }}>
                       <span className="flex items-center gap-1 whitespace-nowrap"><Icons.cal /> {formatDate(o.created_at)}</span>
-                      {o.due_date && <span className="whitespace-nowrap">→ {formatDate(o.due_date)}</span>}
+                      {o.due_date && <span className="whitespace-nowrap">→ {o.due_date ? formatDate(o.due_date) : '-'}</span>}
                       <span className="whitespace-nowrap">· {o.order_items?.length || 0} item{(o.order_items?.length || 0) > 1 ? 's' : ''}</span>
                       <span className="whitespace-nowrap">· {o.workers?.full_name || 'Unassigned'}</span>
                     </div>
@@ -914,18 +914,20 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
         onClose={() => setIsOrderModalOpen(false)}
         onSave={async (newOrder) => {
           try {
+            console.log(newOrder)
             // Send to API
             const result = await createOrder({
               ...newOrder,
               client_id: selected.id,
             });
 
+
             // Update local state with result
             setClients(prev => prev.map(c =>
               c.id === selected.id
                 ? {
                   ...c,
-                  orders: [...c.orders, result]
+                  orders: [...c.orders, { ...result, due_date: result.due_date ? new Date(result.due_date) : null, created_at: new Date(result.created_at) }]
                 }
                 : c
             ));
