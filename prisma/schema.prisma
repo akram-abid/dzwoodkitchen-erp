@@ -35,18 +35,10 @@ enum client_type {
   Company
 }
 
-enum client_status {
-  VIP
-  ACTIVE
-  NEW
-  INACTIVE
-}
-
 model clients {
-  id       Int           @id @default(autoincrement())
+  id       Int         @id @default(autoincrement())
   name     String
   type     client_type // "Individual" | "Company"
-  status   client_status // "VIP" | "ACTIVE" | "NEW" | "INACTIVE"
   phone    String
   email    String?
   city     String?

@@ -71,7 +71,8 @@ const Icons = {
 /* ─── Data ─── */
 const SEED_CLIENTS = [
   {
-    id: 'CLT-001', name: 'Karim Boudiaff', type: 'Individual', status: 'VIP',
+
+    id: 'CLT-001', name: 'Karim Boudiaf', type: 'Individual',
     phone: '+213 555 12 34 56', email: 'karim.boudiaf@example.dz',
     city: 'Algiers', district: 'Hydra', address: '12 Rue des Frères Moulay',
     joined: '2024-03-12', notes: 'Prefers walnut finish. Always pays on delivery.',
@@ -82,7 +83,7 @@ const SEED_CLIENTS = [
     ],
   },
   {
-    id: 'CLT-002', name: 'Restaurant Le Cèdre', type: 'Company', status: 'ACTIVE',
+    id: 'CLT-002', name: 'Restaurant Le Cèdre', type: 'Company',
     phone: '+213 21 63 45 67', email: 'contact@lecedre.dz',
     city: 'Algiers', district: 'Kouba', address: 'Zone industrielle, Lot 24',
     joined: '2025-01-08', notes: 'Commercial contract — net 30.',
@@ -92,7 +93,7 @@ const SEED_CLIENTS = [
     ],
   },
   {
-    id: 'CLT-003', name: 'Yasmine Hadj', type: 'Individual', status: 'ACTIVE',
+    id: 'CLT-003', name: 'Yasmine Hadj', type: 'Individual',
     phone: '+213 666 88 22 11', email: 'yasmine.h@example.dz',
     city: 'Boumerdès', district: 'Boumerdès Centre', address: 'Cité 200 Logts, Bât. 4',
     joined: '2025-08-22', notes: '',
@@ -102,7 +103,7 @@ const SEED_CLIENTS = [
     ],
   },
   {
-    id: 'CLT-004', name: 'Hôtel Tassili', type: 'Company', status: 'VIP',
+    id: 'CLT-004', name: 'Hôtel Tassili', type: 'Company',
     phone: '+213 29 74 12 90', email: 'projects@tassili-hotel.dz',
     city: 'Ghardaïa', district: 'Centre-ville', address: 'Avenue de l\'Indépendance',
     joined: '2023-11-04', notes: 'Ongoing multi-year contract. 6 rooms renovated per year.',
@@ -113,7 +114,7 @@ const SEED_CLIENTS = [
     ],
   },
   {
-    id: 'CLT-005', name: 'Mohamed Cherif', type: 'Individual', status: 'NEW',
+    id: 'CLT-005', name: 'Mohamed Cherif', type: 'Individual',
     phone: '+213 770 11 22 33', email: 'm.cherif@example.dz',
     city: 'Blida', district: 'Béni Tamou', address: 'Rue des Martyrs, N°8',
     joined: '2026-06-30', notes: 'First-time client. Quote sent, awaiting confirmation.',
@@ -122,7 +123,7 @@ const SEED_CLIENTS = [
     ],
   },
   {
-    id: 'CLT-006', name: 'Café El Bahia', type: 'Company', status: 'ACTIVE',
+    id: 'CLT-006', name: 'Café El Bahia', type: 'Company',
     phone: '+213 555 77 88 99', email: 'bahia.cafe@example.dz',
     city: 'Oran', district: 'Sidi El Houari', address: 'Front de mer, N°3',
     joined: '2025-04-18', notes: '',
@@ -132,7 +133,7 @@ const SEED_CLIENTS = [
     ],
   },
   {
-    id: 'CLT-007', name: 'Nadia Belkacem', type: 'Individual', status: 'INACTIVE',
+    id: 'CLT-007', name: 'Nadia Belkacem', type: 'Individual',
     phone: '+213 661 44 55 66', email: '—',
     city: 'Tipaza', district: 'Cherchell', address: 'Cité Boudouaou, N°14',
     joined: '2024-09-10', notes: 'Last order 8+ months ago. Follow up?',
@@ -141,7 +142,7 @@ const SEED_CLIENTS = [
     ],
   },
   {
-    id: 'CLT-008', name: 'Bureau d\'Architecture ARBA', type: 'Company', status: 'ACTIVE',
+    id: 'CLT-008', name: 'Bureau d\'Architecture ARBA', type: 'Company',
     phone: '+213 21 54 32 10', email: 'contact@arba-archi.dz',
     city: 'Algiers', district: 'El Mouradia', address: 'Rue Didouche Mourad, N°45',
     joined: '2025-06-01', notes: 'Refers clients to us regularly.',
@@ -244,7 +245,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
   };
 
   const emptyForm = {
-    name: '', type: 'Individual', status: 'NEW',
+    name: '', type: 'Individual',
     phone: '', email: '', city: '', district: '', address: '', notes: '',
   };
   const [form, setForm] = useState(emptyForm);
@@ -268,11 +269,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
 
   const stats = useMemo(() => {
     const total = clients.length;
-    const vip = clients.filter(c => c.status === 'VIP').length;
-    const active = clients.filter(c => c.status === 'ACTIVE').length;
-    const newCount = clients.filter(c => c.status === 'NEW').length;
-    const inactive = clients.filter(c => c.status === 'INACTIVE').length;
-    return { total, vip, newCount, inactive, active };
+    return { total };
   }, [clients]);
 
   const handleCopy = (value, id) => {
@@ -365,7 +362,6 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="text-xs font-medium" style={{ color: 'var(--ink-muted)' }}>{selected?.id}</span>
-                <StageBadge stage={selected?.status} />
                 <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--surface-2)', color: 'var(--ink-muted)' }}>
                   {selected?.type}
                 </span>
@@ -506,10 +502,6 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
           style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
         >
           <StatChip label="Total" value={stats.total} />
-          <StatChip label="VIP" value={stats.vip} color="var(--accent)" />
-          <StatChip label="New" value={stats.newCount} color="#3b82f6" />
-          <StatChip label="Active" value={stats.active} color="var(--stage-completed)" />
-          <StatChip label="Inactive" value={stats.inactive} color="var(--ink-muted)" />
         </div>
 
         {/* Filter bar */}
@@ -568,7 +560,6 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
                 <th className="px-4 py-3 text-xs font-medium" style={{ color: 'var(--ink-muted)' }}>Client</th>
                 <th className="px-4 py-3 text-xs font-medium hidden md:table-cell" style={{ color: 'var(--ink-muted)' }}>Type</th>
                 <th className="px-4 py-3 text-xs font-medium hidden sm:table-cell" style={{ color: 'var(--ink-muted)' }}>Contact</th>
-                <th className="px-4 py-3 text-xs font-medium hidden lg:table-cell" style={{ color: 'var(--ink-muted)' }}>Status</th>
                 <th className="px-4 py-3 text-xs font-medium text-right" style={{ color: 'var(--ink-muted)' }}>Orders</th>
                 <th className="px-4 py-3 text-xs font-medium text-right hidden lg:table-cell" style={{ color: 'var(--ink-muted)' }}>Total Spent</th>
                 <th className="px-4 py-3 text-xs font-medium text-center" style={{ color: 'var(--ink-muted)' }}></th>
@@ -623,7 +614,6 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
                         />
                       </div>
                     </td>
-                    <td className="px-4 py-3 hidden lg:table-cell"><StageBadge stage={c.status} /></td>
                     <td className="px-4 py-3 text-right font-medium tabular-nums">{c.orders?.length}</td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums hidden lg:table-cell whitespace-nowrap">{formatDZD(totalSpent)}</td>
                     {/* dots btn */}
@@ -711,19 +701,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
                 <option>Company</option>
               </select>
             </Field>
-            <Field label="Status">
-              <select
-                value={form.status}
-                onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
-                style={inputStyle}
-              >
-                <option>NEW</option>
-                <option>ACTIVE</option>
-                <option>VIP</option>
-                <option>INACTIVE</option>
-              </select>
-            </Field>
+
             <div />
             <Field label="Phone *">
               <input
@@ -826,19 +804,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
                 <option>Company</option>
               </select>
             </Field>
-            <Field label="Status">
-              <select
-                value={form.status}
-                onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
-                style={inputStyle}
-              >
-                <option>NEW</option>
-                <option>ACTIVE</option>
-                <option>VIP</option>
-                <option>INACTIVE</option>
-              </select>
-            </Field>
+
             <div />
             <Field label="Phone *">
               <input

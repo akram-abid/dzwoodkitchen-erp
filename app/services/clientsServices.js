@@ -23,7 +23,6 @@ export async function createClient(data) {
         data: {
             name: data.name,
             type: data.type,
-            status: data.status,
             phone: data.phone,
             email: data.email || null,
             city: data.city || null,
@@ -43,7 +42,6 @@ export async function updateClient(clientId, data) {
         data: {
             name: data.name,
             type: data.type,
-            status: data.status,
             phone: data.phone,
             email: data.email || null,
             city: data.city || null,
