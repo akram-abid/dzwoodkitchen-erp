@@ -49,3 +49,43 @@ export async function updateOrderClient(id, data) {
 
   return res.json();
 }
+
+export async function createOrderClient(data) {
+  const res = await fetch(`/api/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Failed to create order: ${res.status} ${body}`);
+  }
+  return res.json();
+}
+
+export async function deleteOrderClient(id) {
+  const res = await fetch(`/api/orders/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Failed to delete order: ${res.status} ${body}`);
+  }
+  return res.json();
+}
+
+export async function patchOrderClient(id, data) {
+  const res = await fetch(`/api/orders/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Failed to patch order: ${res.status} ${body}`);
+  }
+  return res.json();
+}

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { fetchOrders, updateOrderClient } from "../api/orders/orders";
+import {
+  fetchOrders,
+  updateOrderClient,
+  createOrderClient,
+  deleteOrderClient,
+  patchOrderClient,
+} from "../api/orders/orders";
+import { fetchWorkers } from "../api/workers/workers";
 
 /* ─── Icons ─── */
 const Icons = {
@@ -821,6 +828,129 @@ const StageBadge = ({ stage, size = "sm" }) => {
   );
 };
 
+const normalizeOrder = (updated) => {
+  const paid = (updated.payments || []).reduce(
+    (s, p) => s + (Number(p.amount) || 0),
+    0,
+  );
+  const dn = (updated.delivery_notes && updated.delivery_notes[0]) || {};
+  const toDateStr = (d) => {
+    if (!d) return "";
+    const date = d instanceof Date ? d : new Date(d);
+    if (isNaN(date.getTime())) return "";
+    return date.toISOString().split("T")[0];
+  };
+  return {
+    id: updated.id,
+    client: updated.clients?.full_name ?? "",
+    phone: updated.clients?.phone ?? "",
+    address: updated.address ?? dn.address ?? "",
+    project: updated.project_name ?? "",
+    stage: (updated.state ?? "appointment").toUpperCase(),
+    worker: updated.workers?.full_name ?? "Unassigned",
+    amount: Number(updated.total_amount) || 0,
+    paid,
+    dueDate: toDateStr(updated.due_date),
+    created: toDateStr(updated.created_at),
+    items: (updated.order_items || []).map((i) => ({
+      name: i.name,
+      qty: i.quantity,
+      unit: i.unit,
+      l: Number(i.length_cm) || 0,
+      w: Number(i.width_cm) || 0,
+      h: Number(i.height_cm) || 0,
+    })),
+    payments: (updated.payments || []).map((p) => ({
+      date: toDateStr(p.payment_date),
+      amount: Number(p.amount) || 0,
+    })),
+    missingItems: (updated.checklist_items || []).map((c) => ({
+      name: c.description,
+      qty: c.quantity ?? 1,
+      unit: c.unit ?? "pcs",
+      notes: c.notes ?? "",
+    })),
+    technical: {
+      truckDistance: dn.truck_distance_km ?? "",
+      floor: dn.floor ?? "",
+      fee: Number(dn.lift_cost ?? updated.lift_cost) || 0,
+    },
+    isFullyCompleted: !!updated.is_fully_completed,
+    completedAt: null,
+  };
+};
+
+const toServerPayload = (order, { workerIdByName, clientIdByName } = {}) => ({
+  // Server probably wants a clients object OR a client_id. Try client_id first if existing.
+
+  client_id: clientIdByName?.[order.client] ?? null,
+
+  address: order.address,
+
+  project_name: order.project,
+
+  state: (order.stage || "APPOINTMENT").toLowerCase(),
+
+  worker_id: workerIdByName?.[order.worker] ?? null,
+
+  total_amount: Number(order.amount) || 0,
+
+  due_date: order.dueDate || null,
+
+  order_items: (order.items || []).map((i) => ({
+    name: i.name,
+
+    quantity: Number(i.qty) || 1,
+
+    unit: i.unit || "pcs",
+
+    length_cm: i.l === "" || i.l == null ? null : Number(i.l),
+
+    width_cm: i.w === "" || i.w == null ? null : Number(i.w),
+
+    height_cm: i.h === "" || i.h == null ? null : Number(i.h),
+  })),
+
+  payments: (order.payments || []).map((p) => ({
+    payment_date: p.date,
+
+    amount: Number(p.amount) || 0,
+  })),
+
+  checklist_items: (order.missingItems || []).map((c) => ({
+    description: c.name,
+
+    quantity: c.qty ?? 1,
+
+    unit: c.unit ?? "pcs",
+
+    notes: c.notes ?? "",
+  })),
+
+  delivery_notes:
+    order.technical &&
+    (order.technical.truckDistance !== "" ||
+      order.technical.floor !== "" ||
+      (order.technical.fee !== "" && Number(order.technical.fee) > 0))
+      ? [
+          {
+            truck_distance_km:
+              order.technical.truckDistance === ""
+                ? null
+                : Number(order.technical.truckDistance),
+
+            floor:
+              order.technical.floor === ""
+                ? null
+                : Number(order.technical.floor),
+
+            lift_cost:
+              order.technical.fee === "" ? 0 : Number(order.technical.fee) || 0,
+          },
+        ]
+      : [],
+});
+
 const Stepper = ({ currentStage }) => {
   const stages = [
     "APPOINTMENT",
@@ -1617,9 +1747,19 @@ const MissingPartsModal = ({ isOpen, onClose, order, onUpdate }) => {
 };
 
 /* ─── Assign worker modal ─── */
-const AssignWorkerModal = ({ isOpen, onClose, onAssign, currentWorker }) => {
+const AssignWorkerModal = ({
+  isOpen,
+
+  onClose,
+
+  onAssign,
+
+  currentWorker,
+
+  workers = [],
+}) => {
   const [search, setSearch] = useState("");
-  const filtered = WORKERS_LIST.filter(
+  const filtered = (workers.length > 0 ? workers : WORKERS_LIST).filter(
     (w) =>
       w.toLowerCase().includes(search.toLowerCase()) && w !== currentWorker,
   );
@@ -1800,6 +1940,7 @@ const OrderFormModal = ({
   }, [clientSearch, existingClients]);
 
   const handleSubmit = (e) => {
+    console.log("🟢 handleSubmit fired, formData:", formData);
     e.preventDefault();
     const data = {
       ...formData,
@@ -1836,8 +1977,16 @@ const OrderFormModal = ({
           <Btn variant="ghost" onClick={onClose}>
             Cancel
           </Btn>
-          <Btn variant="primary" onClick={handleSubmit}>
-            {initialData ? "Save Changes" : "Create Order"}
+
+          <Btn
+            variant="primary"
+            onClick={(e) => {
+              console.log("🔵 button clicked", e);
+
+              handleSubmit(e);
+            }}
+          >
+            Create Order
           </Btn>
         </>
       }
@@ -2504,6 +2653,7 @@ const handlePrint = (order) => {
 /* ─── Main ─── */
 export default function OrdersClient() {
   const [orders, setOrders] = useState([]);
+  const [workers, setWorkers] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [selectedId, setSelectedId] = useState(null);
@@ -2600,9 +2750,24 @@ export default function OrdersClient() {
     };
   }, []);
 
-  console.log("orders state now:", orders);
+  useEffect(() => {
+    let cancelled = false;
 
-  console.log("orders fetched:", orders);
+    fetchWorkers()
+      .then((res) => {
+        if (cancelled) return;
+
+        const list = Array.isArray(res?.data) ? res.data : [];
+
+        setWorkers(list.map((w) => w.full_name).filter(Boolean));
+      })
+
+      .catch((err) => console.error("workers fetch failed:", err));
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const existingClients = useMemo(() => {
     const map = new Map();
@@ -2690,9 +2855,40 @@ export default function OrdersClient() {
     }
   };
 
-  const handleCreateOrder = (newOrder) => {
-    setOrders((prev) => [newOrder, ...prev]);
-    setSelectedId(newOrder.id);
+  const handleCreateOrder = async (newOrder) => {
+    try {
+      const payload = {
+        client: newOrder.client,
+        phone: newOrder.phone || null,
+        address: newOrder.address || null,
+        project: newOrder.project,
+        amount: Number(newOrder.amount) || 0,
+        dueDate: newOrder.dueDate || null,
+        stage: (newOrder.stage || "APPOINTMENT").toUpperCase(),
+        worker: newOrder.worker || null,
+
+        items: (newOrder.items || []).map((i) => ({
+          name: i.name,
+          qty: Number(i.qty) || 1,
+          unit: i.unit || "pcs",
+          l: i.l === "" || i.l == null ? 0 : Number(i.l),
+          w: i.w === "" || i.w == null ? 0 : Number(i.w),
+          h: i.h === "" || i.h == null ? 0 : Number(i.h),
+        })),
+
+        payments: [],
+        missingItems: [],
+        technical: {},
+      };
+
+      const res = await createOrderClient(payload);
+      const normalized = normalizeOrder(res.data);
+      setOrders((prev) => [normalized, ...prev]);
+      setSelectedId(normalized.id);
+    } catch (err) {
+      console.error("Failed to create order:", err);
+      alert("Failed to create order. Please try again.");
+    }
   };
   const handleUpdateOrder = async (updatedOrder) => {
     try {
@@ -2759,18 +2955,19 @@ export default function OrdersClient() {
       alert("Failed to save changes. Please try again.");
     }
   };
-  const handleAssignWorker = (workerName) => {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === assigningOrderId
-          ? {
-              ...o,
-              worker: workerName,
-              stage: o.stage === "APPOINTMENT" ? "CONTRACT" : o.stage,
-            }
-          : o,
-      ),
-    );
+  const handleAssignWorker = async (workerName) => {
+    try {
+      const res = await patchOrderClient(assigningOrderId, {
+        worker: workerName,
+      });
+      const normalized = normalizeOrder(res.data);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === normalized.id ? normalized : o)),
+      );
+    } catch (err) {
+      console.error("Failed to assign worker:", err);
+      alert("Failed to assign worker. Please try again.");
+    }
     setIsAssignOpen(false);
   };
   const openAssignModal = (orderId) => {
@@ -2782,66 +2979,89 @@ export default function OrdersClient() {
     setManagingOrderId(orderId);
     setIsMissingPartsOpen(true);
   };
-  const handleUpdateMissingParts = (newMissingItems) => {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === managingOrderId ? { ...o, missingItems: newMissingItems } : o,
-      ),
-    );
+  const handleUpdateMissingParts = async (newMissingItems) => {
+    try {
+      const res = await patchOrderClient(managingOrderId, {
+        missingItems: newMissingItems,
+      });
+      const normalized = normalizeOrder(res.data);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === normalized.id ? normalized : o)),
+      );
+    } catch (err) {
+      console.error("Failed to update missing parts:", err);
+      alert("Failed to update missing parts. Please try again.");
+    }
   };
 
-  const handleQuickStageChange = (orderId, newStage) => {
+  const handleQuickStageChange = async (orderId, newStage) => {
     if (newStage === "READY_TO_DELIVER") {
       setAssigningOrderId(orderId);
       setIsReadyConfirmOpen(true);
       return;
     }
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              stage: newStage,
-              completedAt:
-                newStage === "COMPLETED"
-                  ? new Date().toISOString().split("T")[0]
-                  : o.completedAt,
-            }
-          : o,
-      ),
-    );
+    try {
+      const res = await patchOrderClient(orderId, { stage: newStage });
+      const normalized = normalizeOrder(res.data);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === normalized.id ? normalized : o)),
+      );
+    } catch (err) {
+      console.error("Failed to change stage:", err);
+      alert("Failed to change stage. Please try again.");
+    }
   };
 
-  const handleReadyConfirm = ({ missingItems, stage }) => {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === assigningOrderId ? { ...o, missingItems, stage } : o,
-      ),
-    );
+  const handleReadyConfirm = async ({ missingItems, stage }) => {
+    try {
+      const res = await patchOrderClient(assigningOrderId, {
+        stage,
+        missingItems,
+      });
+      const normalized = normalizeOrder(res.data);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === normalized.id ? normalized : o)),
+      );
+    } catch (err) {
+      console.error("Failed to confirm ready:", err);
+      alert("Failed to update order. Please try again.");
+    }
     setIsReadyConfirmOpen(false);
   };
 
-  const handleDeleteOrder = (orderId) => {
+  const handleDeleteOrder = async (orderId) => {
     if (!confirm("Delete this order? This cannot be undone.")) return;
-    setOrders((prev) => prev.filter((o) => o.id !== orderId));
-    if (selectedId === orderId)
-      setSelectedId(orders.find((o) => o.id !== orderId)?.id);
+    try {
+      await deleteOrderClient(orderId);
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      if (selectedId === orderId) {
+        const next = orders.find((o) => o.id !== orderId);
+        setSelectedId(next?.id ?? null);
+      }
+    } catch (err) {
+      console.error("Failed to delete order:", err);
+      alert("Failed to delete order. Please try again.");
+    }
   };
 
-  const handleUpdateTechnical = (field, value) => {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === selectedId
-          ? {
-              ...o,
-              technical: {
-                ...(o.technical || { truckDistance: "", floor: "", fee: "" }),
-                [field]: value,
-              },
-            }
-          : o,
-      ),
-    );
+  const handleUpdateTechnical = async (field, value) => {
+    const order = orders.find((o) => o.id === selectedId);
+    if (!order) return;
+    const newTechnical = {
+      ...(order.technical || { truckDistance: "", floor: "", fee: "" }),
+      [field]: value,
+    };
+    try {
+      const res = await patchOrderClient(selectedId, {
+        technical: newTechnical,
+      });
+      const normalized = normalizeOrder(res.data);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === normalized.id ? normalized : o)),
+      );
+    } catch (err) {
+      console.error("Failed to update technical:", err);
+    }
   };
 
   const SortIcon = ({ col }) => {
@@ -3366,6 +3586,7 @@ export default function OrdersClient() {
         onClose={() => setIsCreateOpen(false)}
         onSave={handleCreateOrder}
         existingClients={existingClients}
+        workers={workers}
       />
       <OrderFormModal
         isOpen={isEditOpen}
@@ -3373,12 +3594,14 @@ export default function OrdersClient() {
         onSave={handleUpdateOrder}
         initialData={selected}
         existingClients={existingClients}
+        workers={workers}
       />
       <AssignWorkerModal
         isOpen={isAssignOpen}
         onClose={() => setIsAssignOpen(false)}
         onAssign={handleAssignWorker}
         currentWorker={orders.find((o) => o.id === assigningOrderId)?.worker}
+        workers={workers}
       />
       <ReadyToDeliverModal
         isOpen={isReadyConfirmOpen}
