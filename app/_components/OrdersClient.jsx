@@ -809,6 +809,28 @@ const formatDZD = (n) => `${(n || 0).toLocaleString()} DZD`;
 const totalWithTech = (order) =>
   (order.amount || 0) + (Number(order.technical?.fee) || 0);
 const hasBlockingMissing = (order) => (order.missingItems || []).length > 0;
+
+// The frontend stage constants don't map 1:1 onto the `order_state` enum via
+// simple case conversion (READY_TO_DELIVER vs ready_to_delivery), so convert
+// explicitly instead of relying on toLowerCase()/toUpperCase().
+const STAGE_TO_DB_STATE = {
+  APPOINTMENT: "appointment",
+  CONTRACT: "contract",
+  IN_PRODUCTION: "in_production",
+  READY_TO_DELIVER: "ready_to_delivery",
+  COMPLETED: "completed",
+};
+const DB_STATE_TO_STAGE = {
+  appointment: "APPOINTMENT",
+  contract: "CONTRACT",
+  in_production: "IN_PRODUCTION",
+  ready_to_delivery: "READY_TO_DELIVER",
+  completed: "COMPLETED",
+};
+const stageToDbState = (stage) =>
+  STAGE_TO_DB_STATE[stage] ?? (stage || "appointment").toLowerCase();
+const dbStateToStage = (state) =>
+  DB_STATE_TO_STAGE[state] ?? (state || "appointment").toUpperCase();
 /* ─── Reusable UI ─── */
 const StageBadge = ({ stage, size = "sm" }) => {
   const s = STAGE_INFO[stage] || STAGE_INFO.APPOINTMENT;
@@ -846,7 +868,7 @@ const normalizeOrder = (updated) => {
     phone: updated.clients?.phone ?? "",
     address: updated.address ?? dn.address ?? "",
     project: updated.project_name ?? "",
-    stage: (updated.state ?? "appointment").toUpperCase(),
+    stage: dbStateToStage(updated.state ?? "appointment"),
     worker: updated.workers?.full_name ?? "Unassigned",
     amount: Number(updated.total_amount) || 0,
     paid,
@@ -889,7 +911,7 @@ const toServerPayload = (order, { workerIdByName, clientIdByName } = {}) => ({
 
   project_name: order.project,
 
-  state: (order.stage || "APPOINTMENT").toLowerCase(),
+  state: stageToDbState(order.stage || "APPOINTMENT"),
 
   worker_id: workerIdByName?.[order.worker] ?? null,
 
@@ -1171,7 +1193,7 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
   const blocking = missingCount > 0;
 
   const handleAllReady = () =>
-    onConfirm({ missingItems: [], stage: "READY_TO_DELIVER" });
+    onConfirm({ missingItems: [], stage: "COMPLETED" });
   const handlePartial = () => {
     const missingFromItems = itemStates
       .filter((p) => !p.ready)
@@ -1179,7 +1201,7 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
     const allMissing = [...missingFromItems, ...customMissing];
     onConfirm({
       missingItems: allMissing,
-      stage: allMissing.length > 0 ? "IN_PRODUCTION" : "READY_TO_DELIVER",
+      stage: allMissing.length > 0 ? "READY_TO_DELIVER" : "COMPLETED",
     });
   };
 
@@ -1246,7 +1268,7 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
                 </span>
               </div>
               <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
-                Every item is built. Move to Ready to Deliver.
+                Every item is built. Mark this order as Completed.
               </p>
             </div>
             <div
@@ -1264,8 +1286,8 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
                 </span>
               </div>
               <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
-                Uncheck items or add custom missing parts. Order stays in
-                Production.
+                Uncheck items or add custom missing parts. Order moves to
+                Ready to Deliver with the missing parts recorded.
               </p>
             </div>
           </div>
@@ -2681,57 +2703,7 @@ export default function OrdersClient() {
         if (cancelled) return;
 
         const list = Array.isArray(res?.data) ? res.data : [];
-        const normalized = list.map((o) => {
-          const paid = (o.payments || []).reduce(
-            (s, p) => s + (Number(p.amount) || 0),
-            0,
-          );
-          const dn = (o.delivery_notes && o.delivery_notes[0]) || {};
-          const toDateStr = (d) => {
-            if (!d) return "";
-            const date = d instanceof Date ? d : new Date(d);
-            if (isNaN(date.getTime())) return "";
-            return date.toISOString().split("T")[0];
-          };
-          return {
-            id: o.id,
-            client: o.clients?.full_name ?? "",
-            phone: o.clients?.phone ?? "",
-            address: o.address ?? dn.address ?? "",
-            project: o.project_name ?? "",
-            stage: (o.state ?? "appointment").toUpperCase(),
-            worker: o.workers?.full_name ?? "Unassigned",
-            amount: Number(o.total_amount) || 0,
-            paid,
-            dueDate: toDateStr(o.due_date),
-            created: toDateStr(o.created_at),
-            items: (o.order_items || []).map((i) => ({
-              name: i.name,
-              qty: i.quantity,
-              unit: i.unit,
-              l: Number(i.length_cm) || 0,
-              w: Number(i.width_cm) || 0,
-              h: Number(i.height_cm) || 0,
-            })),
-            payments: (o.payments || []).map((p) => ({
-              date: toDateStr(p.payment_date),
-              amount: Number(p.amount) || 0,
-            })),
-            missingItems: (o.checklist_items || []).map((c) => ({
-              name: c.description,
-              qty: c.quantity ?? 1,
-              unit: c.unit ?? "pcs",
-              notes: c.notes ?? "",
-            })),
-            technical: {
-              truckDistance: dn.truck_distance_km ?? "",
-              floor: dn.floor ?? "",
-              fee: Number(dn.lift_cost ?? o.lift_cost) || 0,
-            },
-            isFullyCompleted: !!o.is_fully_completed,
-            completedAt: null,
-          };
-        });
+        const normalized = list.map(normalizeOrder);
 
         // Only replace if we actually got data — never wipe with []
         setOrders((prev) => (normalized.length > 0 ? normalized : prev));
@@ -2914,7 +2886,7 @@ export default function OrdersClient() {
         phone: updated.clients?.phone ?? "",
         address: updated.address ?? dn.address ?? "",
         project: updated.project_name ?? "",
-        stage: (updated.state ?? "appointment").toUpperCase(),
+        stage: dbStateToStage(updated.state ?? "appointment"),
         worker: updated.workers?.full_name ?? "Unassigned",
         amount: Number(updated.total_amount) || 0,
         paid,
@@ -2981,6 +2953,7 @@ export default function OrdersClient() {
   };
   const handleUpdateMissingParts = async (newMissingItems) => {
     try {
+      console.log("🟡 PATCH missing parts", { managingOrderId, newMissingItems });
       const res = await patchOrderClient(managingOrderId, {
         missingItems: newMissingItems,
       });
@@ -3001,7 +2974,9 @@ export default function OrdersClient() {
       return;
     }
     try {
-      const res = await patchOrderClient(orderId, { stage: newStage });
+      const res = await patchOrderClient(orderId, {
+        state: stageToDbState(newStage),
+      });
       const normalized = normalizeOrder(res.data);
       setOrders((prev) =>
         prev.map((o) => (o.id === normalized.id ? normalized : o)),
@@ -3014,6 +2989,7 @@ export default function OrdersClient() {
 
   const handleReadyConfirm = async ({ missingItems, stage }) => {
     try {
+      console.log("🟢 PATCH ready confirm", { assigningOrderId, stage, missingItems });
       const res = await patchOrderClient(assigningOrderId, {
         stage,
         missingItems,

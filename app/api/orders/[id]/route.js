@@ -61,32 +61,26 @@ export async function DELETE(req, { params }) {
 export async function PATCH(req, { params }) {
   try {
     const { id } = await params;
-
     const body = await req.json();
-
+    console.log("🔍 PATCH body received:", JSON.stringify(body, null, 2));
     const data = patchOrderSchema.parse(body);
-
+    console.log("✅ PATCH parsed OK");
     const updated = await patchOrder(id, data);
-
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {
+    console.error("🔴 PATCH failed:", err.name, err.message, err.errors ?? err.issues ?? err);
     if (err.name === "ZodError") {
       return NextResponse.json(
-        { error: "Invalid order data", details: err.errors },
-
+        { error: "Invalid order data", details: err.errors ?? err.issues },
         { status: 400 },
       );
     }
-
     if (err.code === "P2025") {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
-
     console.error("[PATCH /api/orders/:id] failed:", err);
-
     return NextResponse.json(
       { error: "Failed to update order", details: err.message },
-
       { status: 500 },
     );
   }

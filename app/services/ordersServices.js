@@ -15,6 +15,10 @@ export async function getAllOrders({ state, client_id, worker_id, page = 1, page
       include: {
         clients: true,
         workers: true,
+        order_items: true,
+        payments: { orderBy: { payment_date: "asc" } },
+        checklist_items: { where: { is_resolved: false } },
+        delivery_notes: { orderBy: { id: "asc" }, take: 1 },
       },
       orderBy: { created_at: "desc" },
       skip: (page - 1) * pageSize,
@@ -103,8 +107,7 @@ export async function updateOrder(id, data) {
     // 2) Resolve worker
     let workerId = null;
     if (worker && worker !== "Unassigned") {
-      const fullName = WORKER_NAME_MAP[worker] || worker;
-      const w = await tx.workers.findFirst({ where: { full_name: fullName } });
+      const w = await tx.workers.findFirst({ where: { full_name: worker } });
       if (w) workerId = w.id;
     }
 
@@ -230,8 +233,7 @@ export async function createOrder(data) {
     // worker
     let workerId = null;
     if (worker && worker !== "Unassigned") {
-      const fullName = WORKER_NAME_MAP[worker] || worker;
-      const w = await tx.workers.findFirst({ where: { full_name: fullName } });
+      const w = await tx.workers.findFirst({ where: { full_name: worker } });
       if (w) workerId = w.id;
     }
 
@@ -320,8 +322,7 @@ export async function patchOrder(id, data) {
 
     if (data.worker !== undefined) {
       if (data.worker && data.worker !== "Unassigned") {
-        const fullName = WORKER_NAME_MAP[data.worker] || data.worker;
-        const w = await tx.workers.findFirst({ where: { full_name: fullName } });
+        const w = await tx.workers.findFirst({ where: { full_name: data.worker } });
         updateData.worker_id = w ? w.id : null;
       } else {
         updateData.worker_id = null;
