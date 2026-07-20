@@ -8,6 +8,11 @@ import {
   deleteOrderClient,
   patchOrderClient,
 } from "../api/orders/orders";
+import {
+  createPaymentClient,
+  patchPaymentClient,
+  deletePaymentClient,
+} from "../api/payments/payments";
 import { fetchWorkers } from "../api/workers/workers";
 
 /* ─── Icons ─── */
@@ -468,6 +473,99 @@ const Icons = {
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   ),
+  dollarSign: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="12" x2="12" y1="2" y2="22" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  ),
+  creditCard: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="20" height="14" x="2" y="5" rx="2" />
+      <line x1="2" x2="22" y1="10" y2="10" />
+    </svg>
+  ),
+  banknote: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="20" height="12" x="2" y="6" rx="2" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M6 12h.01M18 12h.01" />
+    </svg>
+  ),
+  piggyBank: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2h0V5z" />
+      <path d="M2 9v1c0 1.1.9 2 2 2h1" />
+      <path d="M16 11h0" />
+    </svg>
+  ),
+  save: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
+    </svg>
+  ),
+  pencil: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </svg>
+  ),
 };
 
 /* ─── Data ─── */
@@ -883,8 +981,10 @@ const normalizeOrder = (updated) => {
       h: Number(i.height_cm) || 0,
     })),
     payments: (updated.payments || []).map((p) => ({
+      id: p.id,
       date: toDateStr(p.payment_date),
       amount: Number(p.amount) || 0,
+      note: p.note ?? "",
     })),
     missingItems: (updated.checklist_items || []).map((c) => ({
       name: c.description,
@@ -937,6 +1037,7 @@ const toServerPayload = (order, { workerIdByName, clientIdByName } = {}) => ({
     payment_date: p.date,
 
     amount: Number(p.amount) || 0,
+    note: p.note ?? null,
   })),
 
   checklist_items: (order.missingItems || []).map((c) => ({
@@ -1762,6 +1863,520 @@ const MissingPartsModal = ({ isOpen, onClose, order, onUpdate }) => {
             missing parts exist, the order is blocked from completion and shown
             in red across the app.
           </span>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+/* ─── Payments modal ─── */
+// Add / edit / delete individual payments on an order. Each row in
+// `order.payments` is expected to be { id, amount, date, note } after the
+// payments service starts returning the DB id (see normalizeOrder()).
+const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
+  // Local mirror of the order's payments so edits feel instant.
+  // We re-seed whenever the modal opens against a new order.
+  const [rows, setRows] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState({
+    amount: "",
+    payment_date: "",
+    note: "",
+  });
+  const [editDraft, setEditDraft] = useState({
+    amount: "",
+    payment_date: "",
+    note: "",
+  });
+  const [busy, setBusy] = useState(false);
+
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  useEffect(() => {
+    if (isOpen && order) {
+      setRows(
+        (order.payments || []).map((p) => ({
+          id: p.id ?? null, // null for legacy seed rows
+          amount: Number(p.amount) || 0,
+          date: p.date || "",
+          note: p.note ?? "",
+        })),
+      );
+      setEditingId(null);
+      setDraft({ amount: "", payment_date: todayStr, note: "" });
+      setEditDraft({ amount: "", payment_date: "", note: "" });
+    }
+  }, [isOpen, order, todayStr]);
+
+  const paidTotal = useMemo(
+    () => rows.reduce((s, r) => s + (Number(r.amount) || 0), 0),
+    [rows],
+  );
+
+  const updateDraft = (field, value) =>
+    setDraft((prev) => ({ ...prev, [field]: value }));
+  const updateEditDraft = (field, value) =>
+    setEditDraft((prev) => ({ ...prev, [field]: value }));
+
+  const addPayment = async () => {
+    const amt = Number(draft.amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      alert("Amount must be a positive number.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await createPaymentClient(order.id, {
+        amount: amt,
+        payment_date: draft.payment_date || null,
+        note: draft.note || null,
+      });
+      const created = res.data;
+      setRows((prev) => [
+        ...prev,
+        {
+          id: created.id,
+          amount: Number(created.amount) || amt,
+          date:
+            (created.payment_date &&
+              new Date(created.payment_date).toISOString().split("T")[0]) ||
+            draft.payment_date ||
+            todayStr,
+          note: created.note ?? draft.note ?? "",
+        },
+      ]);
+      setDraft({ amount: "", payment_date: todayStr, note: "" });
+      onChange?.();
+    } catch (err) {
+      console.error("Failed to add payment:", err);
+      alert("Failed to add payment. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startEdit = (row) => {
+    setEditingId(row.id);
+    setEditDraft({
+      amount: String(row.amount ?? ""),
+      payment_date: row.date || "",
+      note: row.note ?? "",
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDraft({ amount: "", payment_date: "", note: "" });
+  };
+
+  const saveEdit = async (row) => {
+    if (!row.id) {
+      alert("This payment has no database id and cannot be edited.");
+      return;
+    }
+    const amt = Number(editDraft.amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      alert("Amount must be a positive number.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await patchPaymentClient(row.id, {
+        amount: amt,
+        payment_date: editDraft.payment_date || null,
+        note: editDraft.note || null,
+      });
+      const updated = res.data;
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === row.id
+            ? {
+                id: updated.id,
+                amount: Number(updated.amount) || amt,
+                date:
+                  (updated.payment_date &&
+                    new Date(updated.payment_date)
+                      .toISOString()
+                      .split("T")[0]) ||
+                  editDraft.payment_date ||
+                  r.date,
+                note: updated.note ?? editDraft.note ?? "",
+              }
+            : r,
+        ),
+      );
+      setEditingId(null);
+      onChange?.();
+    } catch (err) {
+      console.error("Failed to update payment:", err);
+      alert("Failed to update payment. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removePayment = async (row) => {
+    if (!row.id) {
+      // Legacy seed row without DB id — drop locally only.
+      setRows((prev) => prev.filter((r) => r !== row));
+      return;
+    }
+    if (!confirm("Delete this payment? This cannot be undone.")) return;
+    try {
+      setBusy(true);
+      await deletePaymentClient(row.id);
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      if (editingId === row.id) cancelEdit();
+      onChange?.();
+    } catch (err) {
+      console.error("Failed to delete payment:", err);
+      alert("Failed to delete payment. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Manage Payments"
+      subtitle={`${order?.id} — ${order?.project}`}
+      icon={<Icons.dollarSign />}
+      accent="accent"
+      maxWidth="680px"
+      footer={
+        <>
+          <Btn variant="ghost" onClick={onClose} disabled={busy}>
+            Done
+          </Btn>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {/* Summary */}
+        <div
+          className="flex items-center justify-between gap-2 p-3 rounded-lg text-sm"
+          style={{
+            background: "var(--accent-soft)",
+            border: "1px solid var(--accent)",
+          }}
+        >
+          <span
+            className="font-bold flex items-center gap-1.5"
+            style={{ color: "var(--accent)" }}
+          >
+            <Icons.creditCard /> Total recorded
+          </span>
+          <span
+            className="font-bold tabular-nums"
+            style={{ color: "var(--accent)" }}
+          >
+            {formatDZD(paidTotal)} ({rows.length} payment
+            {rows.length === 1 ? "" : "s"})
+          </span>
+        </div>
+
+        {/* Existing payments list */}
+        <div>
+          <h3
+            className="text-xs font-bold uppercase tracking-wider mb-2"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            Payment History ({rows.length})
+          </h3>
+
+          {rows.length === 0 ? (
+            <div
+              className="text-center py-6 text-sm rounded-lg flex flex-col items-center gap-1"
+              style={{
+                background: "var(--bg)",
+                border: "2px dashed var(--border)",
+                color: "var(--ink-muted)",
+              }}
+            >
+              <Icons.banknote />
+              <span className="font-bold">No payments recorded yet.</span>
+              <span className="text-xs">
+                Add the first one below to start tracking what was paid.
+              </span>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+              {rows.map((row, idx) => {
+                const isEditing = editingId === row.id;
+                return (
+                  <div
+                    key={row.id ?? `local-${idx}`}
+                    className="p-3 rounded-lg space-y-2"
+                    style={{
+                      background: isEditing
+                        ? "var(--accent-soft)"
+                        : "rgba(16,185,129,0.08)",
+                      border: `1px solid ${
+                        isEditing ? "var(--accent)" : "rgba(16,185,129,0.25)"
+                      }`,
+                    }}
+                  >
+                    {isEditing ? (
+                      <>
+                        <div className="grid grid-cols-12 gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Amount (DZD)"
+                            className="col-span-5 px-2 py-2 rounded-lg text-sm outline-none"
+                            style={{
+                              background: "var(--surface)",
+                              border: "1px solid var(--border)",
+                              color: "var(--ink)",
+                            }}
+                            value={editDraft.amount}
+                            onChange={(e) =>
+                              updateEditDraft("amount", e.target.value)
+                            }
+                            autoFocus
+                          />
+                          <input
+                            type="date"
+                            className="col-span-4 px-2 py-2 rounded-lg text-sm outline-none"
+                            style={{
+                              background: "var(--surface)",
+                              border: "1px solid var(--border)",
+                              color: "var(--ink)",
+                            }}
+                            value={editDraft.payment_date}
+                            onChange={(e) =>
+                              updateEditDraft(
+                                "payment_date",
+                                e.target.value,
+                              )
+                            }
+                          />
+                          <div className="col-span-3 flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => saveEdit(row)}
+                              disabled={busy}
+                              className="flex-1 flex items-center justify-center gap-1 text-xs font-bold px-2 py-2 rounded-lg transition-all hover:brightness-110 disabled:opacity-50"
+                              style={{
+                                background: "var(--accent)",
+                                color: "#fff",
+                              }}
+                              title="Save"
+                            >
+                              <Icons.save /> Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEdit}
+                              disabled={busy}
+                              className="px-2 py-2 rounded-lg text-xs font-bold transition-all hover:opacity-80"
+                              style={{
+                                background: "var(--bg)",
+                                border: "1px solid var(--border)",
+                                color: "var(--ink)",
+                              }}
+                              title="Cancel"
+                            >
+                              <Icons.x />
+                            </button>
+                          </div>
+                        </div>
+                        <input
+                          placeholder="Note (optional)"
+                          className="w-full px-2 py-2 rounded-lg text-sm outline-none"
+                          style={{
+                            background: "var(--surface)",
+                            border: "1px solid var(--border)",
+                            color: "var(--ink)",
+                          }}
+                          value={editDraft.note}
+                          onChange={(e) =>
+                            updateEditDraft("note", e.target.value)
+                          }
+                        />
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                          style={{
+                            background: "rgba(16,185,129,0.18)",
+                            color: "#16a34a",
+                          }}
+                        >
+                          <Icons.dollarSign />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div
+                            className="font-bold tabular-nums"
+                            style={{ color: "var(--ink)" }}
+                          >
+                            {formatDZD(row.amount)}
+                          </div>
+                          <div
+                            className="text-[11px] flex items-center gap-1"
+                            style={{ color: "var(--ink-muted)" }}
+                          >
+                            <Icons.calendar /> {row.date || "—"}
+                          </div>
+                          {row.note && (
+                            <div
+                              className="text-[11px] italic mt-0.5 truncate"
+                              style={{ color: "var(--ink-muted)" }}
+                              title={row.note}
+                            >
+                              📝 {row.note}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(row)}
+                            disabled={busy}
+                            className="p-1.5 rounded-md transition-all hover:opacity-80 disabled:opacity-40"
+                            style={{
+                              background: "var(--bg)",
+                              border: "1px solid var(--border)",
+                              color: "var(--accent)",
+                            }}
+                            title="Edit"
+                          >
+                            <Icons.pencil />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removePayment(row)}
+                            disabled={busy}
+                            className="p-1.5 rounded-md transition-all hover:opacity-80 disabled:opacity-40"
+                            style={{
+                              background: "var(--bg)",
+                              border: "1px solid var(--border)",
+                              color: "#ef4444",
+                            }}
+                            title="Delete"
+                          >
+                            <Icons.trash />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Add new */}
+        <div className="pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+          <h3
+            className="text-xs font-bold uppercase tracking-wider mb-2"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            Add a New Payment
+          </h3>
+          <div
+            className="space-y-2 p-3 rounded-lg"
+            style={{
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div className="grid grid-cols-12 gap-2">
+              <div className="col-span-5">
+                <label
+                  className="block text-[10px] font-bold uppercase mb-1"
+                  style={{ color: "var(--ink-muted)" }}
+                >
+                  Amount (DZD)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 15000"
+                  className="w-full px-2 py-2 rounded-lg text-sm outline-none"
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    color: "var(--ink)",
+                  }}
+                  value={draft.amount}
+                  onChange={(e) => updateDraft("amount", e.target.value)}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" &&
+                    (e.preventDefault(), addPayment())
+                  }
+                />
+              </div>
+              <div className="col-span-4">
+                <label
+                  className="block text-[10px] font-bold uppercase mb-1"
+                  style={{ color: "var(--ink-muted)" }}
+                >
+                  Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full px-2 py-2 rounded-lg text-sm outline-none"
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    color: "var(--ink)",
+                  }}
+                  value={draft.payment_date}
+                  onChange={(e) =>
+                    updateDraft("payment_date", e.target.value)
+                  }
+                  onKeyDown={(e) =>
+                    e.key === "Enter" &&
+                    (e.preventDefault(), addPayment())
+                  }
+                />
+              </div>
+              <div className="col-span-3 flex items-end">
+                <button
+                  type="button"
+                  onClick={addPayment}
+                  disabled={
+                    busy ||
+                    !Number.isFinite(Number(draft.amount)) ||
+                    Number(draft.amount) <= 0
+                  }
+                  className="w-full flex items-center justify-center gap-1 text-xs font-bold px-3 py-2 rounded-lg transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: "var(--accent)", color: "#fff" }}
+                >
+                  <Icons.plus /> Add
+                </button>
+              </div>
+            </div>
+            <div>
+              <label
+                className="block text-[10px] font-bold uppercase mb-1"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                Note (optional)
+              </label>
+              <input
+                placeholder="e.g., cash on delivery, bank transfer, check #42"
+                className="w-full px-2 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                }}
+                value={draft.note}
+                onChange={(e) => updateDraft("note", e.target.value)}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addPayment())
+                }
+              />
+            </div>
+          </div>
         </div>
       </div>
     </Modal>
@@ -2687,6 +3302,7 @@ export default function OrdersClient() {
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isReadyConfirmOpen, setIsReadyConfirmOpen] = useState(false);
   const [isMissingPartsOpen, setIsMissingPartsOpen] = useState(false);
+  const [isPaymentsOpen, setIsPaymentsOpen] = useState(false);
   const [managingOrderId, setManagingOrderId] = useState(null);
   const [assigningOrderId, setAssigningOrderId] = useState(null);
 
@@ -2901,8 +3517,10 @@ export default function OrdersClient() {
           h: Number(i.height_cm) || 0,
         })),
         payments: (updated.payments || []).map((p) => ({
+          id: p.id,
           date: toDateStr(p.payment_date),
           amount: Number(p.amount) || 0,
+          note: p.note ?? "",
         })),
         missingItems: (updated.checklist_items || []).map((c) => ({
           name: c.description,
@@ -2967,6 +3585,33 @@ export default function OrdersClient() {
     }
   };
 
+  const openPaymentsModal = (orderId) => {
+    setManagingOrderId(orderId);
+    setIsPaymentsOpen(true);
+  };
+
+  /**
+   * Refresh a single order from the server after a payment mutation.
+   * Reuses the same `/api/orders` filter endpoint and normalizes the
+   * result, so the panel sees the latest `paid` total and payment list.
+   */
+  const refreshOrder = async (orderId) => {
+    try {
+      const res = await fetchOrders({ page: 1, pageSize: 100 });
+      const list = Array.isArray(res?.data) ? res.data : [];
+      const fresh = list
+        .map(normalizeOrder)
+        .find((o) => o.id === orderId);
+      if (fresh) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === fresh.id ? fresh : o)),
+        );
+      }
+    } catch (err) {
+      console.error("Failed to refresh order:", err);
+    }
+  };
+
   const handleQuickStageChange = async (orderId, newStage) => {
     if (newStage === "READY_TO_DELIVER") {
       setAssigningOrderId(orderId);
@@ -2975,7 +3620,7 @@ export default function OrdersClient() {
     }
     try {
       const res = await patchOrderClient(orderId, {
-        state: stageToDbState(newStage),
+        stage: newStage,
       });
       const normalized = normalizeOrder(res.data);
       setOrders((prev) =>
@@ -3095,6 +3740,7 @@ export default function OrdersClient() {
             onUpdateTechnical={handleUpdateTechnical}
             onPrint={() => handlePrint(selected)}
             onManageMissing={openMissingPartsModal}
+            onManagePayments={openPaymentsModal}
           />
         </div>
       )}
@@ -3553,6 +4199,7 @@ export default function OrdersClient() {
             onUpdateTechnical={handleUpdateTechnical}
             onPrint={() => handlePrint(selected)}
             onManageMissing={openMissingPartsModal}
+            onManagePayments={openPaymentsModal}
           />
         </div>
       </div>
@@ -3591,6 +4238,12 @@ export default function OrdersClient() {
         order={orders.find((o) => o.id === managingOrderId)}
         onUpdate={handleUpdateMissingParts}
       />
+      <PaymentsModal
+        isOpen={isPaymentsOpen}
+        onClose={() => setIsPaymentsOpen(false)}
+        order={orders.find((o) => o.id === managingOrderId)}
+        onChange={() => refreshOrder(managingOrderId)}
+      />
     </div>
   );
 }
@@ -3615,6 +4268,8 @@ function OrderDetailPanel({
   onPrint,
 
   onManageMissing,
+
+  onManagePayments,
 }) {
   if (!order) {
     return (
@@ -4036,12 +4691,37 @@ function OrderDetailPanel({
         className="p-5 space-y-2.5"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
-        <h3
-          className="text-xs font-bold uppercase tracking-wider"
-          style={{ color: "var(--ink-muted)" }}
-        >
-          Financial
-        </h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3
+            className="text-xs font-bold uppercase tracking-wider"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            Financial
+          </h3>
+          <button
+            onClick={() => onManagePayments?.(order.id)}
+            className="text-[10px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 transition-all hover:brightness-110"
+            style={{
+              background: "var(--accent-soft)",
+              color: "var(--accent)",
+              border: "1px solid var(--accent)",
+            }}
+            title="Add, edit, or remove payments"
+          >
+            <Icons.dollarSign /> Manage Payments
+            {order.payments && order.payments.length > 0 && (
+              <span
+                className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold"
+                style={{
+                  background: "var(--accent)",
+                  color: "#fff",
+                }}
+              >
+                {order.payments.length}
+              </span>
+            )}
+          </button>
+        </div>
         <div className="flex justify-between text-sm">
           <span style={{ color: "var(--ink-muted)" }}>Order</span>
           <span className="font-bold tabular-nums">
@@ -4121,25 +4801,36 @@ function OrderDetailPanel({
             </h4>
             {order.payments.map((p, i) => (
               <div
-                key={i}
-                className="flex justify-between items-center text-xs p-2 rounded-md"
+                key={p.id ?? i}
+                className="flex flex-col gap-0.5 text-xs p-2 rounded-md"
                 style={{
                   background: "rgba(16,185,129,0.08)",
                   border: "1px solid rgba(16,185,129,0.15)",
                 }}
               >
-                <span
-                  className="flex items-center gap-1"
-                  style={{ color: "var(--ink-muted)" }}
-                >
-                  <Icons.calendar /> {p.date}
-                </span>
-                <span
-                  className="font-bold"
-                  style={{ color: "var(--stage-completed)" }}
-                >
-                  + {p.amount.toLocaleString()} DZD
-                </span>
+                <div className="flex justify-between items-center">
+                  <span
+                    className="flex items-center gap-1"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    <Icons.calendar /> {p.date}
+                  </span>
+                  <span
+                    className="font-bold"
+                    style={{ color: "var(--stage-completed)" }}
+                  >
+                    + {p.amount.toLocaleString()} DZD
+                  </span>
+                </div>
+                {p.note && (
+                  <div
+                    className="text-[10px] italic truncate"
+                    style={{ color: "var(--ink-muted)" }}
+                    title={p.note}
+                  >
+                    📝 {p.note}
+                  </div>
+                )}
               </div>
             ))}
           </div>

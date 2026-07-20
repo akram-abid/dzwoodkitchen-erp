@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { createPaymentSchema } from '@/lib/validation/order'
+import { createPaymentSchema } from '../../../../../lib/validation/payment'
 import { ZodError } from 'zod'
 
 function parseId(idParam) {
