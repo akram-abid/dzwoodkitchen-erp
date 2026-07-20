@@ -2178,9 +2178,9 @@ export default function WorkersApp({ workersData, orders = [] }) {
       const pay = Math.round(totalH * selected.hourlyRate);
       totalHours += totalH;
       totalPay += pay;
-      return `<tr><td>${e.date}</td><td>${e.clockIn}</td><td>${e.clockOut}</td><td style="text-align:right">${totalH.toFixed(1)}h</td><td style="text-align:right">${pay.toLocaleString()} DZD</td></tr>`;
+      return `<tr><td>${formatDate(e.date)}</td><td>${e.clockIn}</td><td>${e.clockOut}</td><td style="text-align:right">${totalH.toFixed(1)}h</td><td style="text-align:right">${pay.toLocaleString()} DZD</td></tr>`;
     }).join("");
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${selected.firstName} ${selected.lastName} Report</title><style>body { font-family: sans-serif; padding: 32px; } table { width: 100%; border-collapse: collapse; } th, td { padding: 8px; border-bottom: 1px solid #eee; }</style></head><body><h1>${selected.firstName} ${selected.lastName} - ${MONTH_NAMES[viewMonth]} ${viewYear}</h1><p>Total: ${totalHours.toFixed(1)}h = ${totalPay.toLocaleString()} DZD</p><button onclick="window.print()">Print</button><table><thead><tr><th>Date</th><th>In</th><th>Out</th><th>Hours</th><th>Pay</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${selected?.full_name || ''} Report</title><style>body { font-family: sans-serif; padding: 32px; } table { width: 100%; border-collapse: collapse; } th, td { padding: 8px; border-bottom: 1px solid #eee; }</style></head><body><h1>${selected?.full_name || ''}- ${MONTH_NAMES[viewMonth]} ${viewYear}</h1><p>Total: ${totalHours.toFixed(1)}h = ${totalPay.toLocaleString()} DZD</p><button onclick="window.print()">Print</button><table><thead><tr><th>Date</th><th>In</th><th>Out</th><th>Hours</th><th>Pay</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
     win.document.close();
     setTimeout(() => win.print(), 250);
   }, [selected, monthlyEntries, viewMonth, viewYear]);
