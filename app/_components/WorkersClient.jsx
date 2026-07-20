@@ -35,6 +35,7 @@ const GlobalStyles = () => (
 
 /* ─── Icons ─── */
 const Icons = {
+  inbox: () => <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></svg>,
   search: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>),
   x: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>),
   more: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>),
@@ -531,7 +532,7 @@ const calcEntryHours = (e) => {
 };
 
 const getMonthlyTimeEntries = (w, vKey) => {
-  return (w.timeEntries || []).filter((e) => formatDate(e.date).startsWith(vKey));
+  return (w?.timeEntries || []).filter((e) => formatDate(e.date).startsWith(vKey));
 }
 
 
@@ -578,6 +579,7 @@ const getMonthlyMetersData = (w, vKey, orders) => {
 };
 
 const getMonthlyEarnings = (w, vKey, orders) => {
+  if (!w || !w.payment_type) return 0;
   if (w.payment_type === "meters") {
     return Math.round(
       getMonthlyMetersData(w, vKey, orders).totalMeters * (w.meterRate || 0),
@@ -588,7 +590,7 @@ const getMonthlyEarnings = (w, vKey, orders) => {
 };
 
 const getMonthlyPayments = (w, vKey) =>
-  (w.payments || [])
+  (w?.payments || [])
     .filter((p) => formatDate(p.date).startsWith(vKey))
     .reduce((s, p) => s + p.amount, 0);
 
@@ -940,10 +942,12 @@ const FAKE_WORKERS = [
 
 /* ─── WorkerCard ─── */
 const WorkerCard = memo(function WorkerCard({ worker, vKey, orders, onOpen, onAttendanceChange, isSaving }) {
+  if (!worker) return null;
   const todayStatus = worker.attendance?.[TODAY];
   const todayColor = todayStatus ? ATTENDANCE_COLORS[todayStatus] : ATTENDANCE_COLORS["NOT SET"];
 
   const monthlyEarnings = useMemo(() => {
+    if (!worker) return 0;
     if (worker.payment_type === "meters") {
       const assignments = (worker.assignments || []).filter((a) => formatDate(a.date).startsWith(vKey));
       return Math.round(assignments.reduce((s, a) => s + a.meters, 0) * (worker.meterRate || 0));
@@ -1181,6 +1185,7 @@ const WeekStrip = memo(function WeekStrip({ year, weekIndex, yearWeeks, currentW
 
 /* ─── ListScreen ─── */
 const ListScreen = memo(function ListScreen({ workers, filtered, search, setSearch, roleFilter, setRoleFilter, statusFilter, setStatusFilter, roles, todayPresent, todayAbsent, todayNotSet, vKey, orders, onMarkAll, onOpenWorker, onAttendanceChange, isSaving }) {
+
   return (
     <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
       <div className="px-4 pt-4 pb-2 shrink-0">
@@ -1201,8 +1206,8 @@ const ListScreen = memo(function ListScreen({ workers, filtered, search, setSear
           </button>
         </div>
         <div className="flex items-center gap-4 text-xs">
-          <span className="flex items-center gap-1" style={{ color: "var(--ink)" }}><span className="w-2 h-2 rounded-full" style={{ background: ATTENDANCE_COLORS.PRESENT }} /> {todayPresent} Present</span>
-          <span className="flex items-center gap-1" style={{ color: "var(--ink)" }}><span className="w-2 h-2 rounded-full" style={{ background: "#dc2626" }} /> {todayAbsent} Away</span>
+          <span className="flex items-center gap-1" style={{ color: "var(--ink)" }}><span className="w-2 h-2 rounded-full" style={{ background: ATTENDANCE_COLORS.PRESENT }} /> {todayPresent || 0} Present</span>
+          <span className="flex items-center gap-1" style={{ color: "var(--ink)" }}><span className="w-2 h-2 rounded-full" style={{ background: "#dc2626" }} /> {todayAbsent || 0} Away</span>
           {todayNotSet > 0 && <span className="flex items-center gap-1" style={{ color: "var(--ink)" }}><span className="w-2 h-2 rounded-full" style={{ background: ATTENDANCE_COLORS["NOT SET"] }} /> {todayNotSet} Not Set</span>}
         </div>
       </div>
@@ -1227,7 +1232,7 @@ const ListScreen = memo(function ListScreen({ workers, filtered, search, setSear
 
       <div className="flex gap-2 px-4 mb-3 shrink-0">
         {["ACTIVE", "OFF"].map((s) => {
-          const count = workers.filter((w) => w.status === s).length;
+          const count = workers?.filter((w) => w.status === s).length || 0;
           const active = statusFilter === s;
           return (
             <button key={s} onClick={() => setStatusFilter(statusFilter === s ? "All" : s)} className="text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1.5"
@@ -1240,14 +1245,22 @@ const ListScreen = memo(function ListScreen({ workers, filtered, search, setSear
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3 no-scrollbar">
-        {filtered.map((w) => (
-          <WorkerCard key={w.id} worker={w} vKey={vKey} orders={orders} onOpen={onOpenWorker} onAttendanceChange={onAttendanceChange} isSaving={isSaving} />
-        ))}
-        {filtered.length === 0 && <div className="text-center py-12 text-sm" style={{ color: "var(--ink-muted)" }}>No workers match your filters.</div>}
+        {workers && workers.length > 0 ? (
+          filtered?.map((w) => (
+            <WorkerCard key={w.id} worker={w} vKey={vKey} orders={orders} onOpen={onOpenWorker} onAttendanceChange={onAttendanceChange} isSaving={isSaving} />
+          ))
+        ) : (
+          <div className="text-center py-12 text-sm" style={{ color: 'var(--ink-muted)' }}>No workers found.</div>
+        )}
+        {workers && workers.length > 0 && filtered?.length === 0 && (
+          <div className="text-center py-12 text-sm" style={{ color: 'var(--ink-muted)' }}>No workers match your filters.</div>
+        )}
       </div>
     </div>
   );
 });
+
+
 
 /* ─── DetailScreen ─── */
 const DetailScreen = memo(function DetailScreen({
@@ -1259,6 +1272,17 @@ const DetailScreen = memo(function DetailScreen({
   onAddTimeEntry, onEditTimeEntry, onDeleteTimeEntry, onPrint, onAddPayment,
   onDeletePayment, isSaving,
 }) {
+  if (!selected) {
+    return (
+      <div className="flex items-center justify-center h-full p-10 text-center">
+        <div style={{ color: 'var(--ink-muted)' }}>
+          <Icons.inbox />
+          <p className="mt-4 text-sm">No worker selected or no data available.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full screen-enter" style={{ background: "var(--bg)" }}>
       <div className="flex items-center gap-3 px-4 py-3 shrink-0" style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
@@ -1924,7 +1948,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [selectedId, setSelectedId] = useState(workersData[0]?.id);
+  const [selectedId, setSelectedId] = useState(workersData[0]?.id || null);
   const [year, setYearState] = useState(CURRENT_YEAR);
   const [weekIndex, setWeekIndexState] = useState(() => {
     const weeks = getYearWeeks(CURRENT_YEAR);
@@ -1971,7 +1995,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
   const setViewYear = useCallback((y) => setViewYearState(y), []);
 
   /* ─── Memoized derivations ─── */
-  const selected = useMemo(() => workers.find((w) => w.id === selectedId) || workers[0], [workers, selectedId]);
+  const selected = useMemo(() => workers.find((w) => w.id === selectedId) || workers[0] || null, [workers, selectedId]);
   const yearWeeks = useMemo(() => getYearWeeks(year), [year]);
   const currentWeek = useMemo(() => getWeekDates(year, weekIndex), [year, weekIndex]);
   const vKey = useMemo(() => monthKey(viewYear, viewMonth), [viewYear, viewMonth]);
@@ -1989,13 +2013,14 @@ export default function WorkersApp({ workersData, orders = [] }) {
   const monthlyEarned = useMemo(() => getMonthlyEarnings(selected, vKey, orders), [selected, vKey, orders]);
   const monthlyPaid = useMemo(() => getMonthlyPayments(selected, vKey), [selected, vKey]);
   const monthlyBalance = useMemo(
-    () => selected.sold + monthlyEarned - monthlyPaid,
-    [selected.sold, monthlyEarned, monthlyPaid]
+    () => (selected?.sold || 0) + monthlyEarned - monthlyPaid,
+    [selected?.sold, monthlyEarned, monthlyPaid]
   );
+
   const monthlyEntries = useMemo(() => getMonthlyTimeEntries(selected, vKey), [selected, vKey]);
   const monthlyMetersData = useMemo(
     () =>
-      selected.payment_type === "meters"
+      selected?.payment_type === "meters"
         ? getMonthlyMetersData(selected, vKey, orders)
         : null,
     [selected, vKey, orders],
@@ -2135,7 +2160,6 @@ export default function WorkersApp({ workersData, orders = [] }) {
   const markAllPresent = useCallback(() => {
     setWorkers((prev) =>
       prev.map((w) => {
-        if (w.attendance?.[TODAY]) return w;
         addChange({ workerId: w.id, date: TODAY, status: "PRESENT" });
         return { ...w, attendance: { ...w.attendance, [TODAY]: "PRESENT" } };
       }),
@@ -2189,7 +2213,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
           onJumpToToday={goTodayWeek} onPrevMonth={goPrevMonth} onNextMonth={goNextMonth}
           onTodayMonth={goCurrentMonth} onAttendanceClick={setAttendance}
           weekRangeLabel={weekRangeLabel} monthlyEarned={monthlyEarned}
-          monthlyPaid={monthlyPaid} monthlyBalance={selected.sold + monthlyEarned - monthlyPaid}
+          monthlyPaid={monthlyPaid} monthlyBalance={(selected?.sold || 0) + monthlyEarned - monthlyPaid}
           monthlyEntries={monthlyEntries} onAddTimeEntry={openAddTimeEntry}
           monthlyMetersData={monthlyMetersData}
           onEditTimeEntry={openEditTimeEntry} onDeleteTimeEntry={deleteTimeEntry}
@@ -2205,7 +2229,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
             <h3 className="text-lg font-bold mb-4" style={{ color: "var(--ink)" }}>{editingEntry ? "Edit Time Entry" : "Add Time Entry"}</h3>
             <TimeEntryForm
               initial={editingEntry}
-              existingDates={(selected.timeEntries || []).map((e) => e.date).filter((d) => d !== editingEntry?.date)}
+              existingDates={(selected?.timeEntries || []).map((e) => e.date).filter((d) => d !== editingEntry?.date)}
               onSave={addTimeEntry}
               onCancel={() => { setShowTimeEntryModal(false); setEditingEntry(null); }}
               isSubmitting={isSubmitting}
