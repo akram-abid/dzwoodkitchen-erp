@@ -1,0 +1,98 @@
+// app/lib/validation/order.js
+
+import { z } from "zod";
+
+// ↓ keep your ORIGINAL definition (the one your route already imports)
+export const listOrdersQuerySchema = z.object({
+  state: z.enum([
+    "appointment",
+    "contract",
+    "in_production",
+    "ready_to_delivery",
+    "completed",
+  ]).optional(),
+  client_id: z.coerce.number().int().optional(),
+  worker_id: z.coerce.number().int().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(200).default(20),
+});
+
+// ↓ and ADD this one (new)
+export const updateOrderSchema = z.object({
+  client: z.string().min(1, "Client is required"),
+  phone: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  project: z.string().min(1, "Project is required"),
+  amount: z.number().nonnegative(),
+  dueDate: z.string().optional().nullable(),
+  stage: z.enum([
+    "APPOINTMENT",
+    "CONTRACT",
+    "IN_PRODUCTION",
+    "READY_TO_DELIVER",
+    "COMPLETED",
+  ]),
+  worker: z.string().optional().nullable(),
+
+  items: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        qty: z.number().int().nonnegative(),
+        unit: z.string(),
+        l: z.number().nonnegative().optional().default(0),
+        w: z.number().nonnegative().optional().default(0),
+        h: z.number().nonnegative().optional().default(0),
+      })
+    )
+    .optional()
+    .default([]),
+
+  payments: z
+    .array(
+      z.object({
+        date: z.string(),
+        amount: z.number().nonnegative(),
+      })
+    )
+    .optional()
+    .default([]),
+
+  missingItems: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        qty: z.number().int().nonnegative().optional().default(1),
+        unit: z.string().optional().default("pcs"),
+        notes: z.string().optional().nullable(),
+      })
+    )
+    .optional()
+    .default([]),
+
+  technical: z
+    .object({
+      truckDistance: z
+        .union([z.number(), z.string()])
+        .optional()
+        .nullable(),
+      floor: z.union([z.number(), z.string()]).optional().nullable(),
+      fee: z.union([z.number(), z.string()]).optional().nullable(),
+    })
+    .optional()
+    .default({}),
+});
+
+export const listOrdersQuerySchema = z.object({
+  state: z.enum([
+    "appointment",
+    "contract",
+    "in_production",
+    "ready_to_delivery",
+    "completed",
+  ]).optional(),
+  client_id: z.coerce.number().int().optional(),
+  worker_id: z.coerce.number().int().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(200).default(20),
+});

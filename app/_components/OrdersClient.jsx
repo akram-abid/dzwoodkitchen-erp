@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { fetchOrders } from "../api/orders/orders";
+import { fetchOrders, updateOrderClient } from "../api/orders/orders";
 
 /* ─── Icons ─── */
 const Icons = {
@@ -2503,10 +2503,10 @@ const handlePrint = (order) => {
 
 /* ─── Main ─── */
 export default function OrdersClient() {
-  const [orders, setOrders] = useState(ALL_ORDERS);
+  const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [selectedId, setSelectedId] = useState(ALL_ORDERS[0].id);
+  const [selectedId, setSelectedId] = useState(null);
   const [sortKey, setSortKey] = useState("created");
   const [sortDir, setSortDir] = useState("desc");
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
@@ -2523,31 +2523,84 @@ export default function OrdersClient() {
   const [viewYear, setViewYear] = useState(now.getFullYear());
 
   const today = new Date().setHours(0, 0, 0, 0);
-  const [orderss, setOrderss] = useState(ALL_ORDERS);
   useEffect(() => {
-    fetchOrders({ page: 1, pageSize: 20 })
+    let cancelled = false;
+
+    fetchOrders({ page: 1, pageSize: 100 })
       .then((res) => {
-        const normalized = res.data.map((o) => ({
-          id: o.id,
-          client: o.clients?.full_name ?? "",
-          phone: o.clients?.phone ?? "",
-          address: o.address ?? "",
-          amount: Number(o.total_amount) || 0,
-          status: o.state ?? "",
-          created: o.created_at ?? "",
-          dueDate: o.due_date ?? "",
-          projectName: o.project_name ?? "",
-          workerId: o.worker_id ?? null,
-          workerName: o.workers?.full_name ?? "",
-          isFullyCompleted: !!o.is_fully_completed,
-          latitude: o.latitude ?? null,
-          longitude: o.longitude ?? null,
-          liftCost: Number(o.lift_cost) || 0,
-        }));
-        setOrderss(normalized);
+        if (cancelled) return;
+
+        const list = Array.isArray(res?.data) ? res.data : [];
+        const normalized = list.map((o) => {
+          const paid = (o.payments || []).reduce(
+            (s, p) => s + (Number(p.amount) || 0),
+            0,
+          );
+          const dn = (o.delivery_notes && o.delivery_notes[0]) || {};
+          const toDateStr = (d) => {
+            if (!d) return "";
+            const date = d instanceof Date ? d : new Date(d);
+            if (isNaN(date.getTime())) return "";
+            return date.toISOString().split("T")[0];
+          };
+          return {
+            id: o.id,
+            client: o.clients?.full_name ?? "",
+            phone: o.clients?.phone ?? "",
+            address: o.address ?? dn.address ?? "",
+            project: o.project_name ?? "",
+            stage: (o.state ?? "appointment").toUpperCase(),
+            worker: o.workers?.full_name ?? "Unassigned",
+            amount: Number(o.total_amount) || 0,
+            paid,
+            dueDate: toDateStr(o.due_date),
+            created: toDateStr(o.created_at),
+            items: (o.order_items || []).map((i) => ({
+              name: i.name,
+              qty: i.quantity,
+              unit: i.unit,
+              l: Number(i.length_cm) || 0,
+              w: Number(i.width_cm) || 0,
+              h: Number(i.height_cm) || 0,
+            })),
+            payments: (o.payments || []).map((p) => ({
+              date: toDateStr(p.payment_date),
+              amount: Number(p.amount) || 0,
+            })),
+            missingItems: (o.checklist_items || []).map((c) => ({
+              name: c.description,
+              qty: c.quantity ?? 1,
+              unit: c.unit ?? "pcs",
+              notes: c.notes ?? "",
+            })),
+            technical: {
+              truckDistance: dn.truck_distance_km ?? "",
+              floor: dn.floor ?? "",
+              fee: Number(dn.lift_cost ?? o.lift_cost) || 0,
+            },
+            isFullyCompleted: !!o.is_fully_completed,
+            completedAt: null,
+          };
+        });
+
+        // Only replace if we actually got data — never wipe with []
+        setOrders((prev) => (normalized.length > 0 ? normalized : prev));
+
+        setSelectedId((curr) => {
+          if (normalized.length === 0) return curr;
+          return curr == null || !normalized.find((o) => o.id === curr)
+            ? normalized[0].id
+            : curr;
+        });
       })
-      .catch((err) => console.error(err));
+      .catch((err) => console.error("orders fetch failed:", err));
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  console.log("orders state now:", orders);
 
   console.log("orders fetched:", orders);
 
@@ -2641,10 +2694,70 @@ export default function OrdersClient() {
     setOrders((prev) => [newOrder, ...prev]);
     setSelectedId(newOrder.id);
   };
-  const handleUpdateOrder = (updatedOrder) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)),
-    );
+  const handleUpdateOrder = async (updatedOrder) => {
+    try {
+      const res = await updateOrderClient(updatedOrder.id, updatedOrder);
+      const updated = res.data;
+
+      // Same normalization as the useEffect — keep it in sync if you change one
+      const paid = (updated.payments || []).reduce(
+        (s, p) => s + (Number(p.amount) || 0),
+        0,
+      );
+      const dn = (updated.delivery_notes && updated.delivery_notes[0]) || {};
+      const toDateStr = (d) => {
+        if (!d) return "";
+        const date = d instanceof Date ? d : new Date(d);
+        if (isNaN(date.getTime())) return "";
+        return date.toISOString().split("T")[0];
+      };
+
+      const normalized = {
+        id: updated.id,
+        client: updated.clients?.full_name ?? "",
+        phone: updated.clients?.phone ?? "",
+        address: updated.address ?? dn.address ?? "",
+        project: updated.project_name ?? "",
+        stage: (updated.state ?? "appointment").toUpperCase(),
+        worker: updated.workers?.full_name ?? "Unassigned",
+        amount: Number(updated.total_amount) || 0,
+        paid,
+        dueDate: toDateStr(updated.due_date),
+        created: toDateStr(updated.created_at),
+        items: (updated.order_items || []).map((i) => ({
+          name: i.name,
+          qty: i.quantity,
+          unit: i.unit,
+          l: Number(i.length_cm) || 0,
+          w: Number(i.width_cm) || 0,
+          h: Number(i.height_cm) || 0,
+        })),
+        payments: (updated.payments || []).map((p) => ({
+          date: toDateStr(p.payment_date),
+          amount: Number(p.amount) || 0,
+        })),
+        missingItems: (updated.checklist_items || []).map((c) => ({
+          name: c.description,
+          qty: c.quantity ?? 1,
+          unit: c.unit ?? "pcs",
+          notes: c.notes ?? "",
+        })),
+        technical: {
+          truckDistance: dn.truck_distance_km ?? "",
+          floor: dn.floor ?? "",
+          fee: Number(dn.lift_cost ?? updated.lift_cost) || 0,
+        },
+        isFullyCompleted: !!updated.is_fully_completed,
+        completedAt: updatedOrder.completedAt ?? null,
+      };
+
+      setOrders((prev) =>
+        prev.map((o) => (o.id === normalized.id ? normalized : o)),
+      );
+    } catch (err) {
+      console.error("Failed to update order:", err);
+      alert("Failed to save changes. Please try again.");
+    }
   };
   const handleAssignWorker = (workerName) => {
     setOrders((prev) =>
@@ -3284,17 +3397,37 @@ export default function OrdersClient() {
 }
 
 /* ─── Order Detail Panel ─── */
+
 function OrderDetailPanel({
   order,
+
   today,
+
   onEdit,
+
   onAssign,
+
   onStageChange,
+
   onDelete,
+
   onUpdateTechnical,
+
   onPrint,
+
   onManageMissing,
 }) {
+  if (!order) {
+    return (
+      <div
+        className="flex items-center justify-center h-full p-8 text-sm"
+        style={{ color: "var(--ink-muted)" }}
+      >
+        Loading…
+      </div>
+    );
+  }
+
   const isOverdue =
     new Date(order.dueDate).getTime() < today && order.stage !== "COMPLETED";
   const progress = order.amount > 0 ? (order.paid / order.amount) * 100 : 0;

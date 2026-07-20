@@ -60,7 +60,7 @@ const Icons = {
 /* ─── Data ─── */
 const SEED_CLIENTS = [
   {
-    id: 'CLT-001', name: 'Karim Boudiaf', type: 'Individual', status: 'VIP',
+    id: 'CLT-001', name: 'Karim Boudiaff', type: 'Individual', status: 'VIP',
     phone: '+213 555 12 34 56', email: 'karim.boudiaf@example.dz',
     city: 'Algiers', district: 'Hydra', address: '12 Rue des Frères Moulay',
     joined: '2024-03-12', notes: 'Prefers walnut finish. Always pays on delivery.',
