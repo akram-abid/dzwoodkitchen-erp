@@ -1,229 +1,403 @@
-  generator client {
-    provider = "prisma-client"
-    output   = "../app/generated/prisma"
-  }
+// =============================================================
+// DZ WOOD KITCHEN — Prisma schema (v2: treasury split into 4 tables)
+// =============================================================
 
-  datasource db {
-    provider = "postgresql"
-  }
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
 
-  model checklist_items {
-    id          Int       @id @default(autoincrement())
-    order_id    Int
-    description String    @db.VarChar(255)
-    quantity    Int?      @default(1)
-    unit        String?   @db.VarChar(20)
-    notes       String?
-    is_resolved Boolean   @default(false)
-    created_at  DateTime  @default(now()) @db.Timestamp(6)
-    resolved_at DateTime? @db.Timestamp(6)
-    orders      orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+datasource db {
+  provider = "postgresql"
+}
 
-    @@index([order_id], map: "idx_checklist_items_order_id")
-  }
+// =============================================================
+// CORE: orders, clients, workers, vehicles
+// =============================================================
 
-  model clients {
-    id         Int      @id @default(autoincrement())
-    full_name  String   @db.VarChar(150)
-    phone      String?  @db.VarChar(30)
-    created_at DateTime @default(now()) @db.Timestamp(6)
-    updated_at DateTime @default(now()) @db.Timestamp(6)
-    orders     orders[]
-  }
+model checklist_items {
+  id          Int       @id @default(autoincrement())
+  order_id    Int
+  description String    @db.VarChar(255)
+  quantity    Int?      @default(1)
+  unit        String?   @db.VarChar(20)
+  notes       String?
+  is_resolved Boolean   @default(false)
+  created_at  DateTime  @default(now()) @db.Timestamp(6)
+  resolved_at DateTime? @db.Timestamp(6)
+  orders      orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  model delivery_notes {
-    id                Int       @id @default(autoincrement())
-    order_id          Int
-    remaining_amount  Decimal   @default(0) @db.Decimal(10, 2)
-    address           String?   @db.VarChar(255)
-    address_notes     String?
-    longitude         Decimal?  @db.Decimal(10, 7)
-    latitude          Decimal?  @db.Decimal(10, 7)
-    lift_cost         Decimal?  @default(0) @db.Decimal(10, 2)
-    floor             Int?
-    truck_distance_km Decimal?  @db.Decimal(10, 2)
-    delivered_at      DateTime? @db.Timestamp(6)
-    orders            orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  @@index([order_id], map: "idx_checklist_items_order_id")
+}
 
-    @@index([order_id], map: "idx_delivery_notes_order_id")
-  }
+model clients {
+  id         Int      @id @default(autoincrement())
+  full_name  String   @db.VarChar(150)
+  phone      String?  @db.VarChar(30)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @default(now()) @db.Timestamp(6)
+  orders     orders[]
+}
 
-  model order_items {
-    id         Int      @id @default(autoincrement())
-    order_id   Int
-    name       String   @db.VarChar(255)
-    quantity   Int      @default(1)
-    unit       String   @db.VarChar(20)
-    length_cm  Decimal? @db.Decimal(10, 2)
-    width_cm   Decimal? @db.Decimal(10, 2)
-    height_cm  Decimal? @db.Decimal(10, 2)
-    created_at DateTime @default(now()) @db.Timestamp(6)
-    orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model delivery_notes {
+  id                Int       @id @default(autoincrement())
+  order_id          Int
+  remaining_amount  Decimal   @default(0) @db.Decimal(10, 2)
+  address           String?   @db.VarChar(255)
+  address_notes     String?
+  longitude         Decimal?  @db.Decimal(10, 7)
+  latitude          Decimal?  @db.Decimal(10, 7)
+  lift_cost         Decimal?  @default(0) @db.Decimal(10, 2)
+  floor             Int?
+  truck_distance_km Decimal?  @db.Decimal(10, 2)
+  delivered_at      DateTime? @db.Timestamp(6)
+  orders            orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-    @@index([order_id], map: "idx_order_items_order_id")
-  }
+  @@index([order_id], map: "idx_delivery_notes_order_id")
+}
 
-  model order_photos {
-    id          Int      @id @default(autoincrement())
-    order_id    Int
-    photo_url   String   @db.VarChar(500)
-    description String?  @db.VarChar(255)
-    uploaded_at DateTime @default(now()) @db.Timestamp(6)
-    orders      orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model order_items {
+  id         Int      @id @default(autoincrement())
+  order_id   Int
+  name       String   @db.VarChar(255)
+  quantity   Int      @default(1)
+  unit       String   @db.VarChar(20)
+  length_cm  Decimal? @db.Decimal(10, 2)
+  width_cm   Decimal? @db.Decimal(10, 2)
+  height_cm  Decimal? @db.Decimal(10, 2)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-    @@index([order_id], map: "idx_order_photos_order_id")
-  }
+  @@index([order_id], map: "idx_order_items_order_id")
+}
 
-  model orders {
-    id                 Int               @id @default(autoincrement())
-    client_id          Int
-    worker_id          Int?
-    project_name       String?           @db.VarChar(255)
-    total_amount       Decimal?          @db.Decimal(10, 2)
-    due_date           DateTime?         @db.Date
-    state              order_state       @default(appointment)
-    address            String?           @db.VarChar(255)
-    address_notes      String?
-    longitude          Decimal?          @db.Decimal(10, 7)
-    latitude           Decimal?          @db.Decimal(10, 7)
-    lift_cost          Decimal?          @default(0) @db.Decimal(10, 2)
-    is_fully_completed Boolean           @default(false)
-    created_at         DateTime          @default(now()) @db.Timestamp(6)
-    updated_at         DateTime          @default(now()) @db.Timestamp(6)
-    checklist_items    checklist_items[]
-    delivery_notes     delivery_notes[]
-    order_items        order_items[]
-    order_photos       order_photos[]
-    clients            clients           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    workers            workers?          @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    payments           payments[]
-    vehicle_trips      vehicle_trips[]
+model order_photos {
+  id          Int      @id @default(autoincrement())
+  order_id    Int
+  photo_url   String   @db.VarChar(500)
+  description String?  @db.VarChar(255)
+  uploaded_at DateTime @default(now()) @db.Timestamp(6)
+  orders      orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-    @@index([client_id], map: "idx_orders_client_id")
-    @@index([state], map: "idx_orders_state")
-    @@index([worker_id], map: "idx_orders_worker_id")
-  }
+  @@index([order_id], map: "idx_order_photos_order_id")
+}
 
-  model payments {
-    id           Int      @id @default(autoincrement())
-    order_id     Int
-    amount       Decimal  @db.Decimal(10, 2)
-    payment_date DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
-    note         String?  @db.VarChar(255)
-    created_at   DateTime @default(now()) @db.Timestamp(6)
-    orders       orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model orders {
+  id                 Int               @id @default(autoincrement())
+  client_id          Int
+  worker_id          Int?
+  project_name       String?           @db.VarChar(255)
+  total_amount       Decimal?          @db.Decimal(10, 2)
+  due_date           DateTime?         @db.Date
+  state              order_state       @default(appointment)
+  address            String?           @db.VarChar(255)
+  address_notes      String?
+  longitude          Decimal?          @db.Decimal(10, 7)
+  latitude           Decimal?          @db.Decimal(10, 7)
+  lift_cost          Decimal?          @default(0) @db.Decimal(10, 2)
+  is_fully_completed Boolean           @default(false)
+  created_at         DateTime          @default(now()) @db.Timestamp(6)
+  updated_at         DateTime          @default(now()) @db.Timestamp(6)
+  checklist_items    checklist_items[]
+  delivery_notes     delivery_notes[]
+  order_items        order_items[]
+  order_photos       order_photos[]
+  clients            clients           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workers            workers?          @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments           payments[]
+  vehicle_trips      vehicle_trips[]
 
-    @@index([order_id], map: "idx_payments_order_id")
-  }
+  @@index([client_id], map: "idx_orders_client_id")
+  @@index([state], map: "idx_orders_state")
+  @@index([worker_id], map: "idx_orders_worker_id")
+}
 
-  model vehicle_trips {
-    id         Int      @id @default(autoincrement())
-    vehicle_id Int
-    order_id   Int
-    trip_date  DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
-    kilometers Decimal  @default(0) @db.Decimal(10, 2)
-    orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-    vehicles   vehicles @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model payments {
+  id           Int      @id @default(autoincrement())
+  order_id     Int
+  amount       Decimal  @db.Decimal(10, 2)
+  payment_date DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  note         String?  @db.VarChar(255)
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+  orders       orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-    @@index([order_id], map: "idx_vehicle_trips_order_id")
-    @@index([vehicle_id], map: "idx_vehicle_trips_vehicle_id")
-  }
+  @@index([order_id], map: "idx_payments_order_id")
+}
 
-  model vehicles {
-    id               Int             @id @default(autoincrement())
-    name             String          @db.VarChar(100)
-    plate_number     String          @unique @db.VarChar(20)
-    total_kilometers Decimal         @default(0) @db.Decimal(10, 2)
-    vehicle_trips    vehicle_trips[]
-  }
+model vehicle_trips {
+  id         Int      @id @default(autoincrement())
+  vehicle_id Int
+  order_id   Int
+  trip_date  DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  kilometers Decimal  @default(0) @db.Decimal(10, 2)
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  vehicles   vehicles @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  model workers {
-    id           Int                 @id @default(autoincrement())
-    full_name    String              @db.VarChar(150)
-    phone        String?             @db.VarChar(30)
-    hire_date    DateTime?           @db.Date
-    payment_type worker_payment_type
-    created_at   DateTime            @default(now()) @db.Timestamp(6)
-    updated_at   DateTime            @default(now()) @db.Timestamp(6)
-    orders       orders[]
+  @@index([order_id], map: "idx_vehicle_trips_order_id")
+  @@index([vehicle_id], map: "idx_vehicle_trips_vehicle_id")
+}
 
-    hourlyRate Float?
-    meterRate  Float?
+model vehicles {
+  id               Int             @id @default(autoincrement())
+  name             String          @db.VarChar(100)
+  plate_number     String          @unique @db.VarChar(20)
+  total_kilometers Decimal         @default(0) @db.Decimal(10, 2)
+  vehicle_trips    vehicle_trips[]
+}
 
-    sold Float @default(0) // Balance carried from previous months
+// =============================================================
+// WORKERS + related (attendance / time / assignments / advances)
+// =============================================================
 
-    attendance      Attendance[]
-    timeEntries     TimeEntries[]
-    assignments     Assignment[]
-    workersPayments WorkersPayments[]
-  }
+model workers {
+  id           Int                 @id @default(autoincrement())
+  full_name    String              @db.VarChar(150)
+  phone        String?             @db.VarChar(30)
+  hire_date    DateTime?           @db.Date
+  payment_type worker_payment_type
+  created_at   DateTime            @default(now()) @db.Timestamp(6)
+  updated_at   DateTime            @default(now()) @db.Timestamp(6)
+  orders       orders[]
 
-  model Attendance {
-    id Int @id @default(autoincrement())
+  hourlyRate Float?
+  meterRate  Float?
 
-    date   DateTime
-    status AttendanceStatus
+  sold Float @default(0) // Balance carried from previous months
 
-    workerId Int
-    worker   workers @relation(fields: [workerId], references: [id])
+  attendance      Attendance[]
+  timeEntries     TimeEntries[]
+  assignments     Assignment[]
+  workersPayments WorkersPayments[]   // all worker cash-out events (advances + bi-weekly wages)
+}
 
-    @@unique([workerId, date])
-  }
+model Attendance {
+  id Int @id @default(autoincrement())
 
-  model TimeEntries {
-    id         Int      @id @default(autoincrement())
-    date       DateTime
-    clockIn    String   @db.VarChar(5)
-    clockOut   String   @db.VarChar(5)
-    extraHours Int      @default(0)
-    extraNote  String?
+  date   DateTime
+  status AttendanceStatus
 
-    workerId Int
-    worker   workers @relation(fields: [workerId], references: [id])
-  }
+  workerId Int
+  worker   workers @relation(fields: [workerId], references: [id])
 
-  model Assignment {
-    id      Int      @id @default(autoincrement())
-    project String
-    meters  Float
-    date    DateTime
-    note    String?
+  @@unique([workerId, date])
+}
 
-    workerId Int
-    worker   workers @relation(fields: [workerId], references: [id])
-  }
+model TimeEntries {
+  id         Int      @id @default(autoincrement())
+  date       DateTime
+  clockIn    String   @db.VarChar(5)
+  clockOut   String   @db.VarChar(5)
+  extraHours Int      @default(0)
+  extraNote  String?
 
-  model WorkersPayments {
-    id     Int      @id @default(autoincrement())
-    amount Float
-    date   DateTime
-    note   String?
+  workerId Int
+  worker   workers @relation(fields: [workerId], references: [id])
+}
 
-    workerId Int
-    worker   workers @relation(fields: [workerId], references: [id])
-  }
+model Assignment {
+  id      Int      @id @default(autoincrement())
+  project String
+  meters  Float
+  date    DateTime
+  note    String?
 
-  // for tracking month-end tasks (updating solds)
-  model SystemConfig {
-    id         String   @id @default("soldUpdate")
-    lastUpdate String
-    updatedAt  DateTime @updatedAt
-  }
+  workerId Int
+  worker   workers @relation(fields: [workerId], references: [id])
+}
 
-  enum AttendanceStatus {
-    PRESENT
-    ABSENT
-  }
+// On-the-spot partial payments / advances to workers
+// (different from worker_payments which is the formal bi-weekly wage in treasury)
+model WorkersPayments {
+  id     Int      @id @default(autoincrement())
+  amount Float
+  date   DateTime
+  note   String?
 
-  enum order_state {
-    appointment
-    contract
-    in_production
-    ready_to_delivery
-    completed
-  }
+  workerId Int
+  worker   workers @relation(fields: [workerId], references: [id])
+}
 
-  enum worker_payment_type {
-    hours
-    meters
-  }
+// for tracking month-end tasks (updating solds)
+model SystemConfig {
+  id         String   @id @default("soldUpdate")
+  lastUpdate String
+  updatedAt  DateTime @updatedAt
+}
+
+// =============================================================
+// TREASURY / LEDGER — 4 separate tables (no more unified + enum)
+// =============================================================
+
+model material_categories {
+  id   Int    @id @default(autoincrement())
+  name String @unique @db.VarChar(50)
+
+  materials material_catalog[]
+}
+
+model material_catalog {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique @db.VarChar(150)
+  category_id  Int?
+  default_unit String?  @db.VarChar(20)
+  created_at   DateTime @default(now()) @db.Timestamp(6)
+
+  category material_categories?      @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  items    material_purchase_items[]
+
+  @@index([category_id], map: "idx_material_catalog_category_id")
+}
+
+model suppliers {
+  id         Int             @id @default(autoincrement())
+  name       String          @unique @db.VarChar(150)
+  phone      String?         @db.VarChar(30)
+  address    String?         @db.VarChar(255)
+  nif        String?         @db.VarChar(20)
+  rc         String?         @db.VarChar(30)
+  status     supplier_status @default(ACTIVE)
+  created_at DateTime        @default(now()) @db.Timestamp(6)
+  updated_at DateTime        @default(now()) @db.Timestamp(6)
+
+  purchase_orders  purchase_orders[]
+  material_purchases material_purchases[]
+}
+
+model purchase_orders {
+  id           Int                   @id @default(autoincrement())
+  po_ref       String                @unique @db.VarChar(50)
+  invoice_ref  String?               @db.VarChar(50)
+  supplier_id  Int
+  order_date   DateTime              @db.Date
+  total_amount Decimal               @db.Decimal(10, 2)
+  status       purchase_order_status @default(PENDING)
+  paid         Boolean               @default(false)
+  received_at  DateTime?             @db.Date
+  notes        String?
+  created_at   DateTime              @default(now()) @db.Timestamp(6)
+  updated_at   DateTime              @default(now()) @db.Timestamp(6)
+
+  supplier suppliers              @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items    purchase_order_items[]
+
+  @@index([supplier_id], map: "idx_purchase_orders_supplier_id")
+}
+
+model purchase_order_items {
+  id                Int     @id @default(autoincrement())
+  purchase_order_id Int
+  material          String  @db.VarChar(150)
+  quantity          Decimal @db.Decimal(10, 2)
+  unit              String  @db.VarChar(20)
+  unit_price        Decimal @db.Decimal(10, 2)
+
+  purchase_order purchase_orders @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([purchase_order_id], map: "idx_purchase_order_items_purchase_order_id")
+}
+
+model other_expense_categories {
+  id   Int    @id @default(autoincrement())
+  name String @unique @db.VarChar(50)
+
+  expenses other_expenses[]
+}
+
+// ── 4 treasury tables ──────────────────────────────────────────
+
+model incomes {
+  id         Int      @id @default(autoincrement())
+  date       DateTime @db.Date
+  amount     Decimal  @db.Decimal(10, 2)
+  reference  String?  @db.VarChar(100)
+  note       String?
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([date], map: "idx_incomes_date")
+}
+
+model material_purchases {
+  id          Int      @id @default(autoincrement())
+  supplier_id Int
+  date        DateTime @db.Date
+  amount      Decimal  @db.Decimal(10, 2)
+  reference   String?  @db.VarChar(100)
+  note        String?
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  updated_at  DateTime @default(now()) @db.Timestamp(6)
+
+  supplier suppliers                @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items    material_purchase_items[]
+
+  @@index([supplier_id], map: "idx_material_purchases_supplier_id")
+  @@index([date], map: "idx_material_purchases_date")
+}
+
+model material_purchase_items {
+  id            Int     @id @default(autoincrement())
+  purchase_id   Int
+  material_id   Int?
+  material_name String  @db.VarChar(150)
+  quantity      Decimal @db.Decimal(10, 2)
+  unit          String  @db.VarChar(20)
+  unit_price    Decimal @db.Decimal(10, 2)
+
+  purchase material_purchases @relation(fields: [purchase_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  material material_catalog?  @relation(fields: [material_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([purchase_id], map: "idx_material_purchase_items_purchase_id")
+  @@index([material_id], map: "idx_material_purchase_items_material_id")
+}
+
+// NOTE: worker cash-out events (advances + bi-weekly wages) live in the
+// pre-existing "WorkersPayments" table — reused as-is, no new fields.
+
+model other_expenses {
+  id                Int      @id @default(autoincrement())
+  other_category_id Int
+  date              DateTime @db.Date
+  amount            Decimal  @db.Decimal(10, 2)
+  reference         String?  @db.VarChar(100)
+  note              String?
+  created_at        DateTime @default(now()) @db.Timestamp(6)
+  updated_at        DateTime @default(now()) @db.Timestamp(6)
+
+  category other_expense_categories @relation(fields: [other_category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([other_category_id], map: "idx_other_expenses_category_id")
+  @@index([date], map: "idx_other_expenses_date")
+}
+
+// =============================================================
+// ENUMS
+// =============================================================
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
+enum order_state {
+  appointment
+  contract
+  in_production
+  ready_to_delivery
+  completed
+}
+
+enum worker_payment_type {
+  hours
+  meters
+}
+
+enum supplier_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum purchase_order_status {
+  PENDING
+  RECEIVED
+  CANCELLED
+}
