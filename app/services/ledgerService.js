@@ -23,18 +23,16 @@ import { prisma } from "../../lib/prisma";
 // =============================================================
 
 const TYPE = {
+  INCOME: "INCOME",
   WORKER_PAYMENT: "WORKER_PAYMENT",
-
   MATERIAL_PURCHASE: "MATERIAL_PURCHASE",
-
   OTHER_EXPENSE: "OTHER_EXPENSE",
 };
 
 const TABLE_BY_TYPE = {
+  INCOME: "incomes",
   WORKER_PAYMENT: "workersPayments",
-
   MATERIAL_PURCHASE: "material_purchases",
-
   OTHER_EXPENSE: "other_expenses",
 };
 
@@ -87,32 +85,36 @@ function buildDateRange(month, year) {
 }
 
 function buildSearchFilter(search) {
-  const empty = { worker: {}, material: {}, other: {} };
-
+  const empty = { income: {}, worker: {}, material: {}, other: {} };
   if (!search) return empty;
-
   const q = String(search).trim();
-
   if (!q) return empty;
 
-  // Match note on every table; the merged result also exposes
-
-  // `worker`, `supplier`, `otherCategory`, `reference` so the client
-
-  // can search those too via a post-filter (the row is still returned
-
-  // by the DB and the client filter narrows it down).
-
   return {
+    income: { note: { contains: q, mode: "insensitive" } },
     worker: { note: { contains: q, mode: "insensitive" } },
-
     material: { note: { contains: q, mode: "insensitive" } },
-
     other: { note: { contains: q, mode: "insensitive" } },
   };
 }
 
 function serialize(type, row) {
+  if (type === TYPE.INCOME) {
+    return {
+      id: row.id,
+
+      type,
+
+      date: toDateString(row.date),
+
+      amount: Number(row.amount),
+
+      reference: row.reference,
+
+      note: row.note,
+    };
+  }
+
   if (type === TYPE.WORKER_PAYMENT) {
     return {
       id: row.id,
@@ -226,7 +228,16 @@ export async function getEntries({
 
   // Fire 3 (or fewer) parallel queries, each returns tagged rows.
 
-  const [workerRows, materialRows, otherRows] = await Promise.all([
+  const [incomeRows, workerRows, materialRows, otherRows] = await Promise.all([
+    types.includes(TYPE.INCOME)
+      ? prisma.incomes.findMany({
+          where: { ...(dateRange || {}), ...(searchFilter.income || {}) },
+          orderBy: [{ date: "desc" }, { id: "desc" }],
+          skip: (numPage - 1) * numPageSize,
+          take: numPageSize,
+        })
+      : [],
+
     types.includes(TYPE.WORKER_PAYMENT)
       ? prisma.workersPayments.findMany({
           where: { ...(dateRange || {}), ...(searchFilter.worker || {}) },
@@ -277,14 +288,17 @@ export async function getEntries({
   // Merge + tag + sort by date desc
 
   const merged = [
+    ...incomeRows.map((r) => serialize(TYPE.INCOME, r)),
     ...workerRows.map((r) => serialize(TYPE.WORKER_PAYMENT, r)),
-
     ...materialRows.map((r) => serialize(TYPE.MATERIAL_PURCHASE, r)),
-
     ...otherRows.map((r) => serialize(TYPE.OTHER_EXPENSE, r)),
   ].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
-  const total = workerRows.length + materialRows.length + otherRows.length;
+  const total =
+    incomeRows.length +
+    workerRows.length +
+    materialRows.length +
+    otherRows.length;
 
   return {
     data: merged,
@@ -303,6 +317,14 @@ export async function getEntryById(type, id) {
   if (!Number.isInteger(numId) || numId <= 0) return null;
 
   switch (type) {
+    case TYPE.INCOME: {
+      const row = await prisma.incomes.findUnique({
+        where: { id: numId },
+      });
+
+      return row ? serialize(TYPE.INCOME, row) : null;
+    }
+
     case TYPE.WORKER_PAYMENT: {
       const row = await prisma.workersPayments.findUnique({
         where: { id: numId },
@@ -344,6 +366,22 @@ export async function getEntryById(type, id) {
 
 export async function createEntry(input) {
   switch (input.type) {
+    case TYPE.INCOME: {
+      const created = await prisma.incomes.create({
+        data: {
+          date: toDate(input.date),
+
+          amount: input.amount,
+
+          reference: input.reference ?? null,
+
+          note: input.note ?? null,
+        },
+      });
+
+      return serialize(TYPE.INCOME, created);
+    }
+
     case TYPE.WORKER_PAYMENT: {
       const created = await prisma.workersPayments.create({
         data: {
@@ -443,6 +481,24 @@ export async function updateEntry(type, id, input) {
   }
 
   switch (type) {
+    case TYPE.INCOME: {
+      const updated = await prisma.incomes.update({
+        where: { id: numId },
+
+        data: {
+          date: toDate(input.date),
+
+          amount: input.amount,
+
+          reference: input.reference ?? null,
+
+          note: input.note ?? null,
+        },
+      });
+
+      return serialize(TYPE.INCOME, updated);
+    }
+
     case TYPE.WORKER_PAYMENT: {
       const updated = await prisma.workersPayments.update({
         where: { id: numId },
@@ -558,6 +614,10 @@ export async function deleteEntry(type, id) {
   }
 
   switch (type) {
+    case TYPE.INCOME:
+      await prisma.incomes.delete({ where: { id: numId } });
+      return { ok: true };
+
     case TYPE.WORKER_PAYMENT:
       await prisma.workersPayments.delete({ where: { id: numId } });
 

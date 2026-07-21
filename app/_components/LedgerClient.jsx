@@ -14,6 +14,7 @@ import {
 
 const StageBadge = ({ stage, size = "sm", custom }) => {
   const map = {
+    INCOME: { color: "#22c55e", label: "Income" },
     WORKER_PAYMENT: { color: "var(--accent)", label: "Worker" },
     MATERIAL_PURCHASE: { color: "#a855f7", label: "Material" },
     OTHER_EXPENSE: { color: "var(--stage-contract)", label: "Other" },
@@ -320,6 +321,12 @@ const Icons = {
 /* ─── Type config ─── */
 
 const TYPE_META = {
+  INCOME: {
+    color: "#22c55e",
+    label: "Income",
+    icon: Icons.trend,
+    sign: "+",
+  },
   WORKER_PAYMENT: {
     color: "var(--accent)",
     label: "Worker Payment",
@@ -453,6 +460,9 @@ const getAmount = (e) => {
 
 const describeEntry = (e) => {
   switch (e.type) {
+    case "INCOME":
+      return { main: e.reference || "Income", sub: e.note || "" };
+
     case "WORKER_PAYMENT":
       return {
         main: `Payment to ${e.worker || "—"}`,
@@ -485,6 +495,14 @@ const describeEntry = (e) => {
 // line items and `category` for OTHER_EXPENSE; the API uses `materialName`
 // / `otherCategory`.
 const formFromEntry = (entry) => {
+  if (entry.type === "INCOME")
+    return {
+      date: entry.date,
+      amount: String(entry.amount),
+      reference: entry.reference || "",
+      note: entry.note || "",
+    };
+
   if (entry.type === "WORKER_PAYMENT")
     return {
       date: entry.date,
@@ -523,6 +541,9 @@ const emptyFormForType = (type, refs) => {
   const today = new Date().toISOString().slice(0, 10);
   const firstWorker = refs.workers[0]?.full_name ?? "";
   const firstSupplier = refs.suppliers[0]?.name ?? "";
+
+  if (type === "INCOME")
+    return { date: today, amount: "", reference: "", note: "" };
 
   if (type === "WORKER_PAYMENT")
     return {
@@ -654,6 +675,10 @@ export default function LedgerClient() {
   /* ─── Totals (sum of ALL 3 outcomes, no income) ─── */
 
   const totals = useMemo(() => {
+    const income = entries
+      .filter((e) => e.type === "INCOME")
+      .reduce((s, e) => s + getAmount(e), 0);
+
     const workers = entries
       .filter((e) => e.type === "WORKER_PAYMENT")
       .reduce((s, e) => s + getAmount(e), 0);
@@ -666,12 +691,9 @@ export default function LedgerClient() {
       .filter((e) => e.type === "OTHER_EXPENSE")
       .reduce((s, e) => s + getAmount(e), 0);
 
-    return {
-      workers,
-      materials,
-      other,
-      total: workers + materials + other,
-    };
+    const total = workers + materials + other; // total spent, unchanged meaning
+
+    return { income, workers, materials, other, total, net: income - total };
   }, [entries]);
 
   /* ─── Month entries (for the cards + table) ─── */
@@ -684,6 +706,10 @@ export default function LedgerClient() {
   }, [entries, viewMonth, viewYear]);
 
   const monthTotals = useMemo(() => {
+    const income = monthEntries
+      .filter((e) => e.type === "INCOME")
+      .reduce((s, e) => s + getAmount(e), 0);
+
     const workers = monthEntries
       .filter((e) => e.type === "WORKER_PAYMENT")
       .reduce((s, e) => s + getAmount(e), 0);
@@ -696,12 +722,9 @@ export default function LedgerClient() {
       .filter((e) => e.type === "OTHER_EXPENSE")
       .reduce((s, e) => s + getAmount(e), 0);
 
-    return {
-      workers,
-      materials,
-      other,
-      total: workers + materials + other,
-    };
+    const total = workers + materials + other;
+
+    return { income, workers, materials, other, total, net: income - total };
   }, [monthEntries]);
 
   /* ─── Filtered list — all 3 outcomes are expenses, no income to hide ─── */
@@ -710,6 +733,7 @@ export default function LedgerClient() {
     return monthEntries
       .filter((e) => {
         if (outcomeFilter !== "ALL") {
+          if (outcomeFilter === "INCOME" && e.type !== "INCOME") return false;
           if (outcomeFilter === "WORKER" && e.type !== "WORKER_PAYMENT")
             return false;
           if (outcomeFilter === "MATERIAL" && e.type !== "MATERIAL_PURCHASE")
@@ -1012,6 +1036,17 @@ export default function LedgerClient() {
           otherCategoryId: catId,
           note: form.note.trim(),
         };
+      } else if (newType === "INCOME") {
+        const amt = parseFloat(form.amount);
+        if (!amt || amt <= 0) throw new Error("Amount must be greater than 0");
+
+        payload = {
+          type: "INCOME",
+          date: form.date,
+          amount: amt,
+          reference: form.reference?.trim() || null,
+          note: form.note?.trim() || null,
+        };
       }
 
       let saved;
@@ -1074,82 +1109,33 @@ export default function LedgerClient() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* ─── BUDGET BANNER — total spent across all 3 outcomes (no income) ─── */}
+      {/* ─── BUDGET BANNER — four cards in one row ─── */}
+
+      {/* ─── BUDGET BANNER — five cards in one row ─── */}
 
       <div
-        className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-3 p-3 shrink-0"
+        className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 p-3 shrink-0"
         style={{
           background: "var(--surface)",
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div
-          className="col-span-1 sm:col-span-1 p-4 rounded-xl relative overflow-hidden"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--stage-contract)18, var(--stage-contract)06)",
-            border: "1px solid var(--stage-contract)40",
-          }}
-        >
-          <div
-            className="flex items-center gap-2 text-[10px] sm:text-xs font-semibold uppercase tracking-wider"
-            style={{ color: "var(--stage-contract)" }}
-          >
-            <Icons.wallet /> Total Spent (All Time)
-          </div>
+        <BreakdownCard
+          label="Current Sold"
+          value={monthTotals.net}
+          color={monthTotals.net >= 0 ? "#22c55e" : "var(--stage-contract)"}
+          icon={Icons.wallet}
+          onClick={() => openCreate("INCOME")}
+          highlight
+        />
 
-          <div
-            className="text-2xl sm:text-3xl md:text-4xl font-bold mt-1 tabular-nums"
-            style={{ color: "var(--stage-contract)" }}
-          >
-            {totals.total.toLocaleString()}
-            <span
-              className="text-xs sm:text-sm font-medium ml-2"
-              style={{ color: "var(--ink-muted)" }}
-            >
-              DZD
-            </span>
-          </div>
-
-          <div
-            className="flex items-center gap-3 mt-2 text-[11px] sm:text-xs flex-wrap"
-            style={{ color: "var(--ink-muted)" }}
-          >
-            <span className="flex items-center gap-1.5 whitespace-nowrap">
-              <span
-                style={{
-                  color: TYPE_META.WORKER_PAYMENT.color,
-                  fontWeight: 600,
-                }}
-              >
-                {totals.workers.toLocaleString()}
-              </span>
-              <span>workers</span>
-            </span>
-            <span className="flex items-center gap-1.5 whitespace-nowrap">
-              <span
-                style={{
-                  color: TYPE_META.MATERIAL_PURCHASE.color,
-                  fontWeight: 600,
-                }}
-              >
-                {totals.materials.toLocaleString()}
-              </span>
-              <span>materials</span>
-            </span>
-            <span className="flex items-center gap-1.5 whitespace-nowrap">
-              <span
-                style={{
-                  color: TYPE_META.OTHER_EXPENSE.color,
-                  fontWeight: 600,
-                }}
-              >
-                {totals.other.toLocaleString()}
-              </span>
-              <span>other</span>
-            </span>
-          </div>
-        </div>
+        <BreakdownCard
+          label="Income"
+          value={monthTotals.income}
+          color="#22c55e"
+          icon={Icons.trend}
+          onClick={() => openCreate("INCOME")}
+        />
 
         <BreakdownCard
           label="Workers"
@@ -1175,7 +1161,6 @@ export default function LedgerClient() {
           onClick={() => openCreate("OTHER_EXPENSE")}
         />
       </div>
-
       {/* ─── Month/Year navigation + filters ─── */}
 
       <div
@@ -1247,6 +1232,7 @@ export default function LedgerClient() {
         <div className="flex items-center gap-2 flex-wrap">
           {[
             { id: "ALL", label: "All" },
+            { id: "INCOME", label: "Income", color: "#22c55e" },
             { id: "WORKER", label: "Workers", color: "var(--accent)" },
             { id: "MATERIAL", label: "Materials", color: "#a855f7" },
             { id: "OTHER", label: "Other", color: "var(--stage-contract)" },
@@ -1574,6 +1560,12 @@ export default function LedgerClient() {
             {Object.entries(TYPE_META).map(([key, meta]) => {
               const Icon = meta.icon;
               const active = newType === key;
+              const shortLabel = {
+                INCOME: "Income",
+                WORKER_PAYMENT: "Worker",
+                MATERIAL_PURCHASE: "Material",
+                OTHER_EXPENSE: "Other",
+              }[key];
 
               return (
                 <button
@@ -1585,7 +1577,7 @@ export default function LedgerClient() {
                     setFormError("");
                     setShowNewMaterial(false);
                   }}
-                  className="flex-1 text-xs font-medium px-3 py-2 rounded-md flex items-center justify-center gap-1.5 transition-colors"
+                  className="flex-1 min-w-0 text-[11px] sm:text-xs font-medium px-1.5 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap transition-colors"
                   style={{
                     background: active ? "var(--surface)" : "transparent",
                     color: active ? meta.color : "var(--ink-muted)",
@@ -1598,13 +1590,79 @@ export default function LedgerClient() {
                   disabled={!!editingId}
                   title={editingId ? "Type cannot be changed when editing" : ""}
                 >
-                  <Icon /> {meta.label}
+                  <Icon /> {shortLabel}
                 </button>
               );
             })}
           </div>
 
           <div className="p-5">
+            {newType === "INCOME" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Amount" required>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.amount || ""}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, amount: e.target.value }))
+                      }
+                      placeholder="0"
+                      className="w-full pl-3 pr-12 py-2 rounded-md text-sm outline-none focus-ring tabular-nums"
+                      style={inputStyle}
+                    />
+                    <span
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      DZD
+                    </span>
+                  </div>
+                </Field>
+
+                <Field label="Date" required>
+                  <input
+                    type="date"
+                    value={form.date || ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, date: e.target.value }))
+                    }
+                    className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                    style={inputStyle}
+                  />
+                </Field>
+
+                <Field
+                  label="Reference"
+                  hint="Optional — invoice #, client, order ref..."
+                >
+                  <input
+                    value={form.reference || ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, reference: e.target.value }))
+                    }
+                    placeholder="INV-2026-014"
+                    className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                    style={inputStyle}
+                  />
+                </Field>
+
+                <div className="sm:col-span-2">
+                  <Field label="Note" hint="Optional">
+                    <input
+                      value={form.note || ""}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, note: e.target.value }))
+                      }
+                      placeholder="Final payment / deposit / ..."
+                      className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                      style={inputStyle}
+                    />
+                  </Field>
+                </div>
+              </div>
+            )}
             {newType === "WORKER_PAYMENT" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Worker" required>
