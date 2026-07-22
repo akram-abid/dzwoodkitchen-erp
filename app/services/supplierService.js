@@ -29,35 +29,20 @@ function validateSupplierFields(fields, { isUpdate = false } = {}) {
     }
   }
 
-  if (
-    fields.phone !== undefined &&
-    fields.phone !== null &&
-    fields.phone.length > 30
-  ) {
+  if (fields.phone !== undefined && fields.phone !== null && fields.phone.length > 30) {
     errors.phone = "Phone must be 30 characters or fewer.";
   }
-  if (
-    fields.address !== undefined &&
-    fields.address !== null &&
-    fields.address.length > 255
-  ) {
+  if (fields.address !== undefined && fields.address !== null && fields.address.length > 255) {
     errors.address = "Address must be 255 characters or fewer.";
   }
-  if (
-    fields.nif !== undefined &&
-    fields.nif !== null &&
-    fields.nif.length > 20
-  ) {
+  if (fields.nif !== undefined && fields.nif !== null && fields.nif.length > 20) {
     errors.nif = "NIF must be 20 characters or fewer.";
   }
   if (fields.rc !== undefined && fields.rc !== null && fields.rc.length > 30) {
     errors.rc = "RC must be 30 characters or fewer.";
   }
 
-  if (
-    fields.status !== undefined &&
-    !["ACTIVE", "INACTIVE"].includes(fields.status)
-  ) {
+  if (fields.status !== undefined && !["ACTIVE", "INACTIVE"].includes(fields.status)) {
     errors.status = "Status must be ACTIVE or INACTIVE.";
   }
 
@@ -323,18 +308,8 @@ function yearRange(year) {
 }
 
 const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 const MONTH_SHORT = MONTH_NAMES.map((m) => m.slice(0, 3));
 
@@ -445,10 +420,7 @@ export async function getSupplierPurchases(supplierId, { year, month } = {}) {
       total,
       note: row.note ?? "",
       itemCount: items.length,
-      itemsPreview: items
-        .slice(0, 2)
-        .map((it) => it.material)
-        .filter(Boolean),
+      itemsPreview: items.slice(0, 2).map((it) => it.material).filter(Boolean),
       items,
     };
   };

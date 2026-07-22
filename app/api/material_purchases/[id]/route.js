@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 
 import {
+
   deleteMaterialPurchase,
+
   updateMaterialPurchase,
-} from "../../../../services/materialPurchaseService";
-import { getSupplierPurchases } from "../../../../services/supplierService";
+
+} from "../../../services/materialPurchaseService";
+
 
 /* In Next.js 15, `params` is a Promise that must be awaited.
 
@@ -13,45 +16,20 @@ import { getSupplierPurchases } from "../../../../services/supplierService";
    just returns the value, so this works on both versions. */
 
 async function resolveId(params) {
+
   const resolved =
+
     params && typeof params.then === "function" ? await params : params;
 
   return resolved?.id;
+
 }
 
-export async function GET(request, { params }) {
-  try {
-    const id = await resolveId(params);
 
-    const { searchParams } = new URL(request.url);
-
-    const year = searchParams.get("year");
-
-    const month = searchParams.get("month");
-
-    const data = await getSupplierPurchases (id, {
-      year: year ?? undefined,
-
-      month: month ?? undefined,
-    });
-
-    return NextResponse.json(data);
-  } catch (err) {
-    if (err.status) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
-    }
-
-    console.error("GET /api/suppliers/:id/purchases failed:", err);
-
-    return NextResponse.json(
-      { error: "Failed to load supplier purchases" },
-
-      { status: 500 },
-    );
-  }
-}
 export async function PATCH(request, { params }) {
+
   try {
+
     const id = await resolveId(params);
 
     const body = await request.json().catch(() => ({}));
@@ -59,47 +37,71 @@ export async function PATCH(request, { params }) {
     const updated = await updateMaterialPurchase(id, body);
 
     return NextResponse.json(updated);
+
   } catch (err) {
+
     if (err.status) {
+
       return NextResponse.json(
+
         { error: err.message, fields: err.fields },
 
         { status: err.status },
+
       );
+
     }
 
     console.error("PATCH /api/material_purchases/:id failed:", err);
 
     return NextResponse.json(
+
       { error: "Failed to update material purchase" },
 
       { status: 500 },
+
     );
+
   }
+
 }
 
+
 export async function DELETE(_req, { params }) {
+
   try {
+
     const id = await resolveId(params);
 
     const result = await deleteMaterialPurchase(id);
 
     return NextResponse.json(result);
+
   } catch (err) {
+
     if (err.status) {
+
       return NextResponse.json(
+
         { error: err.message, fields: err.fields },
 
         { status: err.status },
+
       );
+
     }
 
     console.error("DELETE /api/material_purchases/:id failed:", err);
 
     return NextResponse.json(
+
       { error: "Failed to delete material purchase" },
 
       { status: 500 },
+
     );
+
   }
+
 }
+

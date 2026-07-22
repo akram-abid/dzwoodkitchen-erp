@@ -1,725 +1,1484 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { getSupplierPurchasesClient } from '../../lib/api_helpers/supplier.js';
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-/* ═══════════════════════════════════════════════════════════════════
-   Supplier Purchases Modal
-   ─────────────────────────
-   Click a supplier → this popup opens with two views:
+import {
+  getSupplierPurchasesClient,
+  getSuppliers,
+} from "../api_helpers/supplier.js";
 
-     [This Month]  [This Year]
+import {
+  updateMaterialPurchaseClient,
+  deleteMaterialPurchaseClient,
+  deleteMaterialPurchaseItemClient,
+} from "../api_helpers/materialPurchase.js";
 
-   • Month view  → purchases in the current calendar month.
-   • Year view   → purchases in the selected year, with a 12-button
-                    month strip + "All" so you can jump between months
-                    without leaving the modal.
+/* ─── icons (inline, no extra deps) ─── */
 
-   Data source: `material_purchases` (the supplier's ledger of actual
-   material buys, with line items in `material_purchase_items`).
-   The whole year is fetched in one request and bucketed client-side
-   for snappy month switching.
-═══════════════════════════════════════════════════════════════════ */
+const Icons = {
+  x: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  ),
+
+  pencil: () => (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </svg>
+  ),
+
+  trash: () => (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  ),
+
+  check: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  ),
+
+  plus: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12h14" />
+      <path d="M12 5v14" />
+    </svg>
+  ),
+
+  alert: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v4" />
+      <path d="M12 16h.01" />
+    </svg>
+  ),
+
+  calendar: () => (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+      <line x1="16" x2="16" y1="2" y2="6" />
+      <line x1="8" x2="8" y1="2" y2="6" />
+      <line x1="3" x2="21" y1="10" y2="10" />
+    </svg>
+  ),
+
+  box: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="m3.3 7 8.7 5 8.7-5" />
+      <path d="M12 22V12" />
+    </svg>
+  ),
+};
+
+/* ─── color tokens (mirrors suppliers/page.jsx) ─── */
 
 const C = {
-  blue:   '#2563eb',
-  green:  '#16a34a',
-  red:    '#dc2626',
-  purple: '#9333ea',
-  amber:  '#ca8a04',
-  gray:   '#4b5563',
+  blue: "#2563eb",
+
+  green: "#16a34a",
+
+  red: "#dc2626",
+
+  purple: "#9333ea",
+
+  amber: "#ca8a04",
+
+  gray: "#4b5563",
 };
 
-const formatDZD = (n) => `${(Number(n) || 0).toLocaleString('en-US')} DZD`;
+/* ─── helpers ─── */
+
+const formatDZD = (n) => `${(n ?? 0).toLocaleString("en-US")} DZD`;
 
 const formatDate = (iso) => {
-  if (!iso) return '—';
+  if (!iso) return "—";
+
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  if (isNaN(d.getTime())) return "—";
+
+  return d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
-const initials = (name) => (name || '?').trim().slice(0, 2).toUpperCase();
+/* `<input type="date">` value: YYYY-MM-DD. The column is @db.Date
 
-/* ─── icons ─── */
-const Icons = {
-  close: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
-  phone: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465a2 2 0 0 1 2.828-.395l2.318 1.856a1 1 0 0 1 .06 1.508l-1.834 1.834a2 2 0 0 1-1.79.558C13.483 20.531 8.5 15.549 7.964 12.196a2 2 0 0 1 .557-1.79l1.834-1.834a1 1 0 0 1 1.508.06l1.856 2.318a2 2 0 0 1-.396 2.828l-.464.355a1 1 0 0 0-.303 1.212"/></svg>,
-  mapPin: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>,
-  hash: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3 8 21"/><path d="M16 3l-2 18"/></svg>,
-  receipt: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>,
-  box: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>,
-  note: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>,
-  alert: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>,
-  chevronLeft: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>,
-  chevronRight: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>,
-  chevronDown: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>,
-  pencil: () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>,
-  wallet: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-1"/><path d="M22 12a2 2 0 0 0-2-2h-3a2 2 0 0 0 0 4h3a2 2 0 0 0 2-2Z"/></svg>,
-  inbox: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>,
+   (no time component) so a pure date string round-trips cleanly. */
+
+const dateInputValue = (d) => {
+  if (!d) return "";
+
+  const date = d instanceof Date ? d : new Date(d);
+
+  if (isNaN(date.getTime())) return "";
+
+  // Use local components so the user sees the same calendar day they
+
+  // submitted (avoids UTC-shift bugs around midnight in non-UTC zones).
+
+  const y = date.getFullYear();
+
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${y}-${m}-${day}`;
 };
-
-/* ─── Mini info row (icon + value) for the supplier header ─── */
-const InfoPill = ({ icon, value, title }) => (
-  <div
-    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs"
-    style={{ background: 'var(--surface-2)', color: 'var(--ink-muted)' }}
-    title={title || value}
-  >
-    <span style={{ color: 'var(--ink-muted)' }}>{icon}</span>
-    <span className="truncate max-w-[180px]">{value || '—'}</span>
-  </div>
-);
-
-/* ─── Operation row (expandable to show items) ─── */
-const OperationRow = ({ op, showMonthHeader, monthLabel }) => {
-  const [open, setOpen] = useState(false);
-  const expandable = op.items && op.items.length > 0;
-
-  return (
-    <>
-      {showMonthHeader && (
-        <div
-          className="px-4 py-2 text-xs font-semibold sticky top-0 z-[1]"
-          style={{
-            background: 'var(--surface-2)',
-            color: 'var(--ink-muted)',
-            borderTop: '1px solid var(--border)',
-            borderBottom: '1px solid var(--border)',
-            letterSpacing: 0.3,
-          }}
-        >
-          {monthLabel}
-        </div>
-      )}
-      <div
-        className="grid items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--surface-2)]"
-        style={{
-          gridTemplateColumns: 'auto 1fr auto auto',
-          borderTop: showMonthHeader ? 'none' : '1px solid var(--border)',
-        }}
-      >
-        {/* Date */}
-        <div className="text-xs" style={{ color: 'var(--ink-muted)', minWidth: 84 }}>
-          {formatDate(op.date)}
-        </div>
-
-        {/* Reference + items preview + note */}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="inline-flex items-center gap-1 text-sm font-semibold truncate"
-              style={{ color: 'var(--ink)' }}
-            >
-              <Icons.receipt />
-              {op.reference || (
-                <span style={{ color: 'var(--ink-muted)', fontWeight: 500 }}>
-                  Purchase #{op.id}
-                </span>
-              )}
-            </span>
-          </div>
-          <div
-            className="flex items-center gap-1 text-xs mt-0.5 min-w-0"
-            style={{ color: 'var(--ink-muted)' }}
-          >
-            <Icons.box />
-            <span className="truncate">
-              {op.itemCount} item{op.itemCount === 1 ? '' : 's'}
-              {op.itemsPreview?.length > 0 &&
-                ` · ${op.itemsPreview.join(', ')}${op.itemCount > op.itemsPreview.length ? '…' : ''}`}
-            </span>
-            {expandable && (
-              <button
-                onClick={() => setOpen((o) => !o)}
-                className="ml-1 inline-flex items-center gap-0.5 text-xs font-semibold shrink-0"
-                style={{ color: C.blue, background: 'transparent' }}
-              >
-                <span
-                  className="inline-block transition-transform"
-                  style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                >
-                  <Icons.chevronDown />
-                </span>
-                {open ? 'Hide' : 'Items'}
-              </button>
-            )}
-          </div>
-          {op.note && (
-            <div
-              className="flex items-center gap-1 text-xs mt-0.5 truncate"
-              style={{ color: 'var(--ink-muted)', fontStyle: 'italic' }}
-              title={op.note}
-            >
-              <Icons.note />
-              <span className="truncate">{op.note}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Total */}
-        <div
-          className="text-sm font-bold text-right"
-          style={{ color: 'var(--ink)', minWidth: 120 }}
-        >
-          {formatDZD(op.total)}
-        </div>
-
-        {/* Chevron / expand indicator (decorative) */}
-        <div className="w-6 flex items-center justify-end" style={{ color: 'var(--ink-muted)' }}>
-          {expandable ? (
-            <span
-              className="inline-block transition-transform"
-              style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
-            >
-              <Icons.chevronDown />
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      {open && expandable && (
-        <div
-          className="px-4 py-2"
-          style={{
-            background: 'var(--surface-2)',
-            borderTop: '1px solid var(--border)',
-          }}
-        >
-          <table className="w-full text-xs">
-            <thead>
-              <tr style={{ color: 'var(--ink-muted)' }}>
-                <th className="text-left py-1 font-medium">Material</th>
-                <th className="text-right py-1 font-medium">Qty</th>
-                <th className="text-left py-1 px-2 font-medium">Unit</th>
-                <th className="text-right py-1 font-medium">Unit price</th>
-                <th className="text-right py-1 font-medium">Line total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {op.items.map((it) => (
-                <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td className="py-1.5" style={{ color: 'var(--ink)' }}>{it.material}</td>
-                  <td className="text-right py-1.5" style={{ color: 'var(--ink)' }}>
-                    {it.quantity.toLocaleString('en-US')}
-                  </td>
-                  <td className="text-left py-1.5 px-2" style={{ color: 'var(--ink-muted)' }}>{it.unit}</td>
-                  <td className="text-right py-1.5" style={{ color: 'var(--ink)' }}>{formatDZD(it.unit_price)}</td>
-                  <td className="text-right py-1.5 font-semibold" style={{ color: 'var(--ink)' }}>
-                    {formatDZD(it.line_total)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
-  );
-};
-
-/* ─── Summary bar above the operations list ─── */
-const SummaryBar = ({ summary, label }) => {
-  if (!summary) return null;
-  return (
-    <div
-      className="flex items-center justify-between gap-3 px-4 py-3"
-      style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <div
-          className="w-9 h-9 rounded-md flex items-center justify-center shrink-0"
-          style={{ background: C.blue, color: 'white' }}
-        >
-          <Icons.wallet />
-        </div>
-        <div className="min-w-0">
-          <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>{label}</div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="text-base font-bold" style={{ color: 'var(--ink)' }}>
-              {formatDZD(summary.total)}
-            </span>
-            <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>
-              {summary.count} purchase{summary.count === 1 ? '' : 's'}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* ─── Empty state inside the list ─── */
-const EmptyState = ({ icon, title, hint }) => (
-  <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-    <div
-      className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
-      style={{ background: 'var(--surface-2)', color: 'var(--ink-muted)' }}
-    >
-      {icon}
-    </div>
-    <div className="text-sm font-semibold mb-1" style={{ color: 'var(--ink)' }}>{title}</div>
-    {hint && (
-      <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>{hint}</div>
-    )}
-  </div>
-);
-
-/* ─── Skeleton row ─── */
-const SkeletonRow = () => (
-  <div
-    className="grid items-center gap-3 px-4 py-3"
-    style={{ gridTemplateColumns: 'auto 1fr auto auto', borderTop: '1px solid var(--border)' }}
-  >
-    <div className="h-3 w-16 rounded" style={{ background: 'var(--surface-2)' }} />
-    <div className="space-y-1.5">
-      <div className="h-3 w-32 rounded" style={{ background: 'var(--surface-2)' }} />
-      <div className="h-2.5 w-48 rounded" style={{ background: 'var(--surface-2)' }} />
-    </div>
-    <div className="h-3 w-20 rounded" style={{ background: 'var(--surface-2)' }} />
-    <div className="h-4 w-4 rounded" style={{ background: 'var(--surface-2)' }} />
-  </div>
-);
 
 /* ═══════════════════════════════════════════════════════════════════
-   Main modal
+
+   PER-PURCHASE EDIT MODAL
+
+   header + items in one save. items can be edited / removed / added.
+
 ═══════════════════════════════════════════════════════════════════ */
-export default function SupplierPurchasesModal({ supplier, onClose, onEdit }) {
-  /* ── local state ── */
-  const [view, setView] = useState('month'); // 'month' | 'year'
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [yearMonthFilter, setYearMonthFilter] = useState('all'); // 'all' | 1..12
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  /* ── fetch whenever year changes ── */
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    getSupplierPurchasesClient(supplier.id, { year })
-      .then((d) => {
-        if (cancelled) return;
-        setData(d);
-        // If user lands on year view, default the month filter to the
-        // current calendar month if it has data, else "all".
-        const today = new Date();
-        if (today.getFullYear() === year) {
-          const m = today.getMonth() + 1;
-          if (d.byMonth?.[String(m)]?.count > 0) setYearMonthFilter(m);
-          else setYearMonthFilter('all');
-        } else {
-          setYearMonthFilter('all');
-        }
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setError(e.message || 'Failed to load purchases');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [supplier.id, year]);
+/* Stable empty-row shape for "add new item" */
 
-  /* ── esc to close ── */
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+const newItemRow = () => ({
+  __isNew: true,
 
-  /* ── derived: which operations to show ── */
-  const today = new Date();
-  const currentMonth = today.getMonth() + 1;
-  const currentYear = today.getFullYear();
+  material_name: "",
 
-  const visibleOps = useMemo(() => {
-    if (!data) return [];
-    if (view === 'month') {
-      return data.byMonth?.[String(currentMonth)]?.operations || [];
-    }
-    if (yearMonthFilter === 'all') return data.operations || [];
-    return data.byMonth?.[String(yearMonthFilter)]?.operations || [];
-  }, [data, view, yearMonthFilter, currentMonth]);
+  quantity: "",
 
-  const visibleSummary = useMemo(() => {
-    if (!data) return null;
-    if (view === 'month') {
-      const ops = data.byMonth?.[String(currentMonth)]?.operations || [];
-      return ops.reduce(
-        (acc, op) => {
-          acc.count += 1;
-          acc.total += op.total;
-          return acc;
-        },
-        { count: 0, total: 0 },
-      );
-    }
-    if (yearMonthFilter === 'all') return data.summary;
-    const ops = data.byMonth?.[String(yearMonthFilter)]?.operations || [];
-    return ops.reduce(
-      (acc, op) => {
-        acc.count += 1;
-        acc.total += op.total;
-        return acc;
-      },
-      { count: 0, total: 0 },
+  unit: "",
+
+  unit_price: "",
+
+  material_id: null,
+});
+
+function EditPurchaseModal({
+  purchase,
+
+  suppliers,
+
+  onClose,
+
+  onSaved,
+}) {
+  /* ── form state ── */
+
+  const [date, setDate] = useState(dateInputValue(purchase.date));
+
+  const [supplierId, setSupplierId] = useState(
+    purchase.supplier_id ?? purchase.id /* fallback never used */,
+  );
+
+  // Try to use the supplier id from the parent modal if purchase doesn't carry it
+
+  const [reference, setReference] = useState(purchase.reference ?? "");
+
+  const [note, setNote] = useState(purchase.note ?? "");
+
+  const [items, setItems] = useState(() => {
+    const existing = (purchase.items || []).map((it) => ({
+      id: it.id,
+
+      material_id: it.material_id ?? null,
+
+      material_name: it.material_name ?? it.material ?? "",
+
+      quantity: it.quantity === 0 || it.quantity ? String(it.quantity) : "",
+
+      unit: it.unit ?? "",
+
+      unit_price:
+        it.unit_price === 0 || it.unit_price ? String(it.unit_price) : "",
+    }));
+
+    return existing.length > 0 ? existing : [newItemRow()];
+  });
+
+  const [errors, setErrors] = useState({});
+
+  const [topError, setTopError] = useState(null);
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const setItem = (idx, patch) => {
+    setItems((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)),
     );
-  }, [data, view, yearMonthFilter, currentMonth]);
+  };
 
-  /* ── group ops by month for "All" in year view ── */
-  const groupedOps = useMemo(() => {
-    if (view !== 'year' || yearMonthFilter !== 'all' || !data) return null;
-    const groups = [];
-    const byMonth = data.byMonth || {};
-    for (let m = 1; m <= 12; m++) {
-      const bucket = byMonth[String(m)];
-      if (bucket && bucket.operations.length > 0) {
-        groups.push({
-          month: m,
-          label: data.monthNames?.full?.[m - 1] || `Month ${m}`,
-          operations: bucket.operations,
-        });
-      }
+  const addItem = () => setItems((prev) => [...prev, newItemRow()]);
+
+  const removeItem = (idx) => {
+    setItems((prev) =>
+      prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx),
+    );
+  };
+
+  const handleSubmit = async (e) => {
+    e?.preventDefault?.();
+
+    setTopError(null);
+
+    setErrors({});
+
+    /* ── client-side quick checks ── */
+
+    const localErrors = {};
+
+    if (!date) localErrors.date = "Date is required.";
+
+    if (!supplierId) localErrors.supplier_id = "Supplier is required.";
+
+    if (reference && reference.length > 100)
+      localErrors.reference = "Reference must be 100 characters or fewer.";
+
+    const itemErrors = [];
+
+    items.forEach((it, idx) => {
+      const errs = {};
+
+      if (!it.material_name || !String(it.material_name).trim())
+        errs.material_name = "Required.";
+
+      if (
+        it.quantity === "" ||
+        it.quantity === null ||
+        it.quantity === undefined ||
+        Number(it.quantity) <= 0 ||
+        Number.isNaN(Number(it.quantity))
+      )
+        errs.quantity = "Must be > 0.";
+
+      if (!it.unit || !String(it.unit).trim()) errs.unit = "Required.";
+
+      if (
+        it.unit_price === "" ||
+        it.unit_price === null ||
+        it.unit_price === undefined ||
+        Number(it.unit_price) < 0 ||
+        Number.isNaN(Number(it.unit_price))
+      )
+        errs.unit_price = "Must be ≥ 0.";
+
+      if (Object.keys(errs).length > 0)
+        itemErrors.push({ index: idx, ...errs });
+    });
+
+    if (itemErrors.length > 0) localErrors.items = itemErrors;
+
+    if (Object.keys(localErrors).length > 0) {
+      setErrors(localErrors);
+
+      return;
     }
-    return groups;
-  }, [data, view, yearMonthFilter]);
 
-  const monthShort = data?.monthNames?.short || [
-    'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
-  ];
+    /* ── build payload in the server's canonical shape ── */
+
+    const payload = {
+      date,
+
+      supplier_id: Number(supplierId),
+
+      reference: reference.trim() || null,
+
+      note: note.trim() || null,
+
+      items: items.map((it) => {
+        const out = {
+          material_name: String(it.material_name).trim(),
+
+          quantity: Number(it.quantity),
+
+          unit: String(it.unit).trim(),
+
+          unit_price: Number(it.unit_price),
+        };
+
+        if (it.material_id !== undefined && it.material_id !== null)
+          out.material_id = Number(it.material_id);
+
+        if (it.id) out.id = it.id;
+
+        return out;
+      }),
+    };
+
+    setSubmitting(true);
+
+    try {
+      const result = await updateMaterialPurchaseClient(purchase.id, payload);
+
+      onSaved(result);
+    } catch (err) {
+      if (err.fields) setErrors(err.fields);
+
+      setTopError(err.message || "Save failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,15,20,0.55)' }}
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: "rgba(15,15,20,0.55)" }}
       onClick={onClose}
     >
       <div
-        className="panel w-full max-w-3xl flex flex-col"
-        style={{ maxHeight: 'calc(100vh - 2rem)' }}
+        className="panel w-full max-w-3xl max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Header: blue stripe w/ supplier identity ── */}
+        {/* Header */}
+
         <div
           className="px-5 py-4 flex items-center justify-between shrink-0"
-          style={{ background: C.blue, color: 'white' }}
+          style={{ background: C.purple, color: "white" }}
         >
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3">
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-              style={{ background: 'rgba(255,255,255,0.18)', color: 'white' }}
+              className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: "rgba(255,255,255,0.18)" }}
             >
-              {initials(supplier.name)}
+              <Icons.pencil />
             </div>
-            <div className="min-w-0">
-              <div className="text-base font-semibold truncate">{supplier.name}</div>
-              <div className="text-xs opacity-80 flex items-center gap-2 flex-wrap">
-                <span>Supplier #{supplier.id}</span>
-                {supplier.status && (
-                  <>
-                    <span>·</span>
-                    <span
-                      className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                      style={{
-                        background: supplier.status === 'ACTIVE' ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.12)',
-                      }}
-                    >
-                      {supplier.status}
-                    </span>
-                  </>
-                )}
+
+            <div>
+              <div className="text-sm font-semibold">
+                Edit Purchase #{purchase.id}
+              </div>
+
+              <div className="text-xs opacity-80">
+                {purchase.reference || "No reference"} ·{" "}
+                {formatDZD(purchase.total)}
               </div>
             </div>
           </div>
+
           <button
             className="p-1 rounded-md"
             onClick={onClose}
-            style={{ color: 'white' }}
+            style={{ color: "white" }}
             aria-label="Close"
-            title="Close (Esc)"
           >
-            <Icons.close />
+            <Icons.x />
           </button>
         </div>
 
-        {/* ── Compact info row ── */}
-        <div
-          className="px-5 py-2.5 flex items-center gap-2 flex-wrap shrink-0"
-          style={{ borderBottom: '1px solid var(--border)' }}
-        >
-          {supplier.phone && <InfoPill icon={<Icons.phone />} value={supplier.phone} title="Phone" />}
-          {supplier.nif && <InfoPill icon={<Icons.hash />} value={`NIF ${supplier.nif}`} title="NIF" />}
-          {supplier.rc && <InfoPill icon={<Icons.hash />} value={`RC ${supplier.rc}`} title="RC" />}
-          {supplier.address && <InfoPill icon={<Icons.mapPin />} value={supplier.address} title="Address" />}
-        </div>
-
-        {/* ── View toggle + period label ── */}
-        <div
-          className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap shrink-0"
-          style={{ borderBottom: '1px solid var(--border)' }}
-        >
+        {topError && (
           <div
-            className="inline-flex p-1 rounded-lg"
-            style={{ background: 'var(--surface-2)' }}
-            role="tablist"
+            className="px-5 py-3 flex items-center gap-2 text-sm shrink-0"
+            style={{ background: C.red, color: "white" }}
           >
-            <TogglePill
-              active={view === 'month'}
-              color={C.blue}
-              onClick={() => setView('month')}
-            >
-              This Month
-            </TogglePill>
-            <TogglePill
-              active={view === 'year'}
-              color={C.purple}
-              onClick={() => setView('year')}
-            >
-              This Year
-            </TogglePill>
-          </div>
+            <Icons.alert />
 
-          <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>
-            {view === 'month' ? (
-              <>
-                <span className="font-semibold" style={{ color: 'var(--ink)' }}>
-                  {monthShort[currentMonth - 1]} {currentYear}
-                </span>
-                {' · current month'}
-              </>
-            ) : (
-              <>
-                Year{' '}
-                <span className="font-semibold" style={{ color: 'var(--ink)' }}>{year}</span>
-              </>
-            )}
-          </div>
-        </div>
+            <span className="flex-1">{topError}</span>
 
-        {/* ── Year navigation + month strip (year view only) ── */}
-        {view === 'year' && (
-          <div
-            className="px-5 py-3 flex items-center gap-3 flex-wrap shrink-0"
-            style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}
-          >
-            {/* Year stepper */}
-            <div className="inline-flex items-center gap-1">
-              <button
-                onClick={() => setYear((y) => y - 1)}
-                className="w-8 h-8 rounded-md inline-flex items-center justify-center transition-colors"
-                style={{ background: 'var(--panel-bg, white)', color: 'var(--ink-muted)', border: '1px solid var(--border)' }}
-                title="Previous year"
-                aria-label="Previous year"
-              >
-                <Icons.chevronLeft />
-              </button>
-              <div
-                className="px-3 h-8 inline-flex items-center text-sm font-bold rounded-md"
-                style={{ background: C.purple, color: 'white', minWidth: 64, justifyContent: 'center' }}
-              >
-                {year}
-              </div>
-              <button
-                onClick={() => setYear((y) => y + 1)}
-                className="w-8 h-8 rounded-md inline-flex items-center justify-center transition-colors"
-                style={{ background: 'var(--panel-bg, white)', color: 'var(--ink-muted)', border: '1px solid var(--border)' }}
-                title="Next year"
-                aria-label="Next year"
-              >
-                <Icons.chevronRight />
-              </button>
-            </div>
-
-            {/* Month strip */}
-            <div className="flex items-center gap-1 flex-wrap">
-              {monthShort.map((label, i) => {
-                const m = i + 1;
-                const active = yearMonthFilter === m;
-                const hasData = (data?.byMonth?.[String(m)]?.count || 0) > 0;
-                return (
-                  <button
-                    key={m}
-                    onClick={() => setYearMonthFilter(m)}
-                    className="relative px-2.5 h-8 rounded-md text-xs font-semibold transition-colors"
-                    style={{
-                      background: active ? C.blue : 'var(--panel-bg, white)',
-                      color: active ? 'white' : 'var(--ink)',
-                      border: `1px solid ${active ? C.blue : 'var(--border)'}`,
-                      opacity: hasData || active ? 1 : 0.45,
-                    }}
-                    title={
-                      hasData
-                        ? `${data.byMonth[String(m)].count} purchase${data.byMonth[String(m)].count === 1 ? '' : 's'} · ${formatDZD(data.byMonth[String(m)].total)}`
-                        : 'No purchases'
-                    }
-                  >
-                    {label}
-                    {hasData && !active && (
-                      <span
-                        className="absolute -top-1 -right-1 w-2 h-2 rounded-full"
-                        style={{ background: C.green, border: '2px solid var(--panel-bg, white)' }}
-                      />
-                    )}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setYearMonthFilter('all')}
-                className="px-3 h-8 rounded-md text-xs font-bold transition-colors"
-                style={{
-                  background: yearMonthFilter === 'all' ? C.purple : 'var(--panel-bg, white)',
-                  color: yearMonthFilter === 'all' ? 'white' : 'var(--ink)',
-                  border: `1px solid ${yearMonthFilter === 'all' ? C.purple : 'var(--border)'}`,
-                }}
-                title="Show all months"
-              >
-                All
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Summary bar ── */}
-        {!loading && !error && data && (
-          <SummaryBar
-            summary={visibleSummary}
-            label={
-              view === 'month'
-                ? `${data.monthNames?.full?.[currentMonth - 1] || ''} ${currentYear}`
-                : yearMonthFilter === 'all'
-                ? `All of ${data.year}`
-                : `${data.monthNames?.full?.[yearMonthFilter - 1] || ''} ${data.year}`
-            }
-          />
-        )}
-
-        {/* ── Error state ── */}
-        {error && (
-          <div
-            className="flex items-center justify-between gap-3 px-5 py-3 text-sm shrink-0"
-            style={{ background: C.red, color: 'white' }}
-          >
-            <span className="flex items-center gap-2"><Icons.alert /> {error}</span>
             <button
-              className="text-xs font-semibold"
-              style={{ color: 'white' }}
-              onClick={() => {
-                setError(null);
-                setLoading(true);
-                getSupplierPurchasesClient(supplier.id, { year })
-                  .then((d) => setData(d))
-                  .catch((e) => setError(e.message || 'Failed to load purchases'))
-                  .finally(() => setLoading(false));
-              }}
+              onClick={() => setTopError(null)}
+              style={{ color: "white" }}
+              aria-label="Dismiss"
             >
-              Retry
+              <Icons.x />
             </button>
           </div>
         )}
 
-        {/* ── Operations list (scrollable) ── */}
-        <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
-          {loading && (
-            <div>
-              <SkeletonRow />
-              <SkeletonRow />
-              <SkeletonRow />
-            </div>
-          )}
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto px-5 py-5 space-y-5"
+        >
+          {/* Header fields */}
 
-          {!loading && !error && visibleOps.length === 0 && (
-            <EmptyState
-              icon={<Icons.inbox />}
-              title={
-                view === 'month'
-                  ? 'No purchases this month'
-                  : yearMonthFilter === 'all'
-                  ? `No purchases in ${data?.year}`
-                  : `No purchases in ${data?.monthNames?.full?.[yearMonthFilter - 1] || ''}`
-              }
-              hint={
-                view === 'year' && yearMonthFilter !== 'all'
-                  ? 'Try a different month or click "All".'
-                  : 'Record a new material purchase to see it here.'
-              }
-            />
-          )}
-
-          {!loading && !error && visibleOps.length > 0 && (
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              {groupedOps ? (
-                groupedOps.map((g) => (
-                  <div key={g.month}>
-                    {g.operations.map((op, i) => (
-                      <OperationRow
-                        key={op.id}
-                        op={op}
-                        showMonthHeader={i === 0}
-                        monthLabel={g.label}
-                      />
-                    ))}
-                  </div>
-                ))
-              ) : (
-                visibleOps.map((op) => (
-                  <OperationRow key={op.id} op={op} />
-                ))
+              <label
+                className="text-xs font-medium mb-1.5 block"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                Date
+                <span
+                  style={{ color: C.red, marginLeft: 4 }}
+                  aria-hidden="true"
+                >
+                  *
+                </span>
+              </label>
+
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  background: "var(--surface-2)",
+
+                  color: "var(--ink)",
+
+                  border: `1px solid ${errors.date ? C.red : "var(--border)"}`,
+                }}
+              />
+
+              {errors.date && (
+                <div className="text-xs mt-1" style={{ color: C.red }}>
+                  {errors.date}
+                </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* ── Footer ── */}
-        <div
-          className="px-5 py-3 flex items-center justify-between gap-2 shrink-0"
-          style={{ borderTop: '1px solid var(--border)' }}
-        >
-          <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>
-            <span className="font-semibold" style={{ color: 'var(--ink)' }}>
-              {data?.summary?.count ?? '—'}
-            </span>{' '}
-            total purchase{data?.summary?.count === 1 ? '' : 's'} in {data?.year ?? year}
-            {' · '}
-            <span className="font-semibold" style={{ color: 'var(--ink)' }}>
-              {data ? formatDZD(data.summary.total) : '—'}
-            </span>
+            <div>
+              <label
+                className="text-xs font-medium mb-1.5 block"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                Supplier
+                <span
+                  style={{ color: C.red, marginLeft: 4 }}
+                  aria-hidden="true"
+                >
+                  *
+                </span>
+              </label>
+
+              <select
+                value={supplierId}
+                onChange={(e) => setSupplierId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  background: "var(--surface-2)",
+
+                  color: "var(--ink)",
+
+                  border: `1px solid ${errors.supplier_id ? C.red : "var(--border)"}`,
+                }}
+              >
+                <option value="">— select —</option>
+
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+
+              {errors.supplier_id && (
+                <div className="text-xs mt-1" style={{ color: C.red }}>
+                  {errors.supplier_id}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="btn-ghost text-sm" onClick={onClose}>Close</button>
-            <button
-              className="text-sm font-medium px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5"
-              style={{ background: C.purple, color: 'white' }}
-              onClick={onEdit}
+
+          <div>
+            <label
+              className="text-xs font-medium mb-1.5 block"
+              style={{ color: "var(--ink-muted)" }}
             >
-              <Icons.pencil /> Edit supplier
-            </button>
+              Reference
+            </label>
+
+            <input
+              type="text"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="e.g. INV-2026-0042"
+              maxLength={100}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+              style={{
+                background: "var(--surface-2)",
+
+                color: "var(--ink)",
+
+                border: `1px solid ${errors.reference ? C.red : "var(--border)"}`,
+              }}
+            />
+
+            {errors.reference && (
+              <div className="text-xs mt-1" style={{ color: C.red }}>
+                {errors.reference}
+              </div>
+            )}
           </div>
+
+          <div>
+            <label
+              className="text-xs font-medium mb-1.5 block"
+              style={{ color: "var(--ink-muted)" }}
+            >
+              Note
+            </label>
+
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+              style={{
+                background: "var(--surface-2)",
+
+                color: "var(--ink)",
+
+                border: "1px solid var(--border)",
+
+                resize: "vertical",
+              }}
+            />
+          </div>
+
+          {/* Items editor */}
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label
+                className="text-xs font-medium"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                Items
+                <span
+                  style={{ color: C.red, marginLeft: 4 }}
+                  aria-hidden="true"
+                >
+                  *
+                </span>
+              </label>
+
+              <button
+                type="button"
+                onClick={addItem}
+                className="text-xs font-medium inline-flex items-center gap-1 px-2 py-1 rounded-md"
+                style={{ background: C.blue, color: "white" }}
+              >
+                <Icons.plus /> Add item
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {items.map((it, idx) => {
+                const itemErrs = Array.isArray(errors.items)
+                  ? errors.items.find((e) => e.index === idx) || {}
+                  : {};
+
+                return (
+                  <div
+                    key={it.id || `new-${idx}`}
+                    className="p-3 rounded-lg space-y-2"
+                    style={{
+                      background: "var(--surface-2)",
+
+                      border: `1px solid ${
+                        Object.keys(itemErrs).length > 0
+                          ? C.red
+                          : "var(--border)"
+                      }`,
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={it.material_name}
+                        onChange={(e) =>
+                          setItem(idx, { material_name: e.target.value })
+                        }
+                        placeholder="Material name"
+                        maxLength={150}
+                        className="flex-1 px-2 py-1.5 rounded-md text-sm outline-none"
+                        style={{
+                          background: "var(--surface)",
+
+                          color: "var(--ink)",
+
+                          border: `1px solid ${itemErrs.material_name ? C.red : "var(--border)"}`,
+                        }}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => removeItem(idx)}
+                        className="p-1.5 rounded-md"
+                        title="Remove item"
+                        style={{ color: C.red }}
+                        disabled={items.length <= 1}
+                      >
+                        <Icons.trash />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={it.quantity}
+                          onChange={(e) =>
+                            setItem(idx, { quantity: e.target.value })
+                          }
+                          placeholder="Quantity"
+                          className="w-full px-2 py-1.5 rounded-md text-sm outline-none"
+                          style={{
+                            background: "var(--surface)",
+
+                            color: "var(--ink)",
+
+                            border: `1px solid ${itemErrs.quantity ? C.red : "var(--border)"}`,
+                          }}
+                        />
+
+                        {itemErrs.quantity && (
+                          <div
+                            className="text-xs mt-1"
+                            style={{ color: C.red }}
+                          >
+                            {itemErrs.quantity}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <input
+                          type="text"
+                          value={it.unit}
+                          onChange={(e) =>
+                            setItem(idx, { unit: e.target.value })
+                          }
+                          placeholder="Unit (kg, m²)"
+                          maxLength={20}
+                          className="w-full px-2 py-1.5 rounded-md text-sm outline-none"
+                          style={{
+                            background: "var(--surface)",
+
+                            color: "var(--ink)",
+
+                            border: `1px solid ${itemErrs.unit ? C.red : "var(--border)"}`,
+                          }}
+                        />
+
+                        {itemErrs.unit && (
+                          <div
+                            className="text-xs mt-1"
+                            style={{ color: C.red }}
+                          >
+                            {itemErrs.unit}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={it.unit_price}
+                          onChange={(e) =>
+                            setItem(idx, { unit_price: e.target.value })
+                          }
+                          placeholder="Unit price"
+                          className="w-full px-2 py-1.5 rounded-md text-sm outline-none"
+                          style={{
+                            background: "var(--surface)",
+
+                            color: "var(--ink)",
+
+                            border: `1px solid ${itemErrs.unit_price ? C.red : "var(--border)"}`,
+                          }}
+                        />
+
+                        {itemErrs.unit_price && (
+                          <div
+                            className="text-xs mt-1"
+                            style={{ color: C.red }}
+                          >
+                            {itemErrs.unit_price}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </form>
+
+        {/* Footer */}
+
+        <div
+          className="px-5 py-3 flex items-center justify-end gap-2 shrink-0"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
+          <button
+            type="button"
+            className="btn-ghost text-sm"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="text-sm font-medium px-4 py-1.5 rounded-lg inline-flex items-center gap-1.5"
+            style={{
+              background: C.purple,
+
+              color: "white",
+
+              opacity: submitting ? 0.6 : 1,
+            }}
+          >
+            {submitting ? "…" : <Icons.check />}
+
+            {submitting ? "Saving" : "Save changes"}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-/* ─── Pill button used in the view toggle ─── */
-const TogglePill = ({ active, color, onClick, children }) => (
-  <button
-    type="button"
-    role="tab"
-    aria-selected={active}
-    onClick={onClick}
-    className="px-3 py-1.5 rounded-md text-sm font-semibold transition-colors"
-    style={{
-      background: active ? color : 'transparent',
-      color: active ? 'white' : 'var(--ink-muted)',
-    }}
-  >
-    {children}
-  </button>
-);
+/* ═══════════════════════════════════════════════════════════════════
+
+   TOP-LEVEL MODAL
+
+   year/month nav, operations list with read view + per-row CRUD
+
+   controls, per-item delete on the read view.
+
+═══════════════════════════════════════════════════════════════════ */
+
+export default function SupplierPurchasesModal({
+  supplier,
+
+  onClose,
+
+  onEdit, // optional — passed through from the page
+
+  onPurchaseChanged, // optional — refresh upstream + toast
+}) {
+  const [data, setData] = useState(null);
+
+  const [loading, setLoading] = useState(true);
+
+  const [error, setError] = useState(null);
+
+  const [year, setYear] = useState(new Date().getFullYear());
+
+  const [month, setMonth] = useState(null);
+
+  const [editing, setEditing] = useState(null); // purchase being edited
+
+  const [editingSuppliers, setEditingSuppliers] = useState([]);
+
+  // Inline confirm for whole-purchase delete
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  const [deletingId, setDeletingId] = useState(null);
+
+  // Inline confirm for per-item delete
+
+  const [itemConfirmDeleteId, setItemConfirmDeleteId] = useState(null);
+
+  const [itemDeletingId, setItemDeletingId] = useState(null);
+
+  const [busy, setBusy] = useState(false);
+
+  const [topError, setTopError] = useState(null);
+
+  /* ── load purchases ── */
+
+  const load = useCallback(async () => {
+    setLoading(true);
+
+    setError(null);
+
+    try {
+      const payload = await getSupplierPurchasesClient(supplier.id, {
+        year,
+
+        month,
+      });
+
+      setData(payload);
+    } catch (e) {
+      setError(e.message || "Failed to load purchases");
+    } finally {
+      setLoading(false);
+    }
+  }, [supplier.id, year, month]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  /* ── list of suppliers (only fetched when the edit modal opens) ── */
+
+  useEffect(() => {
+    if (!editing) return;
+
+    let alive = true;
+
+    (async () => {
+      try {
+        const list = await getSuppliers();
+
+        if (alive) setEditingSuppliers(list);
+      } catch {
+        if (alive) setEditingSuppliers([]);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [editing]);
+
+  /* ── month nav ── */
+
+  const monthNames = data?.monthNames;
+
+  const operations = data?.operations || [];
+
+  const summary = data?.summary || { count: 0, total: 0 };
+
+  const byMonth = data?.byMonth;
+
+  const goPrevYear = () => setYear((y) => y - 1);
+
+  const goNextYear = () => setYear((y) => y + 1);
+
+  const goThisYear = () => setYear(new Date().getFullYear());
+
+  const selectMonth = (m) => setMonth((curr) => (curr === m ? null : m));
+
+  const selectAllMonths = () => setMonth(null);
+
+  /* ── delete whole purchase ── */
+
+  const askDelete = (id) => setConfirmDeleteId(id);
+
+  const cancelDelete = () => setConfirmDeleteId(null);
+
+  const doDelete = async (id) => {
+    setDeletingId(id);
+
+    setTopError(null);
+
+    try {
+      await deleteMaterialPurchaseClient(id);
+
+      setConfirmDeleteId(null);
+
+      // refresh local list
+
+      await load();
+
+      // notify parent so ordersCount / totalSpent cards stay fresh
+
+      onPurchaseChanged?.("Purchase deleted.");
+    } catch (e) {
+      setTopError(e.message || "Delete failed.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  /* ── delete single item (in READ view) ── */
+
+  const askDeleteItem = (id) => setItemConfirmDeleteId(id);
+
+  const cancelDeleteItem = () => setItemConfirmDeleteId(null);
+
+  const doDeleteItem = async (id) => {
+    setItemDeletingId(id);
+
+    setTopError(null);
+
+    try {
+      await deleteMaterialPurchaseItemClient(id);
+
+      setItemConfirmDeleteId(null);
+
+      await load();
+    } catch (e) {
+      setTopError(e.message || "Item delete failed.");
+    } finally {
+      setItemDeletingId(null);
+    }
+  };
+
+  /* ── edit purchase saved ── */
+
+  const onEditSaved = async (saved) => {
+    setEditing(null);
+
+    setTopError(null);
+
+    await load();
+
+    onPurchaseChanged?.(`Purchase #${saved.id} updated.`);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(15,15,20,0.55)" }}
+      onClick={onClose}
+    >
+      <div
+        className="panel w-full max-w-4xl max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+
+        <div
+          className="px-5 py-4 flex items-center justify-between shrink-0"
+          style={{ background: C.blue, color: "white" }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: "rgba(255,255,255,0.18)" }}
+            >
+              <Icons.box />
+            </div>
+
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">
+                {supplier.name} — Purchase History
+              </div>
+
+              <div className="text-xs opacity-80 truncate">
+                {year}
+                {month
+                  ? ` · ${monthNames?.full[month - 1] ?? ""}`
+                  : " · Whole year"}
+                {" · "}
+                {summary.count} operation{summary.count === 1 ? "" : "s"}
+                {" · "}
+                {formatDZD(summary.total)}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            {onEdit && (
+              <button
+                className="p-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1"
+                onClick={onEdit}
+                style={{
+                  background: "rgba(255,255,255,0.18)",
+
+                  color: "white",
+                }}
+                title="Edit supplier"
+              >
+                <Icons.pencil /> Edit supplier
+              </button>
+            )}
+
+            <button
+              className="p-1 rounded-md"
+              onClick={onClose}
+              style={{ color: "white" }}
+              aria-label="Close"
+            >
+              <Icons.x />
+            </button>
+          </div>
+        </div>
+
+        {topError && (
+          <div
+            className="px-5 py-3 flex items-center gap-2 text-sm shrink-0"
+            style={{ background: C.red, color: "white" }}
+          >
+            <Icons.alert />
+
+            <span className="flex-1">{topError}</span>
+
+            <button
+              onClick={() => setTopError(null)}
+              style={{ color: "white" }}
+              aria-label="Dismiss"
+            >
+              <Icons.x />
+            </button>
+          </div>
+        )}
+
+        {/* Year nav + month strip */}
+
+        <div
+          className="px-5 py-3 flex items-center justify-between gap-3 shrink-0"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
+          <div className="flex items-center gap-2">
+            <button
+              className="btn-ghost text-xs px-2 py-1 rounded-md"
+              onClick={goPrevYear}
+            >
+              ‹
+            </button>
+
+            <div className="text-sm font-semibold flex items-center gap-1.5">
+              <Icons.calendar /> {year}
+            </div>
+
+            <button
+              className="btn-ghost text-xs px-2 py-1 rounded-md"
+              onClick={goNextYear}
+            >
+              ›
+            </button>
+
+            <button
+              className="text-xs px-2 py-1 rounded-md"
+              onClick={goThisYear}
+              style={{
+                background:
+                  year === new Date().getFullYear()
+                    ? C.blue
+                    : "var(--surface-2)",
+
+                color:
+                  year === new Date().getFullYear() ? "white" : "var(--ink)",
+              }}
+            >
+              This year
+            </button>
+          </div>
+
+          {monthNames && (
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                onClick={selectAllMonths}
+                className="text-xs px-2 py-1 rounded-md"
+                style={{
+                  background: month === null ? C.blue : "var(--surface-2)",
+
+                  color: month === null ? "white" : "var(--ink)",
+                }}
+              >
+                All
+              </button>
+
+              {monthNames.short.map((m, i) => {
+                const idx = i + 1;
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => selectMonth(idx)}
+                    className="text-xs px-2 py-1 rounded-md"
+                    style={{
+                      background: month === idx ? C.blue : "var(--surface-2)",
+
+                      color: month === idx ? "white" : "var(--ink)",
+                    }}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Body */}
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {loading && (
+            <div
+              className="text-sm text-center py-8"
+              style={{ color: "var(--ink-muted)" }}
+            >
+              Loading purchases…
+            </div>
+          )}
+
+          {error && !loading && (
+            <div
+              className="flex items-center justify-between gap-3 px-4 py-3 text-sm rounded-md"
+              style={{ background: C.red, color: "white" }}
+            >
+              <span className="flex items-center gap-2">
+                <Icons.alert /> {error}
+              </span>
+
+              <button
+                className="text-xs underline"
+                onClick={load}
+                style={{ color: "white" }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!loading && !error && operations.length === 0 && (
+            <div
+              className="text-sm text-center py-8"
+              style={{ color: "var(--ink-muted)" }}
+            >
+              No purchases recorded for this period.
+            </div>
+          )}
+
+          {!loading &&
+            !error &&
+            operations.map((op) => {
+              const isConfirming = confirmDeleteId === op.id;
+
+              const isDeleting = deletingId === op.id;
+
+              return (
+                <div
+                  key={op.id}
+                  className="panel p-4"
+                  style={{ borderLeft: `3px solid ${C.blue}` }}
+                >
+                  {/* Operation header */}
+
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="text-sm font-semibold">
+                          {formatDate(op.date)}
+                        </div>
+
+                        {op.reference && (
+                          <span
+                            className="text-xs px-2 py-0.5 rounded"
+                            style={{
+                              background: "var(--surface-2)",
+                              color: "var(--ink-muted)",
+                            }}
+                          >
+                            {op.reference}
+                          </span>
+                        )}
+
+                        <span
+                          className="text-xs"
+                          style={{ color: "var(--ink-muted)" }}
+                        >
+                          #{op.id}
+                        </span>
+                      </div>
+
+                      {op.note && (
+                        <div
+                          className="text-xs mt-1 italic"
+                          style={{ color: "var(--ink-muted)" }}
+                        >
+                          {op.note}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div
+                        className="text-sm font-bold"
+                        style={{ color: C.blue }}
+                      >
+                        {formatDZD(op.total)}
+                      </div>
+
+                      {!isConfirming ? (
+                        <>
+                          <button
+                            className="p-1.5 rounded-md"
+                            onClick={() =>
+                              setEditing({
+                                ...op,
+
+                                supplier_id: supplier.id,
+                              })
+                            }
+                            disabled={isDeleting}
+                            title="Edit purchase"
+                            style={{ color: C.blue, background: "transparent" }}
+                          >
+                            <Icons.pencil />
+                          </button>
+
+                          <button
+                            className="p-1.5 rounded-md"
+                            onClick={() => askDelete(op.id)}
+                            disabled={isDeleting}
+                            title="Delete purchase"
+                            style={{ color: C.red, background: "transparent" }}
+                          >
+                            <Icons.trash />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span
+                            className="text-xs"
+                            style={{ color: "var(--ink-muted)" }}
+                          >
+                            Delete this purchase?
+                          </span>
+
+                          <button
+                            className="px-2 py-1 rounded-md text-xs font-medium inline-flex items-center gap-1"
+                            onClick={() => doDelete(op.id)}
+                            disabled={isDeleting}
+                            style={{ background: C.red, color: "white" }}
+                          >
+                            <Icons.check /> {isDeleting ? "…" : "Yes"}
+                          </button>
+
+                          <button
+                            className="p-1 rounded-md"
+                            onClick={cancelDelete}
+                            disabled={isDeleting}
+                            title="Cancel"
+                            style={{ color: "var(--ink-muted)" }}
+                          >
+                            <Icons.x />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Items table (read view) */}
+
+                  {op.items && op.items.length > 0 && (
+                    <div
+                      className="rounded-md overflow-hidden"
+                      style={{ border: "1px solid var(--border)" }}
+                    >
+                      <table className="w-full text-xs">
+                        <thead style={{ background: "var(--surface-2)" }}>
+                          <tr>
+                            <th
+                              className="text-left px-3 py-2 font-medium"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              Material
+                            </th>
+
+                            <th
+                              className="text-right px-3 py-2 font-medium"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              Qty
+                            </th>
+
+                            <th
+                              className="text-left px-3 py-2 font-medium"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              Unit
+                            </th>
+
+                            <th
+                              className="text-right px-3 py-2 font-medium"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              Unit price
+                            </th>
+
+                            <th
+                              className="text-right px-3 py-2 font-medium"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              Line total
+                            </th>
+
+                            <th
+                              className="px-3 py-2 w-8"
+                              style={{ color: "var(--ink-muted)" }}
+                            ></th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {op.items.map((it) => {
+                            const isItemConfirming =
+                              itemConfirmDeleteId === it.id;
+
+                            const isItemDeleting = itemDeletingId === it.id;
+
+                            const materialLabel =
+                              it.material_name ?? it.material ?? "—";
+
+                            return (
+                              <tr
+                                key={it.id}
+                                style={{ borderTop: "1px solid var(--border)" }}
+                              >
+                                <td className="px-3 py-2">{materialLabel}</td>
+
+                                <td className="px-3 py-2 text-right">
+                                  {Number(it.quantity ?? 0).toLocaleString(
+                                    "en-US",
+                                  )}
+                                </td>
+
+                                <td className="px-3 py-2">{it.unit}</td>
+
+                                <td className="px-3 py-2 text-right">
+                                  {formatDZD(it.unit_price)}
+                                </td>
+
+                                <td
+                                  className="px-3 py-2 text-right font-medium"
+                                  style={{ color: C.green }}
+                                >
+                                  {formatDZD(it.line_total)}
+                                </td>
+
+                                <td className="px-2 py-2 text-right">
+                                  {!isItemConfirming ? (
+                                    <button
+                                      onClick={() => askDeleteItem(it.id)}
+                                      disabled={isItemDeleting}
+                                      title="Delete item"
+                                      className="p-1 rounded-md"
+                                      style={{
+                                        color: C.red,
+                                        background: "transparent",
+                                      }}
+                                    >
+                                      <Icons.trash />
+                                    </button>
+                                  ) : (
+                                    <div className="inline-flex items-center gap-1">
+                                      <button
+                                        className="px-1.5 py-0.5 rounded text-xs font-medium inline-flex items-center"
+                                        onClick={() => doDeleteItem(it.id)}
+                                        disabled={isItemDeleting}
+                                        style={{
+                                          background: C.red,
+                                          color: "white",
+                                        }}
+                                        title="Confirm delete"
+                                      >
+                                        <Icons.check />
+                                      </button>
+
+                                      <button
+                                        className="p-1 rounded-md"
+                                        onClick={cancelDeleteItem}
+                                        disabled={isItemDeleting}
+                                        title="Cancel"
+                                        style={{ color: "var(--ink-muted)" }}
+                                      >
+                                        <Icons.x />
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+        </div>
+      </div>
+
+      {/* Nested edit-purchase modal */}
+
+      {editing && (
+        <EditPurchaseModal
+          purchase={editing}
+          suppliers={editingSuppliers}
+          onClose={() => setEditing(null)}
+          onSaved={onEditSaved}
+        />
+      )}
+    </div>
+  );
+}
