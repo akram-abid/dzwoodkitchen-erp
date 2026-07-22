@@ -7,13 +7,7 @@ import {
   updateSupplierClient,
   deleteSupplierClient,
 } from '../../lib/api_helpers/supplier.js';
-
-/* ─────────────────────────────────────────────────────────────────
-   COLOR TOKENS — replace your existing soft variants with these
-   solid Tailwind 600-weight hex values. No more rgba tints, no
-   Everything else (--ink, --ink-muted, --surface-2, --border, .panel,
-   .panel-hover, .btn-primary, .btn-ghost, .badge) is reused as-is.
-───────────────────────────────────────────────────────────────── */
+import SupplierPurchasesModal from '../../lib/components/SupplierPurchasesModal.jsx';
 
 /* ─── icons ─── */
 const Icons = {
@@ -29,10 +23,6 @@ const Icons = {
   check: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>,
   x: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
   alert: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>,
-  close: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
-  mapPin: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>,
-  hash: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3 8 21"/><path d="M16 3l-2 18"/></svg>,
-  calendar: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>,
 };
 
 /* ─── solid color palette ─── */
@@ -76,95 +66,6 @@ const SupplierStatusBadge = ({ status }) => {
     </span>
   );
 };
-
-/* ─── supplier detail modal (quick view + Edit shortcut) ─── */
-const SupplierDetailModal = ({ supplier, onClose, onEdit }) => {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,15,20,0.55)' }}
-      onClick={onClose}
-    >
-      <div
-        className="panel w-full max-w-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header — solid colored top stripe for visual punch */}
-        <div
-          className="px-5 py-4 flex items-center justify-between"
-          style={{ background: C.blue, color: 'white' }}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-              style={{ background: 'rgba(255,255,255,0.18)', color: 'white' }}
-            >
-              {initials(supplier.name)}
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold truncate">{supplier.name}</div>
-              <div className="text-xs opacity-80">Supplier #{supplier.id}</div>
-            </div>
-          </div>
-          <button
-            className="p-1 rounded-md"
-            onClick={onClose}
-            style={{ color: 'white' }}
-            aria-label="Close"
-          >
-            <Icons.close />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="px-5 py-4 space-y-3 text-sm">
-          <Row icon={<Icons.phone />}    label="Phone"   value={supplier.phone || '—'} />
-          <Row icon={<Icons.mapPin />}   label="Address" value={supplier.address || '—'} />
-          <Row icon={<Icons.hash />}     label="NIF"     value={supplier.nif || '—'} />
-          <Row icon={<Icons.hash />}     label="RC"      value={supplier.rc || '—'} />
-          <Row icon={<Icons.calendar />} label="Added"   value={formatDate(supplier.created_at)} />
-
-          <div className="flex items-center gap-2 pt-1">
-            <SupplierStatusBadge status={supplier.status} />
-            <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>
-              {supplier.ordersCount ?? 0} order{supplier.ordersCount === 1 ? '' : 's'} · {formatDZD(supplier.totalSpent)} spent
-            </span>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div
-          className="px-5 py-3 flex items-center justify-end gap-2"
-          style={{ borderTop: '1px solid var(--border)' }}
-        >
-          <button className="btn-ghost text-sm" onClick={onClose}>Close</button>
-          <button
-            className="text-sm font-medium px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5"
-            style={{ background: C.blue, color: 'white' }}
-            onClick={onEdit}
-          >
-            <Icons.pencil /> Edit
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const Row = ({ icon, label, value }) => (
-  <div className="flex items-start gap-3">
-    <div
-      className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-      style={{ background: 'var(--surface-2)', color: 'var(--ink-muted)' }}
-    >
-      {icon}
-    </div>
-    <div className="min-w-0 flex-1">
-      <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>{label}</div>
-      <div className="text-sm truncate" style={{ color: 'var(--ink)' }}>{value}</div>
-    </div>
-  </div>
-);
 
 /* ─── form modal — create + edit, mode-switched ─── */
 const EMPTY_FORM = { name: '', phone: '', address: '', nif: '', rc: '', status: 'ACTIVE' };
@@ -261,7 +162,7 @@ const SupplierFormModal = ({ mode, initial, onClose, onSaved }) => {
             style={{ color: 'white' }}
             aria-label="Close"
           >
-            <Icons.close />
+            <Icons.x />
           </button>
         </div>
 
@@ -519,6 +420,8 @@ export default function SuppliersPage() {
       setNotification({ kind: 'success', message: `Supplier "${saved.name}" created.` });
     } else {
       setSuppliers((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+      // keep detail modal in sync if it's open for the same supplier
+      setSelectedSupplier((curr) => (curr && curr.id === saved.id ? saved : curr));
       setNotification({ kind: 'success', message: `Supplier "${saved.name}" updated.` });
     }
     closeForm();
@@ -559,6 +462,7 @@ export default function SuppliersPage() {
           <h2 className="text-lg font-semibold mb-1">Suppliers</h2>
           <p className="text-sm" style={{ color: 'var(--ink-muted)' }}>
             {(suppliers || []).length} suppliers · {activeCount} active
+            <span className="ml-2 text-xs opacity-75">— click any row to view purchase history</span>
           </p>
         </div>
         <button
@@ -810,9 +714,9 @@ export default function SuppliersPage() {
         </div>
       )}
 
-      {/* Detail modal — quick view + edit shortcut */}
+      {/* Purchases popup — month / year views + month navigation */}
       {selectedSupplier && (
-        <SupplierDetailModal
+        <SupplierPurchasesModal
           supplier={selectedSupplier}
           onClose={() => setSelectedSupplier(null)}
           onEdit={() => openEdit(selectedSupplier)}
