@@ -1,13 +1,19 @@
 import { prisma } from "../../lib/prisma";
 
-export async function getAllOrders({ state, client_id, worker_id, page = 1, pageSize = 20 } = {}) {
+export async function getAllOrders({
+  state,
+  client_id,
+  worker_id,
+  page = 1,
+  pageSize = 20,
+} = {}) {
   const where = {
     ...(state && { state }),
     ...(client_id && { client_id }),
     ...(worker_id && { worker_id }),
-  }
+  };
 
-  const whereClause = Object.keys(where).length > 0 ? where : undefined
+  const whereClause = Object.keys(where).length > 0 ? where : undefined;
 
   const [orders, total] = await Promise.all([
     prisma.orders.findMany({
@@ -25,7 +31,7 @@ export async function getAllOrders({ state, client_id, worker_id, page = 1, page
       take: pageSize,
     }),
     prisma.orders.count(whereClause ? { where: whereClause } : undefined),
-  ])
+  ]);
 
   return {
     data: orders,
@@ -35,7 +41,7 @@ export async function getAllOrders({ state, client_id, worker_id, page = 1, page
       total,
       totalPages: Math.ceil(total / pageSize),
     },
-  }
+  };
 }
 
 export async function getOrderById(id) {
@@ -45,7 +51,7 @@ export async function getOrderById(id) {
       clients: true,
       workers: true,
     },
-  })
+  });
 }
 const STAGE_TO_STATE = {
   APPOINTMENT: "appointment",
@@ -177,7 +183,10 @@ export async function updateOrder(id, data) {
 
     // 7) Replace delivery_notes (technical file)
     await tx.delivery_notes.deleteMany({ where: { order_id: orderId } });
-    if (technical && (technical.truckDistance || technical.floor || technical.fee)) {
+    if (
+      technical &&
+      (technical.truckDistance || technical.floor || technical.fee)
+    ) {
       await tx.delivery_notes.create({
         data: {
           order_id: orderId,
@@ -212,21 +221,38 @@ export async function updateOrder(id, data) {
 
 export async function createOrder(data) {
   const {
-    client, phone, address, project, amount, dueDate,
-    stage, worker, items = [], payments = [], missingItems = [], technical = {},
+    client,
+    phone,
+    address,
+    project,
+    amount,
+    dueDate,
+    stage,
+    worker,
+    items = [],
+    payments = [],
+    missingItems = [],
+    technical = {},
   } = data;
 
   return prisma.$transaction(async (tx) => {
     // client
     let clientId;
-    const existingClient = await tx.clients.findFirst({ where: { full_name: client } });
+    const existingClient = await tx.clients.findFirst({
+      where: { full_name: client },
+    });
     if (existingClient) {
       clientId = existingClient.id;
       if (phone !== undefined && phone !== existingClient.phone) {
-        await tx.clients.update({ where: { id: clientId }, data: { phone: phone || null } });
+        await tx.clients.update({
+          where: { id: clientId },
+          data: { phone: phone || null },
+        });
       }
     } else {
-      const c = await tx.clients.create({ data: { full_name: client, phone: phone || null } });
+      const c = await tx.clients.create({
+        data: { full_name: client, phone: phone || null },
+      });
       clientId = c.id;
     }
 
@@ -254,33 +280,51 @@ export async function createOrder(data) {
 
     if (items.length > 0) {
       await tx.order_items.createMany({
-        data: items.filter((i) => i.name).map((i) => ({
-          order_id: order.id, name: i.name, quantity: i.qty, unit: i.unit,
-          length_cm: i.l || null, width_cm: i.w || null, height_cm: i.h || null,
-        })),
+        data: items
+          .filter((i) => i.name)
+          .map((i) => ({
+            order_id: order.id,
+            name: i.name,
+            quantity: i.qty,
+            unit: i.unit,
+            length_cm: i.l || null,
+            width_cm: i.w || null,
+            height_cm: i.h || null,
+          })),
       });
     }
     if (payments.length > 0) {
       await tx.payments.createMany({
         data: payments.map((p) => ({
-          order_id: order.id, amount: p.amount,
-          payment_date: p.date ? new Date(p.date) : new Date(), note: null,
+          order_id: order.id,
+          amount: p.amount,
+          payment_date: p.date ? new Date(p.date) : new Date(),
+          note: null,
         })),
       });
     }
     if (missingItems.length > 0) {
       await tx.checklist_items.createMany({
         data: missingItems.map((m) => ({
-          order_id: order.id, description: m.name, quantity: m.qty || 1,
-          unit: m.unit || "pcs", notes: m.notes || null, is_resolved: false,
+          order_id: order.id,
+          description: m.name,
+          quantity: m.qty || 1,
+          unit: m.unit || "pcs",
+          notes: m.notes || null,
+          is_resolved: false,
         })),
       });
     }
-    if (technical && (technical.truckDistance || technical.floor || technical.fee)) {
+    if (
+      technical &&
+      (technical.truckDistance || technical.floor || technical.fee)
+    ) {
       await tx.delivery_notes.create({
         data: {
           order_id: order.id,
-          truck_distance_km: technical.truckDistance ? Number(technical.truckDistance) : null,
+          truck_distance_km: technical.truckDistance
+            ? Number(technical.truckDistance)
+            : null,
           floor: technical.floor ? Number(technical.floor) : null,
           lift_cost: Number(technical.fee) || 0,
           remaining_amount: 0,
@@ -291,7 +335,9 @@ export async function createOrder(data) {
     return tx.orders.findUnique({
       where: { id: order.id },
       include: {
-        clients: true, workers: true, order_items: true,
+        clients: true,
+        workers: true,
+        order_items: true,
         payments: { orderBy: { payment_date: "asc" } },
         checklist_items: { where: { is_resolved: false } },
         delivery_notes: { orderBy: { id: "asc" }, take: 1 },
@@ -322,7 +368,9 @@ export async function patchOrder(id, data) {
 
     if (data.worker !== undefined) {
       if (data.worker && data.worker !== "Unassigned") {
-        const w = await tx.workers.findFirst({ where: { full_name: data.worker } });
+        const w = await tx.workers.findFirst({
+          where: { full_name: data.worker },
+        });
         updateData.worker_id = w ? w.id : null;
       } else {
         updateData.worker_id = null;
@@ -331,14 +379,21 @@ export async function patchOrder(id, data) {
 
     if (data.client !== undefined) {
       let clientId;
-      const existing = await tx.clients.findFirst({ where: { full_name: data.client } });
+      const existing = await tx.clients.findFirst({
+        where: { full_name: data.client },
+      });
       if (existing) {
         clientId = existing.id;
         if (data.phone !== undefined && data.phone !== existing.phone) {
-          await tx.clients.update({ where: { id: clientId }, data: { phone: data.phone || null } });
+          await tx.clients.update({
+            where: { id: clientId },
+            data: { phone: data.phone || null },
+          });
         }
       } else {
-        const c = await tx.clients.create({ data: { full_name: data.client, phone: data.phone || null } });
+        const c = await tx.clients.create({
+          data: { full_name: data.client, phone: data.phone || null },
+        });
         clientId = c.id;
       }
       updateData.client_id = clientId;
@@ -357,19 +412,30 @@ export async function patchOrder(id, data) {
       if (data.missingItems.length > 0) {
         await tx.checklist_items.createMany({
           data: data.missingItems.map((m) => ({
-            order_id: orderId, description: m.name, quantity: m.qty || 1,
-            unit: m.unit || "pcs", notes: m.notes || null, is_resolved: false,
+            order_id: orderId,
+            description: m.name,
+            quantity: m.qty || 1,
+            unit: m.unit || "pcs",
+            notes: m.notes || null,
+            is_resolved: false,
           })),
         });
       }
     }
     if (data.technical !== undefined) {
       await tx.delivery_notes.deleteMany({ where: { order_id: orderId } });
-      if (data.technical && (data.technical.truckDistance || data.technical.floor || data.technical.fee)) {
+      if (
+        data.technical &&
+        (data.technical.truckDistance ||
+          data.technical.floor ||
+          data.technical.fee)
+      ) {
         await tx.delivery_notes.create({
           data: {
             order_id: orderId,
-            truck_distance_km: data.technical.truckDistance ? Number(data.technical.truckDistance) : null,
+            truck_distance_km: data.technical.truckDistance
+              ? Number(data.technical.truckDistance)
+              : null,
             floor: data.technical.floor ? Number(data.technical.floor) : null,
             lift_cost: Number(data.technical.fee) || 0,
             remaining_amount: 0,
@@ -382,8 +448,10 @@ export async function patchOrder(id, data) {
       if (data.payments.length > 0) {
         await tx.payments.createMany({
           data: data.payments.map((p) => ({
-            order_id: orderId, amount: p.amount,
-            payment_date: p.date ? new Date(p.date) : new Date(), note: null,
+            order_id: orderId,
+            amount: p.amount,
+            payment_date: p.date ? new Date(p.date) : new Date(),
+            note: null,
           })),
         });
       }
@@ -392,10 +460,17 @@ export async function patchOrder(id, data) {
       await tx.order_items.deleteMany({ where: { order_id: orderId } });
       if (data.items.length > 0) {
         await tx.order_items.createMany({
-          data: data.items.filter((i) => i.name).map((i) => ({
-            order_id: orderId, name: i.name, quantity: i.qty, unit: i.unit,
-            length_cm: i.l || null, width_cm: i.w || null, height_cm: i.h || null,
-          })),
+          data: data.items
+            .filter((i) => i.name)
+            .map((i) => ({
+              order_id: orderId,
+              name: i.name,
+              quantity: i.qty,
+              unit: i.unit,
+              length_cm: i.l || null,
+              width_cm: i.w || null,
+              height_cm: i.h || null,
+            })),
         });
       }
     }
@@ -407,7 +482,9 @@ export async function patchOrder(id, data) {
     return tx.orders.findUnique({
       where: { id: orderId },
       include: {
-        clients: true, workers: true, order_items: true,
+        clients: true,
+        workers: true,
+        order_items: true,
         payments: { orderBy: { payment_date: "asc" } },
         checklist_items: { where: { is_resolved: false } },
         delivery_notes: { orderBy: { id: "asc" }, take: 1 },

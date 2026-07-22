@@ -1109,8 +1109,6 @@ export default function LedgerClient() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* ─── BUDGET BANNER — four cards in one row ─── */}
-
       {/* ─── BUDGET BANNER — five cards in one row ─── */}
 
       <div
