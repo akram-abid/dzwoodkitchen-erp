@@ -23,6 +23,11 @@
   --stage-production: #FEBD11;
   --stage-ready: #A47EE0;
   --stage-completed: #34B172;
+  --accent-blue:   #2563eb;   /* blue-600  */
+  --accent-green:  #16a34a;   /* green-600 */
+  --accent-red:    #dc2626;   /* red-600   */
+  --accent-purple: #9333ea;   /* purple-600 */
+  --accent-gray:   #4b5563;   /* gray-600  — for "inactive" */
 }
 
 @layer base {

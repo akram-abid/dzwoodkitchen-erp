@@ -1,34 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  getSuppliers,
+  createSupplierClient,
+  updateSupplierClient,
+  deleteSupplierClient,
+} from '../../lib/api_helpers/supplier.js';
 
 /* ─────────────────────────────────────────────────────────────────
-   NOTE ON COLOR TOKENS
-   Your dashboard currently only defines one accent (--accent, yellow)
-   plus the --stage-* tokens for order stages. This page leans on a
-   few more tokens so suppliers/status/stats read as distinct at a
-   glance. Add these to your globals.css (adjust hex to taste):
-
-     --accent-blue:        #4C8BF5;
-     --accent-blue-soft:   rgba(76, 139, 245, 0.12);
-     --accent-green:       #22C55E;
-     --accent-green-soft:  rgba(34, 197, 94, 0.12);
-     --accent-red:         #EF4444;
-     --accent-red-soft:    rgba(239, 68, 68, 0.12);
-     --accent-purple:      #8B5CF6;
-     --accent-purple-soft: rgba(139, 92, 246, 0.12);
-
-   NOTE: your original StageBadge used `${color}15` string concatenation
-   to fake a tinted background (e.g. background: `${s.color}15` where
-   s.color is 'var(--stage-appointment)'). That produces an invalid CSS
-   value ("var(--stage-appointment)15") and silently fails — the
-   background never actually applies. This file uses real *-soft
-   tokens instead, which is the fix. Worth applying the same fix to
-   StageBadge in your Home dashboard.
-
+   COLOR TOKENS — replace your existing soft variants with these
+   solid Tailwind 600-weight hex values. No more rgba tints, no
    Everything else (--ink, --ink-muted, --surface-2, --border, .panel,
-   .panel-hover, .btn-primary, .btn-ghost, .badge) is reused as-is
-   from your existing system.
+   .panel-hover, .btn-primary, .btn-ghost, .badge) is reused as-is.
 ───────────────────────────────────────────────────────────────── */
 
 /* ─── icons ─── */
@@ -40,169 +24,205 @@ const Icons = {
   truck: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 18V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h1"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>,
   search: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
   plus: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
-  dots: () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>,
-  file: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>,
+  trash: () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>,
+  pencil: () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>,
+  check: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>,
+  x: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
+  alert: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>,
   close: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
-  arrowLeft: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>,
-  arrowRight: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>,
-  package: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73Z"/><path d="M12 22V12"/><path d="m3.3 7 8.7 5 8.7-5"/></svg>,
+  mapPin: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>,
+  hash: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3 8 21"/><path d="M16 3l-2 18"/></svg>,
+  calendar: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>,
 };
 
-/* ─── mock data — shaped after the `suppliers` / `purchase_orders` tables ─── */
-const SUPPLIERS = [
-  { id: 'SUP-001', name: 'Bois & Panneaux El Djazair', phone: '0555 12 34 56', nif: '000123456789012', rc: '16/00-1234567 B 21', ordersCount: 14, totalSpent: 412000, status: 'ACTIVE' },
-  { id: 'SUP-002', name: 'Quincaillerie Amrani', phone: '0661 98 76 54', nif: '000198765432098', rc: '16/00-7654321 B 21', ordersCount: 9, totalSpent: 156500, status: 'ACTIVE' },
-  { id: 'SUP-003', name: 'Peintures & Vernis Setif', phone: '0770 22 11 09', nif: '000155667788099', rc: '19/00-2233445 B 21', ordersCount: 5, totalSpent: 68000, status: 'ACTIVE' },
-  { id: 'SUP-004', name: 'Ferronnerie Boudjelal', phone: '0550 44 55 66', nif: '000144556677088', rc: '16/00-9988776 B 21', ordersCount: 2, totalSpent: 21000, status: 'INACTIVE' },
-  { id: 'SUP-005', name: 'Verre & Miroiterie Centre', phone: '0666 33 22 11', nif: '000133221100077', rc: '31/00-1122334 B 21', ordersCount: 7, totalSpent: 94500, status: 'ACTIVE' },
-];
-
-const RECENT_ORDERS = [
-  { id: 'BC-2026-041', supplier: 'Bois & Panneaux El Djazair', amount: '38,000 DZD', status: 'PENDING', date: 'Jul 4' },
-  { id: 'BC-2026-040', supplier: 'Peintures & Vernis Setif', amount: '12,400 DZD', status: 'RECEIVED', date: 'Jul 2' },
-  { id: 'BC-2026-039', supplier: 'Quincaillerie Amrani', amount: '9,800 DZD', status: 'RECEIVED', date: 'Jun 30' },
-  { id: 'BC-2026-038', supplier: 'Ferronnerie Boudjelal', amount: '15,200 DZD', status: 'CANCELLED', date: 'Jun 27' },
-];
-
-/* This month's invoices per supplier — from `purchases` / `purchase_orders`
-   filtered to the current month, joined on supplier_id. `items` are the
-   actual line items bought under that invoice (material, qty, unit price). */
-const INVOICES_THIS_MONTH = {
-  'SUP-001': [
-    {
-      ref: 'FAC-2026-0182', date: 'Jul 4', status: 'PENDING',
-      items: [
-        { material: 'MDF panels (18mm)', qty: 40, unit: 'panel', unitPrice: 800 },
-        { material: 'Edge banding roll', qty: 6, unit: 'roll', unitPrice: 1000 },
-      ],
-    },
-    {
-      ref: 'FAC-2026-0171', date: 'Jul 1', status: 'PAID',
-      items: [
-        { material: 'Melamine sheets (white)', qty: 25, unit: 'sheet', unitPrice: 900 },
-      ],
-    },
-  ],
-  'SUP-002': [
-    {
-      ref: 'FAC-2026-0179', date: 'Jul 3', status: 'PAID',
-      items: [
-        { material: 'Cabinet hinges', qty: 40, unit: 'unit', unitPrice: 90 },
-        { material: 'Drawer slides (45cm)', qty: 20, unit: 'pair', unitPrice: 170 },
-      ],
-    },
-  ],
-  'SUP-003': [
-    {
-      ref: 'FAC-2026-0180', date: 'Jul 2', status: 'PAID',
-      items: [
-        { material: 'Wood varnish (satin)', qty: 12, unit: 'L', unitPrice: 1033.33 },
-      ],
-    },
-  ],
-  'SUP-004': [],
-  'SUP-005': [
-    {
-      ref: 'FAC-2026-0175', date: 'Jul 1', status: 'PAID',
-      items: [
-        { material: 'Cabinet glass panels (tempered)', qty: 8, unit: 'panel', unitPrice: 1775 },
-      ],
-    },
-  ],
+/* ─── solid color palette ─── */
+const C = {
+  blue:   '#2563eb',
+  green:  '#16a34a',
+  red:    '#dc2626',
+  purple: '#9333ea',
+  amber:  '#ca8a04',
+  gray:   '#4b5563',
 };
 
-/* Full year purchase history per supplier — from `purchases`, all records
-   for the current calendar year, most recent first. */
-const PURCHASES_THIS_YEAR = {
-  'SUP-001': [
-    { date: 'Jul 4, 2026', material: 'MDF panels (18mm)', qty: '40 units', amount: 38000 },
-    { date: 'Jul 1, 2026', material: 'Melamine sheets', qty: '25 units', amount: 22500 },
-    { date: 'May 18, 2026', material: 'MDF panels (18mm)', qty: '30 units', amount: 28500 },
-    { date: 'Apr 9, 2026', material: 'Plywood sheets', qty: '20 units', amount: 19000 },
-    { date: 'Feb 22, 2026', material: 'MDF panels (18mm)', qty: '50 units', amount: 47500 },
-    { date: 'Jan 14, 2026', material: 'Edge banding rolls', qty: '15 rolls', amount: 9000 },
-  ],
-  'SUP-002': [
-    { date: 'Jul 3, 2026', material: 'Hinges, drawer slides', qty: '60 sets', amount: 6800 },
-    { date: 'Apr 27, 2026', material: 'Cabinet handles', qty: '120 units', amount: 14400 },
-    { date: 'Feb 3, 2026', material: 'Screws & fasteners (mixed)', qty: '1 lot', amount: 5200 },
-  ],
-  'SUP-003': [
-    { date: 'Jul 2, 2026', material: 'Wood varnish', qty: '12 L', amount: 12400 },
-    { date: 'Mar 11, 2026', material: 'Wood stain', qty: '8 L', amount: 7600 },
-  ],
-  'SUP-004': [
-    { date: 'May 6, 2026', material: 'Steel brackets', qty: '40 units', amount: 12000 },
-    { date: 'Feb 19, 2026', material: 'Steel brackets', qty: '30 units', amount: 9000 },
-  ],
-  'SUP-005': [
-    { date: 'Jul 1, 2026', material: 'Cabinet glass panels', qty: '8 units', amount: 14200 },
-    { date: 'Jun 2, 2026', material: 'Mirror sheets', qty: '10 units', amount: 18500 },
-    { date: 'Mar 28, 2026', material: 'Cabinet glass panels', qty: '12 units', amount: 21300 },
-  ],
+/* ─── helpers ─── */
+const formatDZD = (n) => `${(n ?? 0).toLocaleString('en-US')} DZD`;
+
+const formatDate = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-/* ─── badges ─── */
+const initials = (name) => (name || '?').trim().slice(0, 2).toUpperCase();
+
+const statusColor = (s) => (s === 'ACTIVE' ? C.green : C.gray);
+
+/* ─── badges — solid bg + white text ─── */
 const SupplierStatusBadge = ({ status }) => {
-  const map = {
-    ACTIVE: { color: 'var(--accent-green)', bg: 'var(--accent-green-soft)', label: 'Active' },
-    INACTIVE: { color: 'var(--ink-muted)', bg: 'var(--surface-2)', label: 'Inactive' },
-  };
-  const s = map[status] || map.ACTIVE;
+  const isActive = status === 'ACTIVE';
   return (
-    <span className="badge" style={{ background: s.bg, color: s.color }}>
-      <span style={{ fontSize: 10 }}>●</span> {s.label}
+    <span
+      className="badge"
+      style={{
+        background: isActive ? C.green : C.gray,
+        color: 'white',
+        fontWeight: 600,
+        letterSpacing: 0.2,
+      }}
+    >
+      {isActive ? 'Active' : 'Inactive'}
     </span>
   );
 };
 
-const PurchaseOrderBadge = ({ status }) => {
-  const map = {
-    PENDING: { color: 'var(--accent)', bg: 'var(--accent-soft)', label: 'Pending' },
-    RECEIVED: { color: 'var(--accent-green)', bg: 'var(--accent-green-soft)', label: 'Received' },
-    CANCELLED: { color: 'var(--accent-red)', bg: 'var(--accent-red-soft)', label: 'Cancelled' },
-  };
-  const s = map[status] || map.PENDING;
+/* ─── supplier detail modal (quick view + Edit shortcut) ─── */
+const SupplierDetailModal = ({ supplier, onClose, onEdit }) => {
   return (
-    <span className="badge" style={{ background: s.bg, color: s.color }}>
-      {s.label}
-    </span>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(15,15,20,0.55)' }}
+      onClick={onClose}
+    >
+      <div
+        className="panel w-full max-w-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header — solid colored top stripe for visual punch */}
+        <div
+          className="px-5 py-4 flex items-center justify-between"
+          style={{ background: C.blue, color: 'white' }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+              style={{ background: 'rgba(255,255,255,0.18)', color: 'white' }}
+            >
+              {initials(supplier.name)}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{supplier.name}</div>
+              <div className="text-xs opacity-80">Supplier #{supplier.id}</div>
+            </div>
+          </div>
+          <button
+            className="p-1 rounded-md"
+            onClick={onClose}
+            style={{ color: 'white' }}
+            aria-label="Close"
+          >
+            <Icons.close />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-3 text-sm">
+          <Row icon={<Icons.phone />}    label="Phone"   value={supplier.phone || '—'} />
+          <Row icon={<Icons.mapPin />}   label="Address" value={supplier.address || '—'} />
+          <Row icon={<Icons.hash />}     label="NIF"     value={supplier.nif || '—'} />
+          <Row icon={<Icons.hash />}     label="RC"      value={supplier.rc || '—'} />
+          <Row icon={<Icons.calendar />} label="Added"   value={formatDate(supplier.created_at)} />
+
+          <div className="flex items-center gap-2 pt-1">
+            <SupplierStatusBadge status={supplier.status} />
+            <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>
+              {supplier.ordersCount ?? 0} order{supplier.ordersCount === 1 ? '' : 's'} · {formatDZD(supplier.totalSpent)} spent
+            </span>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          className="px-5 py-3 flex items-center justify-end gap-2"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <button className="btn-ghost text-sm" onClick={onClose}>Close</button>
+          <button
+            className="text-sm font-medium px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5"
+            style={{ background: C.blue, color: 'white' }}
+            onClick={onEdit}
+          >
+            <Icons.pencil /> Edit
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
-const InvoiceStatusBadge = ({ status }) => {
-  const map = {
-    PAID: { color: 'var(--accent-green)', bg: 'var(--accent-green-soft)', label: 'Paid' },
-    PENDING: { color: 'var(--accent)', bg: 'var(--accent-soft)', label: 'Pending' },
+const Row = ({ icon, label, value }) => (
+  <div className="flex items-start gap-3">
+    <div
+      className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+      style={{ background: 'var(--surface-2)', color: 'var(--ink-muted)' }}
+    >
+      {icon}
+    </div>
+    <div className="min-w-0 flex-1">
+      <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>{label}</div>
+      <div className="text-sm truncate" style={{ color: 'var(--ink)' }}>{value}</div>
+    </div>
+  </div>
+);
+
+/* ─── form modal — create + edit, mode-switched ─── */
+const EMPTY_FORM = { name: '', phone: '', address: '', nif: '', rc: '', status: 'ACTIVE' };
+
+const SupplierFormModal = ({ mode, initial, onClose, onSaved }) => {
+  const isEdit = mode === 'edit';
+  const [form, setForm] = useState(() => ({
+    name: initial?.name ?? '',
+    phone: initial?.phone ?? '',
+    address: initial?.address ?? '',
+    nif: initial?.nif ?? '',
+    rc: initial?.rc ?? '',
+    status: initial?.status ?? 'ACTIVE',
+  }));
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [topError, setTopError] = useState(null);
+
+  const setField = (k, v) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    if (errors[k]) setErrors((e) => ({ ...e, [k]: undefined }));
   };
-  const s = map[status] || map.PENDING;
-  return (
-    <span className="badge" style={{ background: s.bg, color: s.color }}>
-      {s.label}
-    </span>
-  );
-};
 
-const formatDZD = (n) => `${n.toLocaleString('en-US')} DZD`;
-const invoiceTotal = (inv) => inv.items.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
-const invoiceSummary = (inv) => inv.items.map((it) => it.material).join(', ');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setTopError(null);
 
-/* ─── supplier detail modal ───
-   month  -> this month's invoices
-   invoice -> line items inside one clicked invoice
-   year   -> full year purchase history
-   'month' is the entry point; both drill-downs return to it via back arrow. */
-const SupplierDetailModal = ({ supplier, onClose }) => {
-  const [view, setView] = useState('month'); // 'month' | 'invoice' | 'year'
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
+    // Client-side quick check (server re-validates)
+    const localErrors = {};
+    if (!form.name.trim()) localErrors.name = 'Name is required.';
+    if (Object.keys(localErrors).length > 0) {
+      setErrors(localErrors);
+      return;
+    }
 
-  const monthInvoices = INVOICES_THIS_MONTH[supplier.id] || [];
-  const monthTotal = monthInvoices.reduce((sum, inv) => sum + invoiceTotal(inv), 0);
-
-  const yearPurchases = PURCHASES_THIS_YEAR[supplier.id] || [];
-  const yearTotal = yearPurchases.reduce((sum, p) => sum + p.amount, 0);
-
-  const openInvoice = (inv) => { setSelectedInvoice(inv); setView('invoice'); };
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: form.name.trim(),
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+        nif: form.nif.trim() || null,
+        rc: form.rc.trim() || null,
+        status: form.status,
+      };
+      const result = isEdit
+        ? await updateSupplierClient(initial.id, payload)
+        : await createSupplierClient(payload);
+      onSaved(result, isEdit ? 'updated' : 'created');
+    } catch (err) {
+      if (err.fields) {
+        setErrors(err.fields);
+      }
+      setTopError(err.message || 'Save failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div
@@ -211,176 +231,325 @@ const SupplierDetailModal = ({ supplier, onClose }) => {
       onClick={onClose}
     >
       <div
-        className="panel w-full max-w-lg max-h-[85vh] flex flex-col"
+        className="panel w-full max-w-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
-          <div className="flex items-center gap-3 min-w-0">
+        <div
+          className="px-5 py-4 flex items-center justify-between"
+          style={{ background: isEdit ? C.purple : C.blue, color: 'white' }}
+        >
+          <div className="flex items-center gap-3">
             <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{
-                background: 'var(--accent-blue-soft)',
-                color: 'var(--accent-blue)',
-                boxShadow: `0 0 0 2px ${supplier.status === 'ACTIVE' ? 'var(--accent-green)' : 'var(--border)'}`,
-              }}
+              className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(255,255,255,0.18)' }}
             >
-              {supplier.name.slice(0, 2).toUpperCase()}
+              {isEdit ? <Icons.pencil /> : <Icons.plus />}
             </div>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold truncate">{supplier.name}</div>
-              <div className="text-xs flex items-center gap-1" style={{ color: 'var(--ink-muted)' }}>
-                <Icons.phone /> {supplier.phone}
+            <div>
+              <div className="text-sm font-semibold">
+                {isEdit ? 'Edit Supplier' : 'New Supplier'}
+              </div>
+              <div className="text-xs opacity-80">
+                {isEdit ? `Editing #${initial.id} · ${initial.name}` : 'Add a new supplier to your database'}
               </div>
             </div>
           </div>
-          <button className="btn-ghost p-1" onClick={onClose}><Icons.close /></button>
+          <button
+            className="p-1 rounded-md"
+            onClick={onClose}
+            style={{ color: 'white' }}
+            aria-label="Close"
+          >
+            <Icons.close />
+          </button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1">
-          {view === 'month' && (
-            <>
-              <div className="flex items-center justify-between px-5 pt-4 pb-2">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                  <span style={{ color: 'var(--accent-blue)' }}><Icons.receipt /></span> Invoices — This Month
-                </h4>
-                <span className="text-xs font-medium" style={{ color: 'var(--ink-muted)' }}>{formatDZD(monthTotal)} total</span>
-              </div>
-              <div className="px-2 pb-2">
-                {monthInvoices.map((inv, i) => (
-                  <div
-                    key={i}
-                    className="flex items-start gap-3 p-3 rounded-lg panel-hover cursor-pointer"
-                    onClick={() => openInvoice(inv)}
-                  >
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-blue-soft)', color: 'var(--accent-blue)' }}>
-                      <Icons.file />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-0.5">
-                        <span className="text-sm font-medium truncate">{inv.ref}</span>
-                        <InvoiceStatusBadge status={inv.status} />
-                      </div>
-                      <div className="text-xs truncate" style={{ color: 'var(--ink-muted)' }}>{invoiceSummary(inv)}</div>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs font-medium" style={{ color: 'var(--ink)' }}>{formatDZD(invoiceTotal(inv))}</span>
-                        <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>{inv.date}</span>
-                      </div>
-                    </div>
-                    <span className="mt-2 shrink-0" style={{ color: 'var(--ink-muted)' }}><Icons.arrowRight /></span>
-                  </div>
-                ))}
-                {monthInvoices.length === 0 && (
-                  <div className="px-3 py-8 text-center text-sm" style={{ color: 'var(--ink-muted)' }}>
-                    No invoices with this supplier this month.
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {view === 'invoice' && selectedInvoice && (
-            <>
-              <div className="flex items-center gap-2 px-5 pt-4 pb-1">
-                <button className="btn-ghost p-1" onClick={() => setView('month')}><Icons.arrowLeft /></button>
-                <div className="min-w-0">
-                  <h4 className="text-sm font-semibold">{selectedInvoice.ref}</h4>
-                  <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>{selectedInvoice.date}</div>
-                </div>
-                <div className="ml-auto"><InvoiceStatusBadge status={selectedInvoice.status} /></div>
-              </div>
-              <div className="px-2 pt-3 pb-1">
-                {selectedInvoice.items.map((it, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg panel-hover">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-blue-soft)', color: 'var(--accent-blue)' }}>
-                      <Icons.package />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{it.material}</div>
-                      <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>
-                        {it.qty} {it.unit}{it.qty > 1 ? 's' : ''} × {formatDZD(it.unitPrice)}
-                      </div>
-                    </div>
-                    <span className="text-sm font-medium shrink-0" style={{ color: 'var(--ink)' }}>
-                      {formatDZD(it.qty * it.unitPrice)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
-                <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>{selectedInvoice.items.length} items</span>
-                <span className="text-sm font-semibold" style={{ color: 'var(--accent-blue)' }}>{formatDZD(invoiceTotal(selectedInvoice))}</span>
-              </div>
-            </>
-          )}
-
-          {view === 'year' && (
-            <>
-              <div className="flex items-center gap-2 px-5 pt-4 pb-2">
-                <button className="btn-ghost p-1" onClick={() => setView('month')}><Icons.arrowLeft /></button>
-                <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                  <span style={{ color: 'var(--accent-purple)' }}><Icons.package /></span> Full Year Purchase History — 2026
-                </h4>
-              </div>
-              <div className="px-5 pb-2 flex items-center justify-between">
-                <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>{yearPurchases.length} purchases</span>
-                <span className="text-xs font-medium" style={{ color: 'var(--accent-purple)' }}>{formatDZD(yearTotal)} total</span>
-              </div>
-              <div className="px-2 pb-2">
-                {yearPurchases.map((p, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg panel-hover">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-purple-soft)', color: 'var(--accent-purple)' }}>
-                      <Icons.package />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{p.material}</div>
-                      <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>{p.qty}</div>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs font-medium" style={{ color: 'var(--ink)' }}>{formatDZD(p.amount)}</span>
-                        <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>{p.date}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {yearPurchases.length === 0 && (
-                  <div className="px-3 py-8 text-center text-sm" style={{ color: 'var(--ink-muted)' }}>
-                    No purchases recorded from this supplier this year.
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        {view === 'month' && (
-          <div className="px-5 py-3" style={{ borderTop: '1px solid var(--border)' }}>
-            <button
-              className="btn-ghost text-xs w-full justify-center flex items-center gap-1"
-              onClick={() => setView('year')}
-            >
-              See everything bought this year <Icons.arrowRight />
+        {/* Top error banner */}
+        {topError && (
+          <div
+            className="px-5 py-3 flex items-center gap-2 text-sm"
+            style={{ background: C.red, color: 'white' }}
+          >
+            <Icons.alert />
+            <span className="flex-1">{topError}</span>
+            <button onClick={() => setTopError(null)} style={{ color: 'white' }} aria-label="Dismiss">
+              <Icons.x />
             </button>
           </div>
         )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="px-5 py-5 space-y-4">
+          {/* Name — full width, required */}
+          <Field label="Name" required error={errors.name}>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setField('name', e.target.value)}
+              placeholder="e.g. Bois & Panneaux El Djazair"
+              autoFocus
+              maxLength={150}
+            />
+          </Field>
+
+          {/* Two-column row */}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Phone" error={errors.phone}>
+              <input
+                type="text"
+                value={form.phone}
+                onChange={(e) => setField('phone', e.target.value)}
+                placeholder="0555 12 34 56"
+                maxLength={30}
+              />
+            </Field>
+            <Field label="NIF" error={errors.nif}>
+              <input
+                type="text"
+                value={form.nif}
+                onChange={(e) => setField('nif', e.target.value)}
+                placeholder="000123456789012"
+                maxLength={20}
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="RC" error={errors.rc}>
+              <input
+                type="text"
+                value={form.rc}
+                onChange={(e) => setField('rc', e.target.value)}
+                placeholder="16/00-1234567 B 21"
+                maxLength={30}
+              />
+            </Field>
+            <Field label="Address" error={errors.address}>
+              <input
+                type="text"
+                value={form.address}
+                onChange={(e) => setField('address', e.target.value)}
+                placeholder="Zone industrielle, Alger"
+                maxLength={255}
+              />
+            </Field>
+          </div>
+
+          {/* Status — pill toggle */}
+          <div>
+            <label
+              className="text-xs font-medium mb-2 block"
+              style={{ color: 'var(--ink-muted)' }}
+            >
+              Status
+            </label>
+            <div className="flex gap-2">
+              <Pill
+                selected={form.status === 'ACTIVE'}
+                color={C.green}
+                onClick={() => setField('status', 'ACTIVE')}
+              >
+                Active
+              </Pill>
+              <Pill
+                selected={form.status === 'INACTIVE'}
+                color={C.gray}
+                onClick={() => setField('status', 'INACTIVE')}
+              >
+                Inactive
+              </Pill>
+            </div>
+          </div>
+        </form>
+
+        {/* Footer */}
+        <div
+          className="px-5 py-3 flex items-center justify-end gap-2"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <button
+            type="button"
+            className="btn-ghost text-sm"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="text-sm font-medium px-4 py-1.5 rounded-lg inline-flex items-center gap-1.5"
+            style={{ background: isEdit ? C.purple : C.blue, color: 'white', opacity: submitting ? 0.6 : 1 }}
+          >
+            {submitting ? '…' : <Icons.check />}
+            {submitting ? 'Saving' : isEdit ? 'Save changes' : 'Create supplier'}
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
+/* ── small form helpers ── */
+const Field = ({ label, required, error, children }) => (
+  <div>
+    <label
+      className="text-xs font-medium mb-1.5 block"
+      style={{ color: 'var(--ink-muted)' }}
+    >
+      {label}
+      {required && (
+        <span style={{ color: C.red, marginLeft: 4 }} aria-hidden="true">*</span>
+      )}
+    </label>
+    {/* clone the child to inject shared styling + invalid state */}
+    {children && typeof children === 'object' && children.type === 'input'
+      ? (
+        <input
+          {...children.props}
+          className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors"
+          style={{
+            background: 'var(--surface-2)',
+            color: 'var(--ink)',
+            border: `1px solid ${error ? C.red : 'var(--border)'}`,
+            ...(children.props.style || {}),
+          }}
+        />
+      )
+      : children}
+    {error && (
+      <div className="text-xs mt-1" style={{ color: C.red }}>
+        {error}
+      </div>
+    )}
+  </div>
+);
+
+const Pill = ({ selected, color, onClick, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+    style={{
+      background: selected ? color : 'var(--surface-2)',
+      color: selected ? 'white' : 'var(--ink-muted)',
+      border: `1px solid ${selected ? color : 'var(--border)'}`,
+    }}
+  >
+    {children}
+  </button>
+);
+
+/* ═══════════════════════════════════════════════════════════════════
+   Page
+═══════════════════════════════════════════════════════════════════ */
 export default function SuppliersPage() {
+  const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [query, setQuery] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState(null);
 
-  const filtered = SUPPLIERS.filter(s =>
-    s.name.toLowerCase().includes(query.toLowerCase()) ||
-    s.phone.includes(query)
+  // Delete UX
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+
+  // Form modal UX: null | 'create' | { mode: 'edit', id }
+  const [formMode, setFormMode] = useState(null);
+  const [editingSupplier, setEditingSupplier] = useState(null);
+
+  // Toast
+  const [notification, setNotification] = useState(null);
+
+  /* ── data fetching ── */
+  const loadSuppliers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getSuppliers();
+      setSuppliers(data);
+    } catch (e) {
+      setError(e.message || 'Failed to load suppliers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSuppliers();
+  }, []);
+
+  /* ── delete flow ── */
+  const askDelete = (id) => setConfirmDeleteId(id);
+  const cancelDelete = () => setConfirmDeleteId(null);
+  const confirmDelete = async (id) => {
+    setDeletingId(id);
+    try {
+      await deleteSupplierClient(id);
+      setSuppliers((prev) => prev.filter((s) => s.id !== id));
+      setNotification({ kind: 'success', message: 'Supplier deleted.' });
+    } catch (e) {
+      setNotification({ kind: 'error', message: e.message || 'Delete failed.' });
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
+
+  /* ── create / edit flow ── */
+  const openCreate = () => {
+    setEditingSupplier(null);
+    setFormMode('create');
+  };
+  const openEdit = (supplier) => {
+    setEditingSupplier(supplier);
+    setFormMode('edit');
+    setSelectedSupplier(null); // close detail modal if it was open
+  };
+  const closeForm = () => {
+    setFormMode(null);
+    setEditingSupplier(null);
+  };
+  const onFormSaved = (saved, kind) => {
+    if (kind === 'created') {
+      setSuppliers((prev) => [saved, ...prev]);
+      setNotification({ kind: 'success', message: `Supplier "${saved.name}" created.` });
+    } else {
+      setSuppliers((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+      setNotification({ kind: 'success', message: `Supplier "${saved.name}" updated.` });
+    }
+    closeForm();
+  };
+
+  /* ── auto-dismiss toast ── */
+  useEffect(() => {
+    if (!notification) return;
+    const t = setTimeout(() => setNotification(null), 3500);
+    return () => clearTimeout(t);
+  }, [notification]);
+
+  /* ── derived ── */
+  const filtered = useMemo(
+    () =>
+      (suppliers || []).filter(
+        (s) =>
+          (s.name || '').toLowerCase().includes(query.toLowerCase()) ||
+          (s.phone || '').includes(query),
+      ),
+    [suppliers, query],
   );
 
-  const activeCount = SUPPLIERS.filter(s => s.status === 'ACTIVE').length;
-  const totalSpent = SUPPLIERS.reduce((sum, s) => sum + s.totalSpent, 0);
-  const pendingOrders = RECENT_ORDERS.filter(o => o.status === 'PENDING').length;
+  const activeCount = (suppliers || []).filter((s) => s.status === 'ACTIVE').length;
+  const totalSpent = (suppliers || []).reduce((sum, s) => sum + (s.totalSpent || 0), 0);
+
+  const stats = [
+    { label: 'Total Suppliers', value: (suppliers || []).length, sub: `${activeCount} active`, icon: Icons.suppliers, color: C.blue },
+    { label: 'Total Spent',     value: formatDZD(totalSpent),     sub: 'all time',          icon: Icons.wallet,   color: C.green },
+    { label: 'Inactive',        value: (suppliers || []).length - activeCount, sub: 'archived', icon: Icons.receipt, color: C.gray },
+  ];
 
   return (
     <div className="p-6">
@@ -389,26 +558,34 @@ export default function SuppliersPage() {
         <div>
           <h2 className="text-lg font-semibold mb-1">Suppliers</h2>
           <p className="text-sm" style={{ color: 'var(--ink-muted)' }}>
-            {SUPPLIERS.length} suppliers · {activeCount} active
+            {(suppliers || []).length} suppliers · {activeCount} active
           </p>
         </div>
-        <button className="btn-primary text-sm">
+        <button
+          className="text-sm font-medium px-3 py-2 rounded-lg inline-flex items-center gap-1.5"
+          style={{ background: C.blue, color: 'white' }}
+          onClick={openCreate}
+        >
           <Icons.plus /> New Supplier
         </button>
       </div>
 
-      {/* Stats — a bit more color variety than the Home stat row */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Total Suppliers', value: SUPPLIERS.length, sub: `${activeCount} active`, icon: Icons.suppliers, color: 'var(--accent-blue)' },
-          { label: 'Purchase Orders', value: RECENT_ORDERS.length, sub: 'this month', icon: Icons.receipt, color: 'var(--accent-purple)' },
-          { label: 'Total Spent', value: formatDZD(totalSpent), sub: 'all time', icon: Icons.wallet, color: 'var(--accent-green)' },
-          { label: 'Pending Deliveries', value: pendingOrders, sub: 'awaiting receipt', icon: Icons.truck, color: 'var(--accent)' },
-        ].map((stat, i) => (
-          <div key={i} className="panel p-4 panel-hover cursor-default" style={{ borderTop: `2px solid ${stat.color}` }}>
+      {/* Stats — solid colored top stripes + solid icon tiles */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        {stats.map((stat, i) => (
+          <div
+            key={i}
+            className="panel p-4 panel-hover cursor-default"
+            style={{ borderTop: `3px solid ${stat.color}` }}
+          >
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-medium" style={{ color: 'var(--ink-muted)' }}>{stat.label}</div>
-              <div style={{ color: stat.color }}><stat.icon /></div>
+              <div
+                className="w-8 h-8 rounded-md flex items-center justify-center"
+                style={{ background: stat.color, color: 'white' }}
+              >
+                <stat.icon />
+              </div>
             </div>
             <div className="text-2xl font-bold mb-1" style={{ color: 'var(--ink)' }}>{stat.value}</div>
             <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>{stat.sub}</div>
@@ -422,7 +599,7 @@ export default function SuppliersPage() {
           <div className="panel">
             <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
               <h3 className="text-sm font-semibold flex items-center gap-2">
-                <span style={{ color: 'var(--accent-blue)' }}><Icons.suppliers /></span> All Suppliers
+                <span style={{ color: C.blue }}><Icons.suppliers /></span> All Suppliers
               </h3>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'var(--surface-2)' }}>
                 <Icons.search />
@@ -435,6 +612,17 @@ export default function SuppliersPage() {
                 />
               </div>
             </div>
+
+            {error && (
+              <div
+                className="flex items-center justify-between gap-3 px-5 py-3 text-sm"
+                style={{ background: C.red, color: 'white' }}
+              >
+                <span className="flex items-center gap-2"><Icons.alert /> {error}</span>
+                <button className="btn-ghost text-xs" style={{ color: 'white' }} onClick={loadSuppliers}>Retry</button>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -445,58 +633,120 @@ export default function SuppliersPage() {
                     <th className="px-5 py-3 text-xs font-medium text-right" style={{ color: 'var(--ink-muted)' }}>Orders</th>
                     <th className="px-5 py-3 text-xs font-medium text-right" style={{ color: 'var(--ink-muted)' }}>Total Spent</th>
                     <th className="px-5 py-3 text-xs font-medium" style={{ color: 'var(--ink-muted)' }}>Status</th>
-                    <th className="px-5 py-3"></th>
+                    <th className="px-5 py-3 text-xs font-medium text-right" style={{ color: 'var(--ink-muted)' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((s, i) => (
-                    <tr
-                      key={i}
-                      className="panel-hover cursor-pointer transition-colors"
-                      style={{ borderTop: '1px solid var(--border)' }}
-                      onClick={() => setSelectedSupplier(s)}
-                    >
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                            style={{
-                              background: 'var(--accent-blue-soft)',
-                              color: 'var(--accent-blue)',
-                              boxShadow: `0 0 0 2px ${s.status === 'ACTIVE' ? 'var(--accent-green)' : 'var(--border)'}`,
-                            }}
-                          >
-                            {s.name.slice(0, 2).toUpperCase()}
+                  {loading && (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <tr key={`sk-${i}`} style={{ borderTop: '1px solid var(--border)' }}>
+                        {Array.from({ length: 7 }).map((__, j) => (
+                          <td key={j} className="px-5 py-3">
+                            <div
+                              className="h-3 rounded"
+                              style={{ background: 'var(--surface-2)', width: j === 0 ? '60%' : '40%' }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+
+                  {!loading && filtered.map((s) => {
+                    const isConfirming = confirmDeleteId === s.id;
+                    const isDeleting = deletingId === s.id;
+                    return (
+                      <tr
+                        key={s.id}
+                        className="panel-hover transition-colors cursor-pointer"
+                        style={{ borderTop: '1px solid var(--border)' }}
+                        onClick={() => setSelectedSupplier(s)}
+                      >
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 text-white"
+                              style={{ background: statusColor(s.status) }}
+                            >
+                              {initials(s.name)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{s.name}</div>
+                              {s.address && (
+                                <div className="text-xs truncate" style={{ color: 'var(--ink-muted)' }}>{s.address}</div>
+                              )}
+                            </div>
                           </div>
-                          <span className="font-medium">{s.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-1.5" style={{ color: 'var(--ink-muted)' }}>
-                          <Icons.phone /> {s.phone}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-xs" style={{ color: 'var(--ink-muted)' }}>
-                        <div>{s.nif}</div>
-                        <div>{s.rc}</div>
-                      </td>
-                      <td className="px-5 py-3 text-right">{s.ordersCount}</td>
-                      <td className="px-5 py-3 text-right font-medium">{formatDZD(s.totalSpent)}</td>
-                      <td className="px-5 py-3"><SupplierStatusBadge status={s.status} /></td>
-                      <td className="px-5 py-3">
-                        <button
-                          className="btn-ghost p-1"
-                          onClick={(e) => { e.stopPropagation(); setSelectedSupplier(s); }}
-                        >
-                          <Icons.dots />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {filtered.length === 0 && (
+                        </td>
+                        <td className="px-5 py-3">
+                          {s.phone ? (
+                            <div className="flex items-center gap-1.5" style={{ color: 'var(--ink-muted)' }}>
+                              <Icons.phone /> {s.phone}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--ink-muted)' }}>—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--ink-muted)' }}>
+                          <div>{s.nif || '—'}</div>
+                          <div>{s.rc || '—'}</div>
+                        </td>
+                        <td className="px-5 py-3 text-right">{s.ordersCount ?? 0}</td>
+                        <td className="px-5 py-3 text-right font-medium">{formatDZD(s.totalSpent)}</td>
+                        <td className="px-5 py-3"><SupplierStatusBadge status={s.status} /></td>
+                        <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          {!isConfirming ? (
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                className="p-1.5 rounded-md inline-flex"
+                                onClick={() => openEdit(s)}
+                                disabled={isDeleting}
+                                title="Edit supplier"
+                                style={{ color: C.blue, background: 'transparent' }}
+                              >
+                                <Icons.pencil />
+                              </button>
+                              <button
+                                className="p-1.5 rounded-md inline-flex"
+                                onClick={() => askDelete(s.id)}
+                                disabled={isDeleting}
+                                title="Delete supplier"
+                                style={{ color: C.red, background: 'transparent' }}
+                              >
+                                <Icons.trash />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-1.5">
+                              <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>Sure?</span>
+                              <button
+                                className="px-2 py-1 rounded-md text-xs font-medium inline-flex items-center gap-1"
+                                onClick={() => confirmDelete(s.id)}
+                                disabled={isDeleting}
+                                style={{ background: C.red, color: 'white' }}
+                              >
+                                <Icons.check /> {isDeleting ? '…' : 'Yes'}
+                              </button>
+                              <button
+                                className="p-1 rounded-md inline-flex"
+                                onClick={cancelDelete}
+                                disabled={isDeleting}
+                                title="Cancel"
+                                style={{ color: 'var(--ink-muted)' }}
+                              >
+                                <Icons.x />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {!loading && !error && filtered.length === 0 && (
                     <tr>
                       <td colSpan={7} className="px-5 py-8 text-center text-sm" style={{ color: 'var(--ink-muted)' }}>
-                        No suppliers match "{query}".
+                        {query ? `No suppliers match "${query}".` : 'No suppliers yet — click "New Supplier" to add one.'}
                       </td>
                     </tr>
                   )}
@@ -508,72 +758,74 @@ export default function SuppliersPage() {
 
         {/* Right column */}
         <div className="space-y-6">
-          {/* Recent purchase orders (bon de commande) */}
-          <div className="panel">
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <span style={{ color: 'var(--accent-purple)' }}><Icons.receipt /></span> Recent Purchase Orders
-              </h3>
-              <button className="btn-ghost text-xs">View all</button>
-            </div>
-            <div className="p-2">
-              {RECENT_ORDERS.map((o, i) => {
-                const tint = { PENDING: 'var(--accent)', RECEIVED: 'var(--accent-green)', CANCELLED: 'var(--accent-red)' }[o.status];
-                const tintSoft = { PENDING: 'var(--accent-soft)', RECEIVED: 'var(--accent-green-soft)', CANCELLED: 'var(--accent-red-soft)' }[o.status];
-                return (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-lg panel-hover cursor-pointer">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: tintSoft, color: tint }}>
-                    <Icons.file />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <span className="text-sm font-medium truncate">{o.id}</span>
-                      <PurchaseOrderBadge status={o.status} />
-                    </div>
-                    <div className="text-xs truncate" style={{ color: 'var(--ink-muted)' }}>{o.supplier}</div>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs font-medium" style={{ color: 'var(--ink)' }}>{o.amount}</span>
-                      <span className="text-xs" style={{ color: 'var(--ink-muted)' }}>{o.date}</span>
-                    </div>
-                  </div>
-                </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Quick actions */}
           <div className="panel p-5">
             <h3 className="text-sm font-semibold mb-4">Quick Actions</h3>
             <div className="space-y-2">
-              <button className="btn-primary w-full justify-center text-sm">
-                <Icons.plus /> New Purchase Order
+              <button
+                className="w-full text-sm font-medium px-3 py-2 rounded-lg inline-flex items-center justify-center gap-1.5"
+                style={{ background: C.blue, color: 'white' }}
+                onClick={openCreate}
+              >
+                <Icons.plus /> New Supplier
               </button>
-              <button className="btn-ghost w-full justify-center text-sm border" style={{ borderColor: 'var(--border)' }}>
+              <button className="btn-ghost w-full text-sm border rounded-md" style={{ borderColor: 'var(--border)' }}>
                 Record a Payment to Supplier
               </button>
-              <button className="btn-ghost w-full justify-center text-sm border" style={{ borderColor: 'var(--border)' }}>
+              <button className="btn-ghost w-full text-sm border rounded-md" style={{ borderColor: 'var(--border)' }}>
                 Export Supplier List
               </button>
             </div>
           </div>
 
-          {/* Spend alert — mirrors the "Production Alert" card style, purple accent for variety */}
-          <div className="p-5 rounded-lg" style={{ background: 'var(--accent-purple-soft)', border: '1px solid rgba(139,92,246,0.2)' }}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-2 h-2 rounded-full" style={{ background: 'var(--accent-purple)' }} />
-              <span className="text-xs font-semibold" style={{ color: 'var(--accent-purple)' }}>Top Supplier</span>
+          {/* Status legend — solid color swatches */}
+          <div className="panel p-5">
+            <h3 className="text-sm font-semibold mb-3">Status Legend</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: C.green }} />
+                <span>Active — order from them</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: C.gray }} />
+                <span>Inactive — archived / no longer used</span>
+              </div>
             </div>
-            <p className="text-sm mb-1" style={{ color: 'var(--ink)' }}>Bois &amp; Panneaux El Djazair</p>
-            <p className="text-xs" style={{ color: 'var(--ink-muted)' }}>412,000 DZD spent across 14 orders — your highest-volume supplier this year.</p>
           </div>
         </div>
       </div>
 
+      {/* Toast */}
+      {notification && (
+        <div
+          className="fixed bottom-6 right-6 panel px-4 py-3 flex items-center gap-2 text-sm z-50"
+          style={{
+            background: notification.kind === 'success' ? C.green : C.red,
+            color: 'white',
+            borderLeft: `3px solid ${notification.kind === 'success' ? '#15803d' : '#991b1b'}`,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+          }}
+        >
+          {notification.kind === 'success' ? <Icons.check /> : <Icons.alert />}
+          <span>{notification.message}</span>
+        </div>
+      )}
+
+      {/* Detail modal — quick view + edit shortcut */}
       {selectedSupplier && (
         <SupplierDetailModal
           supplier={selectedSupplier}
           onClose={() => setSelectedSupplier(null)}
+          onEdit={() => openEdit(selectedSupplier)}
+        />
+      )}
+
+      {/* Form modal — create + edit */}
+      {formMode && (
+        <SupplierFormModal
+          mode={formMode}
+          initial={editingSupplier}
+          onClose={closeForm}
+          onSaved={onFormSaved}
         />
       )}
     </div>
