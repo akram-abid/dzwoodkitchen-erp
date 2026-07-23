@@ -106,6 +106,8 @@ model orders {
   workers            workers?          @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   payments           payments[]
   vehicle_trips      vehicle_trips[]
+  material_leftovers material_leftovers[]
+  material_stock_movements material_stock_movements[]
 
   @@index([client_id], map: "idx_orders_client_id")
   @@index([state], map: "idx_orders_state")
@@ -168,6 +170,7 @@ model workers {
   timeEntries     TimeEntries[]
   assignments     Assignment[]
   workersPayments WorkersPayments[]   // all worker cash-out events (advances + bi-weekly wages)
+  material_stock_movements material_stock_movements[]
 }
 
 model Attendance {
@@ -236,16 +239,76 @@ model material_categories {
 }
 
 model material_catalog {
-  id           Int      @id @default(autoincrement())
-  name         String   @unique @db.VarChar(150)
-  category_id  Int?
-  default_unit String?  @db.VarChar(20)
-  created_at   DateTime @default(now()) @db.Timestamp(6)
+  id              Int                            @id @default(autoincrement())
+  code            String                         @unique @db.VarChar(20)
+  name            String                         @unique @db.VarChar(150)
+  category_id     Int?
+  default_unit    String?                        @db.VarChar(20)
+  min_stock       Decimal                        @default(0) @db.Decimal(10, 2)
+  max_stock       Decimal                        @default(0) @db.Decimal(10, 2)
+  unit_price      Decimal                        @default(0) @db.Decimal(10, 2)
+  location        String?                        @db.VarChar(100)
+  supplier_id     Int?
+  status_override material_status_override?
+  created_at      DateTime                       @default(now()) @db.Timestamp(6)
+  updated_at      DateTime                       @default(now()) @db.Timestamp(6)
 
-  category material_categories?      @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  items    material_purchase_items[]
+  category         material_categories?      @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  supplier         suppliers?                @relation(fields: [supplier_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  items            material_purchase_items[]
+  leftovers        material_leftovers[]
+  stock_movements  material_stock_movements[]
 
   @@index([category_id], map: "idx_material_catalog_category_id")
+  @@index([supplier_id], map: "idx_material_catalog_supplier_id")
+}
+
+// Manual status pin — the other three statuses (IN_STOCK / LOW_STOCK / OUT_OF_STOCK)
+// are always computed from stock vs. min_stock/max_stock, never stored.
+enum material_status_override {
+  ORDERED
+}
+
+model material_leftovers {
+  id              Int       @id @default(autoincrement())
+  material_id     Int
+  description     String    @db.VarChar(255)
+  dimensions      String?   @db.VarChar(100)
+  quantity        Int       @default(1)
+  date            DateTime  @default(now()) @db.Date
+  source_order_id Int?
+  created_at      DateTime  @default(now()) @db.Timestamp(6)
+
+  material material_catalog @relation(fields: [material_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  order    orders?           @relation(fields: [source_order_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([material_id], map: "idx_material_leftovers_material_id")
+}
+
+// Unified in/out ledger for material_catalog stock.
+// stock = SUM(quantity where type = IN) - SUM(quantity where type = OUT), computed on read.
+model material_stock_movements {
+  id          Int           @id @default(autoincrement())
+  material_id Int
+  type        movement_type
+  quantity    Decimal       @db.Decimal(10, 2)
+  date        DateTime      @default(now()) @db.Timestamp(6)
+  order_id    Int?
+  worker_id   Int?
+  note        String?
+  created_at  DateTime      @default(now()) @db.Timestamp(6)
+
+  material material_catalog @relation(fields: [material_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  order    orders?          @relation(fields: [order_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  worker   workers?         @relation(fields: [worker_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([material_id], map: "idx_material_stock_movements_material_id")
+  @@index([order_id], map: "idx_material_stock_movements_order_id")
+}
+
+enum movement_type {
+  IN
+  OUT
 }
 
 model suppliers {
@@ -261,6 +324,7 @@ model suppliers {
 
   purchase_orders  purchase_orders[]
   material_purchases material_purchases[]
+  materials        material_catalog[]
 }
 
 model purchase_orders {
