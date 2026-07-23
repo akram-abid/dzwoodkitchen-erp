@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getSuppliers,
@@ -10,6 +10,66 @@ import {
 } from "../../lib/api_helpers/supplier.js";
 
 import SupplierPurchasesModal from "../../lib/components/SupplierPurchasesModal.jsx";
+
+/* ─── drag-down-to-dismiss for mobile bottom sheets ───
+
+   Attach `handleProps` to the small drag-handle bar and `sheetStyle`
+   to the sheet's outer div. Dragging past `threshold` px slides the
+   sheet the rest of the way down and then fires onClose; letting go
+   early snaps it back to rest. No-op on desktop since the handle is
+   hidden there (sm:hidden), so it never receives pointer events. */
+
+const useDragToClose = (onClose, { threshold = 120 } = {}) => {
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const startYRef = useRef(0);
+
+  useEffect(() => {
+    if (!closing) return;
+    const t = setTimeout(onClose, 300);
+    return () => clearTimeout(t);
+  }, [closing, onClose]);
+
+  const onPointerDown = (e) => {
+    if (closing) return;
+    setDragging(true);
+    startYRef.current = e.clientY;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const onPointerMove = (e) => {
+    if (!dragging) return;
+    const delta = e.clientY - startYRef.current;
+    setDragY(delta > 0 ? delta : 0);
+  };
+
+  const endDrag = () => {
+    if (!dragging) return;
+    setDragging(false);
+    if (dragY > threshold) {
+      setClosing(true);
+    } else {
+      setDragY(0);
+    }
+  };
+
+  const sheetStyle = closing
+    ? { transform: "translateY(100%)" }
+    : dragging
+      ? { transform: `translateY(${dragY}px)`, transition: "none" }
+      : { transform: `translateY(${dragY}px)` };
+
+  const handleProps = {
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: endDrag,
+    onPointerCancel: endDrag,
+    style: { touchAction: "none", cursor: dragging ? "grabbing" : "grab" },
+  };
+
+  return { sheetStyle, handleProps, closing };
+};
 
 /* ─── icons ─── */
 
@@ -363,23 +423,60 @@ const SupplierFormModal = ({ mode, initial, onClose, onSaved }) => {
     }
   };
 
+  const { sheetStyle, handleProps, closing } = useDragToClose(onClose);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(15,15,20,0.55)" }}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+      style={{
+        background: "rgba(15,15,20,0.55)",
+        opacity: closing ? 0 : 1,
+        transition: "opacity 0.28s ease-out",
+      }}
       onClick={onClose}
     >
+      <style>{`
+        @keyframes supplierSheetUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        @keyframes supplierSheetIn {
+          from { opacity: 0; transform: translateY(8px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .supplier-sheet {
+          animation: supplierSheetUp 0.22s ease-out;
+        }
+        @media (min-width: 640px) {
+          .supplier-sheet {
+            animation: supplierSheetIn 0.16s ease-out;
+          }
+        }
+      `}</style>
+
       <div
-        className="panel w-full max-w-xl"
+        className="supplier-sheet panel w-full sm:max-w-xl rounded-t-2xl sm:rounded-2xl flex flex-col max-h-[92dvh] sm:max-h-[90vh] overflow-hidden transition-transform duration-300 ease-out"
+        style={sheetStyle}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* drag handle — mobile only */}
+        <div
+          className="sm:hidden flex justify-center pt-3 pb-2 shrink-0"
+          {...handleProps}
+        >
+          <span
+            className="block w-9 h-1 rounded-full"
+            style={{ background: "rgba(255,255,255,0.5)" }}
+          />
+        </div>
+
         {/* Header */}
 
         <div
-          className="px-5 py-4 flex items-center justify-between"
+          className="px-5 py-4 flex items-center justify-between shrink-0 sm:rounded-t-2xl"
           style={{ background: isEdit ? C.purple : C.blue, color: "white" }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div
               className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
               style={{ background: "rgba(255,255,255,0.18)" }}
@@ -387,12 +484,12 @@ const SupplierFormModal = ({ mode, initial, onClose, onSaved }) => {
               {isEdit ? <Icons.pencil /> : <Icons.plus />}
             </div>
 
-            <div>
+            <div className="min-w-0">
               <div className="text-sm font-semibold">
                 {isEdit ? "Edit Supplier" : "New Supplier"}
               </div>
 
-              <div className="text-xs opacity-80">
+              <div className="text-xs opacity-80 truncate">
                 {isEdit
                   ? `Editing #${initial.id} · ${initial.name}`
                   : "Add a new supplier to your database"}
@@ -401,7 +498,7 @@ const SupplierFormModal = ({ mode, initial, onClose, onSaved }) => {
           </div>
 
           <button
-            className="p-1 rounded-md"
+            className="p-2 -m-2 rounded-md shrink-0 active:opacity-70"
             onClick={onClose}
             style={{ color: "white" }}
             aria-label="Close"
@@ -433,7 +530,11 @@ const SupplierFormModal = ({ mode, initial, onClose, onSaved }) => {
 
         {/* Form */}
 
-        <form onSubmit={handleSubmit} className="px-5 py-5 space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="px-5 py-5 space-y-4 overflow-y-auto overscroll-contain"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           {/* Name — full width, required */}
 
           <Field label="Name" required error={errors.name}>
@@ -447,12 +548,12 @@ const SupplierFormModal = ({ mode, initial, onClose, onSaved }) => {
             />
           </Field>
 
-          {/* Two-column row */}
+          {/* Two-column row on wider screens, stacked on phones */}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Phone" error={errors.phone}>
               <input
-                type="text"
+                type="tel"
                 value={form.phone}
                 onChange={(e) => setField("phone", e.target.value)}
                 placeholder="0555 12 34 56"
@@ -471,7 +572,7 @@ const SupplierFormModal = ({ mode, initial, onClose, onSaved }) => {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="RC" error={errors.rc}>
               <input
                 type="text"
@@ -526,12 +627,15 @@ const SupplierFormModal = ({ mode, initial, onClose, onSaved }) => {
         {/* Footer */}
 
         <div
-          className="px-5 py-3 flex items-center justify-end gap-2"
-          style={{ borderTop: "1px solid var(--border)" }}
+          className="px-5 py-3 flex items-center justify-end gap-2 shrink-0"
+          style={{
+            borderTop: "1px solid var(--border)",
+            paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
+          }}
         >
           <button
             type="button"
-            className="btn-ghost text-sm"
+            className="btn-ghost text-sm order-2 sm:order-1 px-3 py-2"
             onClick={onClose}
             disabled={submitting}
           >
@@ -542,7 +646,7 @@ const SupplierFormModal = ({ mode, initial, onClose, onSaved }) => {
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="text-sm font-medium px-4 py-1.5 rounded-lg inline-flex items-center gap-1.5"
+            className="order-1 sm:order-2 flex-1 sm:flex-none text-sm font-medium px-4 py-2.5 sm:py-1.5 rounded-lg inline-flex items-center justify-center gap-1.5 active:opacity-80"
             style={{
               background: isEdit ? C.purple : C.blue,
               color: "white",
@@ -612,7 +716,7 @@ const Pill = ({ selected, color, onClick, children }) => (
   <button
     type="button"
     onClick={onClick}
-    className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+    className="flex-1 px-3 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors active:opacity-80"
     style={{
       background: selected ? color : "var(--surface-2)",
 
@@ -830,23 +934,26 @@ export default function SuppliersPage() {
   ];
 
   return (
-    <div className="p-6">
+    <div
+      className="p-4 sm:p-6"
+      style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
+    >
       {/* Page header */}
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
+      <div className="flex items-start sm:items-center justify-between gap-3 mb-5 sm:mb-6">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold mb-1">Suppliers</h2>
 
           <p className="text-sm" style={{ color: "var(--ink-muted)" }}>
             {(suppliers || []).length} suppliers · {activeCount} active
-            <span className="ml-2 text-xs opacity-75">
+            <span className="hidden sm:inline ml-2 text-xs opacity-75">
               — click any row to view purchase history
             </span>
           </p>
         </div>
 
         <button
-          className="text-sm font-medium px-3 py-2 rounded-lg inline-flex items-center gap-1.5"
+          className="hidden sm:inline-flex text-sm font-medium px-3 py-2 rounded-lg items-center gap-1.5 shrink-0 active:opacity-80"
           style={{ background: C.blue, color: "white" }}
           onClick={openCreate}
         >
@@ -854,52 +961,76 @@ export default function SuppliersPage() {
         </button>
       </div>
 
+      {/* Floating action button — mobile only, thumb-reachable */}
+
+      <button
+        className="sm:hidden fixed z-40 w-14 h-14 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+        style={{
+          background: C.blue,
+          color: "white",
+          right: "1.25rem",
+          bottom: "calc(1.25rem + env(safe-area-inset-bottom))",
+          boxShadow: "0 8px 20px rgba(37,99,235,0.4)",
+        }}
+        onClick={openCreate}
+        aria-label="New supplier"
+      >
+        <span style={{ transform: "scale(1.4)" }}>
+          <Icons.plus />
+        </span>
+      </button>
+
       {/* Stats — solid colored top stripes + solid icon tiles */}
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-5 sm:mb-6">
         {stats.map((stat, i) => (
           <div
             key={i}
-            className="panel p-4 panel-hover cursor-default"
+            className="panel p-2.5 sm:p-4 panel-hover cursor-default min-w-0"
             style={{ borderTop: `3px solid ${stat.color}` }}
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-1">
               <div
-                className="text-xs font-medium"
+                className="text-[10px] sm:text-xs font-medium truncate"
                 style={{ color: "var(--ink-muted)" }}
               >
                 {stat.label}
               </div>
 
               <div
-                className="w-8 h-8 rounded-md flex items-center justify-center"
+                className="w-6 h-6 sm:w-8 sm:h-8 rounded-md flex items-center justify-center shrink-0"
                 style={{ background: stat.color, color: "white" }}
               >
-                <stat.icon />
+                <span className="scale-75 sm:scale-100">
+                  <stat.icon />
+                </span>
               </div>
             </div>
 
             <div
-              className="text-2xl font-bold mb-1"
+              className="text-base sm:text-2xl font-bold mb-0.5 sm:mb-1 truncate"
               style={{ color: "var(--ink)" }}
             >
               {stat.value}
             </div>
 
-            <div className="text-xs" style={{ color: "var(--ink-muted)" }}>
+            <div
+              className="text-[10px] sm:text-xs truncate"
+              style={{ color: "var(--ink-muted)" }}
+            >
               {stat.sub}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Main column — suppliers table */}
 
-        <div className="col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           <div className="panel">
             <div
-              className="flex items-center justify-between px-5 py-4"
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-4"
               style={{ borderBottom: "1px solid var(--border)" }}
             >
               <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -910,7 +1041,7 @@ export default function SuppliersPage() {
               </h3>
 
               <div
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                className="flex items-center gap-2 px-3 py-2 sm:py-1.5 rounded-lg w-full sm:w-auto"
                 style={{ background: "var(--surface-2)" }}
               >
                 <Icons.search />
@@ -919,7 +1050,7 @@ export default function SuppliersPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search suppliers..."
-                  className="text-xs bg-transparent outline-none w-36"
+                  className="text-sm sm:text-xs bg-transparent outline-none w-full sm:w-36"
                   style={{ color: "var(--ink)" }}
                 />
               </div>
@@ -944,7 +1075,7 @@ export default function SuppliersPage() {
               </div>
             )}
 
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr style={{ background: "var(--surface-2)" }}>
@@ -1177,6 +1308,185 @@ export default function SuppliersPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile card list — replaces the table below md breakpoint */}
+
+            <div className="md:hidden">
+              {loading &&
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={`sk-m-${i}`}
+                    className="px-4 py-4"
+                    style={{
+                      borderTop: i > 0 ? "1px solid var(--border)" : "none",
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-full shrink-0"
+                        style={{ background: "var(--surface-2)" }}
+                      />
+                      <div className="flex-1 space-y-2">
+                        <div
+                          className="h-3 rounded"
+                          style={{
+                            background: "var(--surface-2)",
+                            width: "50%",
+                          }}
+                        />
+                        <div
+                          className="h-2.5 rounded"
+                          style={{
+                            background: "var(--surface-2)",
+                            width: "30%",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+              {!loading &&
+                filtered.map((s) => {
+                  const isConfirming = confirmDeleteId === s.id;
+                  const isDeleting = deletingId === s.id;
+
+                  return (
+                    <div
+                      key={`m-${s.id}`}
+                      className="px-4 py-4 active:opacity-70"
+                      style={{ borderTop: "1px solid var(--border)" }}
+                      onClick={() => setSelectedSupplier(s)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0 text-white"
+                          style={{ background: statusColor(s.status) }}
+                        >
+                          {initials(s.name)}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="font-medium truncate">{s.name}</div>
+                            <span className="shrink-0">
+                              <SupplierStatusBadge status={s.status} />
+                            </span>
+                          </div>
+
+                          {s.address && (
+                            <div
+                              className="text-xs truncate"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              {s.address}
+                            </div>
+                          )}
+
+                          {s.phone && (
+                            <div
+                              className="flex items-center gap-1.5 text-xs mt-0.5"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              <Icons.phone /> {s.phone}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-3">
+                        <div
+                          className="text-xs"
+                          style={{ color: "var(--ink-muted)" }}
+                        >
+                          {s.ordersCount ?? 0} orders ·{" "}
+                          <span
+                            className="font-medium"
+                            style={{ color: "var(--ink)" }}
+                          >
+                            {formatDZD(s.totalSpent)}
+                          </span>
+                        </div>
+
+                        {!isConfirming ? (
+                          <div
+                            className="inline-flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              className="p-2 rounded-md inline-flex active:opacity-70"
+                              onClick={() => openEdit(s)}
+                              disabled={isDeleting}
+                              title="Edit supplier"
+                              style={{
+                                color: C.blue,
+                                background: "transparent",
+                              }}
+                            >
+                              <Icons.pencil />
+                            </button>
+
+                            <button
+                              className="p-2 rounded-md inline-flex active:opacity-70"
+                              onClick={() => askDelete(s.id)}
+                              disabled={isDeleting}
+                              title="Delete supplier"
+                              style={{
+                                color: C.red,
+                                background: "transparent",
+                              }}
+                            >
+                              <Icons.trash />
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            className="inline-flex items-center gap-1.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span
+                              className="text-xs"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              Sure?
+                            </span>
+
+                            <button
+                              className="px-2 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1"
+                              onClick={() => confirmDelete(s.id)}
+                              disabled={isDeleting}
+                              style={{ background: C.red, color: "white" }}
+                            >
+                              <Icons.check /> {isDeleting ? "…" : "Yes"}
+                            </button>
+
+                            <button
+                              className="p-1.5 rounded-md inline-flex"
+                              onClick={cancelDelete}
+                              disabled={isDeleting}
+                              title="Cancel"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              <Icons.x />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+              {!loading && !error && filtered.length === 0 && (
+                <div
+                  className="px-4 py-10 text-center text-sm"
+                  style={{ color: "var(--ink-muted)" }}
+                >
+                  {query
+                    ? `No suppliers match "${query}".`
+                    : "No suppliers yet — tap the + button to add one."}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1243,7 +1553,7 @@ export default function SuppliersPage() {
 
       {notification && (
         <div
-          className="fixed bottom-6 right-6 panel px-4 py-3 flex items-center gap-2 text-sm z-50"
+          className="fixed left-4 right-4 sm:left-auto sm:right-6 panel px-4 py-3 flex items-center gap-2 text-sm z-50"
           style={{
             background: notification.kind === "success" ? C.green : C.red,
 
@@ -1252,6 +1562,8 @@ export default function SuppliersPage() {
             borderLeft: `3px solid ${notification.kind === "success" ? "#15803d" : "#991b1b"}`,
 
             boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+
+            bottom: "calc(5.5rem + env(safe-area-inset-bottom))",
           }}
         >
           {notification.kind === "success" ? <Icons.check /> : <Icons.alert />}

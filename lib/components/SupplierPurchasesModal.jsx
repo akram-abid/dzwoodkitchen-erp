@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getSupplierPurchasesClient,
@@ -165,6 +165,66 @@ const C = {
   amber: "#ca8a04",
 
   gray: "#4b5563",
+};
+
+/* ─── drag-down-to-dismiss for mobile bottom sheets ───
+
+   Attach `handleProps` to the small drag-handle bar and `sheetStyle`
+   to the sheet's outer div. Dragging past `threshold` px slides the
+   sheet the rest of the way down and then fires onClose; letting go
+   early snaps it back to rest. No-op on desktop since the handle is
+   hidden there (sm:hidden), so it never receives pointer events. */
+
+const useDragToClose = (onClose, { threshold = 120 } = {}) => {
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const startYRef = useRef(0);
+
+  useEffect(() => {
+    if (!closing) return;
+    const t = setTimeout(onClose, 300);
+    return () => clearTimeout(t);
+  }, [closing, onClose]);
+
+  const onPointerDown = (e) => {
+    if (closing) return;
+    setDragging(true);
+    startYRef.current = e.clientY;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const onPointerMove = (e) => {
+    if (!dragging) return;
+    const delta = e.clientY - startYRef.current;
+    setDragY(delta > 0 ? delta : 0);
+  };
+
+  const endDrag = () => {
+    if (!dragging) return;
+    setDragging(false);
+    if (dragY > threshold) {
+      setClosing(true);
+    } else {
+      setDragY(0);
+    }
+  };
+
+  const sheetStyle = closing
+    ? { transform: "translateY(100%)" }
+    : dragging
+      ? { transform: `translateY(${dragY}px)`, transition: "none" }
+      : { transform: `translateY(${dragY}px)` };
+
+  const handleProps = {
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: endDrag,
+    onPointerCancel: endDrag,
+    style: { touchAction: "none", cursor: dragging ? "grabbing" : "grab" },
+  };
+
+  return { sheetStyle, handleProps, closing };
 };
 
 /* ─── helpers ─── */
@@ -399,23 +459,56 @@ function EditPurchaseModal({
     }
   };
 
+  const { sheetStyle, handleProps, closing } = useDragToClose(onClose);
+
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      style={{ background: "rgba(15,15,20,0.55)" }}
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4"
+      style={{
+        background: "rgba(15,15,20,0.55)",
+        opacity: closing ? 0 : 1,
+        transition: "opacity 0.28s ease-out",
+      }}
       onClick={onClose}
     >
+      <style>{`
+        @keyframes editPurchaseSheetUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        @keyframes editPurchaseSheetIn {
+          from { opacity: 0; transform: translateY(8px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .edit-purchase-sheet { animation: editPurchaseSheetUp 0.22s ease-out; }
+        @media (min-width: 640px) {
+          .edit-purchase-sheet { animation: editPurchaseSheetIn 0.16s ease-out; }
+        }
+      `}</style>
+
       <div
-        className="panel w-full max-w-3xl max-h-[90vh] flex flex-col"
+        className="edit-purchase-sheet panel w-full sm:max-w-3xl max-h-[92dvh] sm:max-h-[90vh] rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden transition-transform duration-300 ease-out"
+        style={sheetStyle}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* drag handle — mobile only */}
+        <div
+          className="sm:hidden flex justify-center pt-3 pb-2 shrink-0"
+          {...handleProps}
+        >
+          <span
+            className="block w-9 h-1 rounded-full"
+            style={{ background: "rgba(255,255,255,0.5)" }}
+          />
+        </div>
+
         {/* Header */}
 
         <div
           className="px-5 py-4 flex items-center justify-between shrink-0"
           style={{ background: C.purple, color: "white" }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div
               className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
               style={{ background: "rgba(255,255,255,0.18)" }}
@@ -423,12 +516,12 @@ function EditPurchaseModal({
               <Icons.pencil />
             </div>
 
-            <div>
-              <div className="text-sm font-semibold">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">
                 Edit Purchase #{purchase.id}
               </div>
 
-              <div className="text-xs opacity-80">
+              <div className="text-xs opacity-80 truncate">
                 {purchase.reference || "No reference"} ·{" "}
                 {formatDZD(purchase.total)}
               </div>
@@ -436,7 +529,7 @@ function EditPurchaseModal({
           </div>
 
           <button
-            className="p-1 rounded-md"
+            className="p-2 -m-2 rounded-md shrink-0 active:opacity-70"
             onClick={onClose}
             style={{ color: "white" }}
             aria-label="Close"
@@ -470,7 +563,7 @@ function EditPurchaseModal({
         >
           {/* Header fields */}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label
                 className="text-xs font-medium mb-1.5 block"
@@ -625,7 +718,7 @@ function EditPurchaseModal({
               <button
                 type="button"
                 onClick={addItem}
-                className="text-xs font-medium inline-flex items-center gap-1 px-2 py-1 rounded-md"
+                className="text-xs font-medium inline-flex items-center gap-1 px-3 py-1.5 rounded-md active:opacity-80"
                 style={{ background: C.blue, color: "white" }}
               >
                 <Icons.plus /> Add item
@@ -661,7 +754,7 @@ function EditPurchaseModal({
                         }
                         placeholder="Material name"
                         maxLength={150}
-                        className="flex-1 px-2 py-1.5 rounded-md text-sm outline-none"
+                        className="flex-1 px-2 py-2 sm:py-1.5 rounded-md text-sm outline-none"
                         style={{
                           background: "var(--surface)",
 
@@ -674,7 +767,7 @@ function EditPurchaseModal({
                       <button
                         type="button"
                         onClick={() => removeItem(idx)}
-                        className="p-1.5 rounded-md"
+                        className="p-2 -m-0.5 rounded-md active:opacity-70"
                         title="Remove item"
                         style={{ color: C.red }}
                         disabled={items.length <= 1}
@@ -683,7 +776,7 @@ function EditPurchaseModal({
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div>
                         <input
                           type="number"
@@ -694,7 +787,7 @@ function EditPurchaseModal({
                             setItem(idx, { quantity: e.target.value })
                           }
                           placeholder="Quantity"
-                          className="w-full px-2 py-1.5 rounded-md text-sm outline-none"
+                          className="w-full px-2 py-2 sm:py-1.5 rounded-md text-sm outline-none"
                           style={{
                             background: "var(--surface)",
 
@@ -723,7 +816,7 @@ function EditPurchaseModal({
                           }
                           placeholder="Unit (kg, m²)"
                           maxLength={20}
-                          className="w-full px-2 py-1.5 rounded-md text-sm outline-none"
+                          className="w-full px-2 py-2 sm:py-1.5 rounded-md text-sm outline-none"
                           style={{
                             background: "var(--surface)",
 
@@ -753,7 +846,7 @@ function EditPurchaseModal({
                             setItem(idx, { unit_price: e.target.value })
                           }
                           placeholder="Unit price"
-                          className="w-full px-2 py-1.5 rounded-md text-sm outline-none"
+                          className="w-full px-2 py-2 sm:py-1.5 rounded-md text-sm outline-none"
                           style={{
                             background: "var(--surface)",
 
@@ -784,11 +877,14 @@ function EditPurchaseModal({
 
         <div
           className="px-5 py-3 flex items-center justify-end gap-2 shrink-0"
-          style={{ borderTop: "1px solid var(--border)" }}
+          style={{
+            borderTop: "1px solid var(--border)",
+            paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
+          }}
         >
           <button
             type="button"
-            className="btn-ghost text-sm"
+            className="btn-ghost text-sm order-2 sm:order-1 px-3 py-2"
             onClick={onClose}
             disabled={submitting}
           >
@@ -799,7 +895,7 @@ function EditPurchaseModal({
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="text-sm font-medium px-4 py-1.5 rounded-lg inline-flex items-center gap-1.5"
+            className="order-1 sm:order-2 flex-1 sm:flex-none text-sm font-medium px-4 py-2.5 sm:py-1.5 rounded-lg inline-flex items-center justify-center gap-1.5 active:opacity-80"
             style={{
               background: C.purple,
 
@@ -1001,20 +1097,55 @@ export default function SupplierPurchasesModal({
     onPurchaseChanged?.(`Purchase #${saved.id} updated.`);
   };
 
+  const { sheetStyle, handleProps, closing } = useDragToClose(onClose);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(15,15,20,0.55)" }}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+      style={{
+        background: "rgba(15,15,20,0.55)",
+        opacity: closing ? 0 : 1,
+        transition: "opacity 0.28s ease-out",
+      }}
       onClick={onClose}
     >
+      <style>{`
+        @keyframes purchasesSheetUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        @keyframes purchasesSheetIn {
+          from { opacity: 0; transform: translateY(8px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .purchases-sheet { animation: purchasesSheetUp 0.22s ease-out; }
+        @media (min-width: 640px) {
+          .purchases-sheet { animation: purchasesSheetIn 0.16s ease-out; }
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
       <div
-        className="panel w-full max-w-4xl max-h-[90vh] flex flex-col"
+        className="purchases-sheet panel w-full sm:max-w-4xl max-h-[92dvh] sm:max-h-[90vh] rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden transition-transform duration-300 ease-out"
+        style={sheetStyle}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* drag handle — mobile only */}
+        <div
+          className="sm:hidden flex justify-center pt-3 pb-2 shrink-0"
+          {...handleProps}
+        >
+          <span
+            className="block w-9 h-1 rounded-full"
+            style={{ background: "rgba(255,255,255,0.5)" }}
+          />
+        </div>
+
         {/* Header */}
 
         <div
-          className="px-5 py-4 flex items-center justify-between shrink-0"
+          className="px-4 sm:px-5 py-4 flex items-center justify-between shrink-0 gap-2"
           style={{ background: C.blue, color: "white" }}
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -1043,10 +1174,10 @@ export default function SupplierPurchasesModal({
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             {onEdit && (
               <button
-                className="p-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1"
+                className="p-2 rounded-md text-xs font-medium inline-flex items-center gap-1 active:opacity-70"
                 onClick={onEdit}
                 style={{
                   background: "rgba(255,255,255,0.18)",
@@ -1055,12 +1186,13 @@ export default function SupplierPurchasesModal({
                 }}
                 title="Edit supplier"
               >
-                <Icons.pencil /> Edit supplier
+                <Icons.pencil />
+                <span className="hidden sm:inline">Edit supplier</span>
               </button>
             )}
 
             <button
-              className="p-1 rounded-md"
+              className="p-2 -m-1 rounded-md active:opacity-70"
               onClick={onClose}
               style={{ color: "white" }}
               aria-label="Close"
@@ -1092,12 +1224,12 @@ export default function SupplierPurchasesModal({
         {/* Year nav + month strip */}
 
         <div
-          className="px-5 py-3 flex items-center justify-between gap-3 shrink-0"
+          className="px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
-              className="btn-ghost text-xs px-2 py-1 rounded-md"
+              className="btn-ghost text-xs px-3 py-1.5 rounded-md active:opacity-70"
               onClick={goPrevYear}
             >
               ‹
@@ -1108,14 +1240,14 @@ export default function SupplierPurchasesModal({
             </div>
 
             <button
-              className="btn-ghost text-xs px-2 py-1 rounded-md"
+              className="btn-ghost text-xs px-3 py-1.5 rounded-md active:opacity-70"
               onClick={goNextYear}
             >
               ›
             </button>
 
             <button
-              className="text-xs px-2 py-1 rounded-md"
+              className="text-xs px-2.5 py-1.5 rounded-md active:opacity-80"
               onClick={goThisYear}
               style={{
                 background:
@@ -1132,10 +1264,10 @@ export default function SupplierPurchasesModal({
           </div>
 
           {monthNames && (
-            <div className="flex flex-wrap items-center gap-1">
+            <div className="flex items-center gap-1 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap no-scrollbar">
               <button
                 onClick={selectAllMonths}
-                className="text-xs px-2 py-1 rounded-md"
+                className="text-xs px-2.5 py-1.5 rounded-md shrink-0 active:opacity-80"
                 style={{
                   background: month === null ? C.blue : "var(--surface-2)",
 
@@ -1152,7 +1284,7 @@ export default function SupplierPurchasesModal({
                   <button
                     key={idx}
                     onClick={() => selectMonth(idx)}
-                    className="text-xs px-2 py-1 rounded-md"
+                    className="text-xs px-2.5 py-1.5 rounded-md shrink-0 active:opacity-80"
                     style={{
                       background: month === idx ? C.blue : "var(--surface-2)",
 
@@ -1169,7 +1301,7 @@ export default function SupplierPurchasesModal({
 
         {/* Body */}
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {loading && (
             <div
               className="text-sm text-center py-8"
@@ -1217,12 +1349,12 @@ export default function SupplierPurchasesModal({
               return (
                 <div
                   key={op.id}
-                  className="panel p-4"
+                  className="panel p-3 sm:p-4"
                   style={{ borderLeft: `3px solid ${C.blue}` }}
                 >
                   {/* Operation header */}
 
-                  <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className="text-sm font-semibold">
@@ -1259,7 +1391,7 @@ export default function SupplierPurchasesModal({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center justify-between sm:justify-end gap-2 flex-wrap shrink-0">
                       <div
                         className="text-sm font-bold"
                         style={{ color: C.blue }}
@@ -1270,7 +1402,7 @@ export default function SupplierPurchasesModal({
                       {!isConfirming ? (
                         <>
                           <button
-                            className="p-1.5 rounded-md"
+                            className="p-2 rounded-md active:opacity-70"
                             onClick={() =>
                               setEditing({
                                 ...op,
@@ -1286,7 +1418,7 @@ export default function SupplierPurchasesModal({
                           </button>
 
                           <button
-                            className="p-1.5 rounded-md"
+                            className="p-2 rounded-md active:opacity-70"
                             onClick={() => askDelete(op.id)}
                             disabled={isDeleting}
                             title="Delete purchase"
@@ -1305,7 +1437,7 @@ export default function SupplierPurchasesModal({
                           </span>
 
                           <button
-                            className="px-2 py-1 rounded-md text-xs font-medium inline-flex items-center gap-1"
+                            className="px-2.5 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1 active:opacity-80"
                             onClick={() => doDelete(op.id)}
                             disabled={isDeleting}
                             style={{ background: C.red, color: "white" }}
@@ -1314,7 +1446,7 @@ export default function SupplierPurchasesModal({
                           </button>
 
                           <button
-                            className="p-1 rounded-md"
+                            className="p-2 rounded-md active:opacity-70"
                             onClick={cancelDelete}
                             disabled={isDeleting}
                             title="Cancel"
@@ -1327,11 +1459,11 @@ export default function SupplierPurchasesModal({
                     </div>
                   </div>
 
-                  {/* Items table (read view) */}
+                  {/* Items table (read view) — tablet/desktop */}
 
                   {op.items && op.items.length > 0 && (
                     <div
-                      className="rounded-md overflow-hidden"
+                      className="hidden md:block rounded-md overflow-hidden"
                       style={{ border: "1px solid var(--border)" }}
                     >
                       <table className="w-full text-xs">
@@ -1461,6 +1593,101 @@ export default function SupplierPurchasesModal({
                           })}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+
+                  {/* Items list (read view) — mobile */}
+
+                  {op.items && op.items.length > 0 && (
+                    <div
+                      className="md:hidden rounded-md overflow-hidden"
+                      style={{ border: "1px solid var(--border)" }}
+                    >
+                      {op.items.map((it, idx) => {
+                        const isItemConfirming = itemConfirmDeleteId === it.id;
+                        const isItemDeleting = itemDeletingId === it.id;
+                        const materialLabel =
+                          it.material_name ?? it.material ?? "—";
+
+                        return (
+                          <div
+                            key={it.id}
+                            className="px-3 py-2.5 flex items-center justify-between gap-2"
+                            style={{
+                              borderTop:
+                                idx > 0 ? "1px solid var(--border)" : "none",
+                              background:
+                                idx % 2 === 1
+                                  ? "var(--surface-2)"
+                                  : "transparent",
+                            }}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-medium truncate">
+                                {materialLabel}
+                              </div>
+                              <div
+                                className="text-[11px] mt-0.5"
+                                style={{ color: "var(--ink-muted)" }}
+                              >
+                                {Number(it.quantity ?? 0).toLocaleString(
+                                  "en-US",
+                                )}{" "}
+                                {it.unit} · {formatDZD(it.unit_price)}/unit
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div
+                                className="text-xs font-semibold"
+                                style={{ color: C.green }}
+                              >
+                                {formatDZD(it.line_total)}
+                              </div>
+
+                              {!isItemConfirming ? (
+                                <button
+                                  onClick={() => askDeleteItem(it.id)}
+                                  disabled={isItemDeleting}
+                                  title="Delete item"
+                                  className="p-2 rounded-md active:opacity-70"
+                                  style={{
+                                    color: C.red,
+                                    background: "transparent",
+                                  }}
+                                >
+                                  <Icons.trash />
+                                </button>
+                              ) : (
+                                <div className="inline-flex items-center gap-1">
+                                  <button
+                                    className="px-2 py-1.5 rounded text-xs font-medium inline-flex items-center active:opacity-80"
+                                    onClick={() => doDeleteItem(it.id)}
+                                    disabled={isItemDeleting}
+                                    style={{
+                                      background: C.red,
+                                      color: "white",
+                                    }}
+                                    title="Confirm delete"
+                                  >
+                                    <Icons.check />
+                                  </button>
+
+                                  <button
+                                    className="p-2 rounded-md active:opacity-70"
+                                    onClick={cancelDeleteItem}
+                                    disabled={isItemDeleting}
+                                    title="Cancel"
+                                    style={{ color: "var(--ink-muted)" }}
+                                  >
+                                    <Icons.x />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
