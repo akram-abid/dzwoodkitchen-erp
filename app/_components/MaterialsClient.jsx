@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+
 import {
   getAllMaterialsClient,
   getMaterialByIdClient,
@@ -13,29 +14,42 @@ import {
   deleteLeftoverClient,
   updateLeftoverClient,
 } from "../../lib/api_helpers/materials";
+
 import { getAllCategoriesClient } from "../../lib/api_helpers/categories";
+
 import { getSuppliers } from "../../lib/api_helpers/supplier";
 
 /* ─── Reusable UI ─── */
+
 const StageBadge = ({ stage, size = "sm" }) => {
   const map = {
     IN_STOCK: { color: "var(--stage-completed)", label: "In Stock", dot: "●" },
+
     LOW_STOCK: { color: "var(--accent)", label: "Low Stock", dot: "●" },
+
     OUT_OF_STOCK: {
       color: "var(--stage-contract)",
+
       label: "Out of Stock",
+
       dot: "●",
     },
+
     ORDERED: { color: "var(--stage-ready)", label: "Ordered", dot: "●" },
   };
+
   const s = map[stage] || map.IN_STOCK;
+
   return (
     <span
       className="badge"
       style={{
         background: `${s.color}15`,
+
         color: s.color,
+
         padding: size === "lg" ? "6px 14px" : undefined,
+
         fontSize: size === "lg" ? "13px" : undefined,
       }}
     >
@@ -46,6 +60,7 @@ const StageBadge = ({ stage, size = "sm" }) => {
 };
 
 /* ─── Icons ─── */
+
 const Icons = {
   search: () => (
     <svg
@@ -59,9 +74,11 @@ const Icons = {
       strokeLinejoin="round"
     >
       <circle cx="11" cy="11" r="8" />
+
       <path d="m21 21-4.3-4.3" />
     </svg>
   ),
+
   x: () => (
     <svg
       width="16"
@@ -74,9 +91,11 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="M18 6 6 18" />
+
       <path d="m6 6 12 12" />
     </svg>
   ),
+
   more: () => (
     <svg
       width="16"
@@ -89,10 +108,13 @@ const Icons = {
       strokeLinejoin="round"
     >
       <circle cx="12" cy="12" r="1" />
+
       <circle cx="19" cy="12" r="1" />
+
       <circle cx="5" cy="12" r="1" />
     </svg>
   ),
+
   package: () => (
     <svg
       width="16"
@@ -105,11 +127,15 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="m7.5 4.27 9 5.15" />
+
       <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+
       <path d="m3.3 7 8.7 5 8.7-5" />
+
       <path d="M12 22V12" />
     </svg>
   ),
+
   plus: () => (
     <svg
       width="14"
@@ -122,9 +148,11 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="M5 12h14" />
+
       <path d="M12 5v14" />
     </svg>
   ),
+
   minus: () => (
     <svg
       width="14"
@@ -139,6 +167,7 @@ const Icons = {
       <path d="M5 12h14" />
     </svg>
   ),
+
   edit: () => (
     <svg
       width="14"
@@ -151,9 +180,11 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+
       <path d="m15 5 4 4" />
     </svg>
   ),
+
   history: () => (
     <svg
       width="14"
@@ -166,10 +197,13 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="M3 3v5h5" />
+
       <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+
       <path d="M12 7v5l4 2" />
     </svg>
   ),
+
   alert: () => (
     <svg
       width="14"
@@ -182,10 +216,13 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+
       <path d="M12 9v4" />
+
       <path d="M12 17h.01" />
     </svg>
   ),
+
   truck: () => (
     <svg
       width="14"
@@ -198,12 +235,17 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="M10 17h4V5H2v12h3" />
+
       <path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5" />
+
       <path d="M14 17h1" />
+
       <circle cx="7.5" cy="17.5" r="2.5" />
+
       <circle cx="17.5" cy="17.5" r="2.5" />
     </svg>
   ),
+
   box: () => (
     <svg
       width="14"
@@ -216,10 +258,13 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+
       <path d="m3.3 7 8.7 5 8.7-5" />
+
       <path d="M12 22V12" />
     </svg>
   ),
+
   ruler: () => (
     <svg
       width="14"
@@ -232,14 +277,21 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="M2 12h20" />
+
       <path d="M2 17h20" />
+
       <path d="M2 7h20" />
+
       <path d="M6 12v5" />
+
       <path d="M10 12v5" />
+
       <path d="M14 12v5" />
+
       <path d="M18 12v5" />
     </svg>
   ),
+
   scissors: () => (
     <svg
       width="14"
@@ -252,12 +304,17 @@ const Icons = {
       strokeLinejoin="round"
     >
       <circle cx="6" cy="6" r="3" />
+
       <path d="M8.12 8.12 12 12" />
+
       <path d="M20 4 8.12 15.88" />
+
       <circle cx="6" cy="18" r="3" />
+
       <path d="M14.8 14.8 20 20" />
     </svg>
   ),
+
   trash: () => (
     <svg
       width="14"
@@ -270,10 +327,13 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="M3 6h18" />
+
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+
       <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
   ),
+
   refresh: () => (
     <svg
       width="14"
@@ -286,9 +346,11 @@ const Icons = {
       strokeLinejoin="round"
     >
       <path d="M21 12a9 9 0 1 1-3-6.7" />
+
       <path d="M21 4v5h-5" />
     </svg>
   ),
+
   chevronLeft: () => (
     <svg
       width="18"
@@ -303,6 +365,7 @@ const Icons = {
       <path d="m15 18-6-6 6-6" />
     </svg>
   ),
+
   chevronRight: () => (
     <svg
       width="16"
@@ -320,17 +383,24 @@ const Icons = {
 };
 
 const STATUSES = ["All", "IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK", "ORDERED"];
+
 const STATUS_DOT = {
   IN_STOCK: "var(--stage-completed)",
+
   LOW_STOCK: "var(--accent)",
+
   OUT_OF_STOCK: "var(--stage-contract)",
+
   ORDERED: "var(--stage-ready)",
 };
 
 const computeStatus = (stock, minStock, maxStock, manual) => {
   if (manual === "ORDERED") return "ORDERED";
+
   if (stock <= 0) return "OUT_OF_STOCK";
+
   if (stock <= minStock) return "LOW_STOCK";
+
   return "IN_STOCK";
 };
 
@@ -344,23 +414,28 @@ const Modal = ({ title, onClose, children, footer, maxWidth = 520 }) => (
       className="w-full rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[90vh] app-sheet"
       style={{
         background: "var(--surface)",
+
         border: "1px solid var(--border)",
+
         maxWidth,
       }}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Drag handle — mobile only */}
+
       <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
         <div
           className="w-9 h-1 rounded-full"
           style={{ background: "var(--border)" }}
         />
       </div>
+
       <div
         className="flex items-center justify-between p-4 shrink-0"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
         <h2 className="text-base font-semibold">{title}</h2>
+
         <button
           onClick={onClose}
           className="btn-ghost p-2 -mr-2 sm:p-1 sm:mr-0"
@@ -369,12 +444,14 @@ const Modal = ({ title, onClose, children, footer, maxWidth = 520 }) => (
           <Icons.x />
         </button>
       </div>
+
       <div
         className="flex-1 overflow-y-auto p-5 overscroll-contain"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {children}
       </div>
+
       {footer && (
         <div
           className="flex items-center justify-end gap-2 p-4 shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4"
@@ -392,7 +469,9 @@ const Field = ({ label, children, hint }) => (
     <span className="text-xs font-medium" style={{ color: "var(--ink-muted)" }}>
       {label}
     </span>
+
     {children}
+
     {hint && (
       <span className="text-[11px]" style={{ color: "var(--ink-muted)" }}>
         {hint}
@@ -403,108 +482,173 @@ const Field = ({ label, children, hint }) => (
 
 const inputStyle = {
   background: "var(--bg)",
+
   border: "1px solid var(--border)",
+
   color: "var(--ink)",
 };
 
 /* App-like polish: mobile sheet animation, hidden scrollbars for chip
+
    rows, and tap behavior tuned for a PWA rather than a desktop page. */
+
 const AppChrome = () => (
   <style>{`
+
     @keyframes app-sheet-up {
+
       from { transform: translateY(100%); }
+
       to { transform: translateY(0); }
+
     }
+
     @media (max-width: 639px) {
+
       .app-sheet { animation: app-sheet-up 0.28s cubic-bezier(0.32, 0.72, 0, 1); }
+
     }
+
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
     .no-scrollbar::-webkit-scrollbar { display: none; }
+
     @media (max-width: 639px) {
+
       input, select, textarea { font-size: 16px !important; }
+
     }
+
     button, a, [role="button"] {
+
       -webkit-tap-highlight-color: transparent;
+
       touch-action: manipulation;
+
     }
+
     .tap-scale:active { transform: scale(0.97); }
+
   `}</style>
 );
 
 export default function MaterialsClient() {
   const [materials, setMaterials] = useState([]);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState(null);
+
   const [selectedId, setSelectedId] = useState(null);
+
   const [selectedDetail, setSelectedDetail] = useState(null);
+
   const [detailLoading, setDetailLoading] = useState(false);
+
   /* On mobile the detail panel is a full-screen view you navigate into,
+
      not an always-visible sidebar — this tracks whether it's open. */
+
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   const openMaterial = useCallback((id) => {
     setSelectedId(id);
+
     setMobileDetailOpen(true);
   }, []);
 
   const [categories, setCategories] = useState([]);
+
   const [suppliers, setSuppliers] = useState([]);
 
   const [search, setSearch] = useState("");
+
   const [catFilter, setCatFilter] = useState("All");
+
   const [statusFilter, setStatusFilter] = useState("All");
+
   const [showHistory, setShowHistory] = useState(false);
 
   const [adjustQty, setAdjustQty] = useState("");
 
   const [showNewModal, setShowNewModal] = useState(false);
+
   const emptyForm = {
     name: "",
+
     categoryId: null,
+
     unit: "sheet",
+
     stock: 0,
+
     minStock: 1,
+
     maxStock: 10,
+
     supplierId: null,
+
     price: 0,
+
     location: "",
   };
+
   const [form, setForm] = useState(emptyForm);
+
   const [formError, setFormError] = useState("");
+
   const [formSubmitting, setFormSubmitting] = useState(false);
 
   const [showAddLeftover, setShowAddLeftover] = useState(false);
+
   const [leftoverForm, setLeftoverForm] = useState({
     description: "",
+
     dimensions: "",
+
     qty: 1,
   });
+
   const [leftoverSubmitting, setLeftoverSubmitting] = useState(false);
 
   /* Edit leftover (inline) */
+
   const [editingLeftoverId, setEditingLeftoverId] = useState(null);
+
   const [editLeftoverForm, setEditLeftoverForm] = useState({
     description: "",
+
     dimensions: "",
+
     qty: 1,
   });
+
   const [editLeftoverSubmitting, setEditLeftoverSubmitting] = useState(false);
 
   /* Edit material modal */
+
   const [showEditModal, setShowEditModal] = useState(false);
+
   const [editForm, setEditForm] = useState(emptyForm);
+
   const [editFormError, setEditFormError] = useState("");
+
   const [editFormSubmitting, setEditFormSubmitting] = useState(false);
 
   const loadMaterials = useCallback(async () => {
     try {
       setLoading(true);
+
       setError(null);
+
       const data = await getAllMaterialsClient();
+
       setMaterials(data);
+
       setSelectedId((prev) => prev ?? data[0]?.id ?? null);
     } catch (err) {
       setError(err.message);
+
       console.error("loadMaterials", err);
     } finally {
       setLoading(false);
@@ -513,11 +657,14 @@ export default function MaterialsClient() {
 
   const loadDetail = useCallback(async (code) => {
     if (!code) return;
+
     try {
       setDetailLoading(true);
+
       setSelectedDetail(await getMaterialByIdClient(code));
     } catch (err) {
       console.error("loadDetail", err);
+
       setSelectedDetail(null);
     } finally {
       setDetailLoading(false);
@@ -528,9 +675,12 @@ export default function MaterialsClient() {
     try {
       const [cats, sups] = await Promise.all([
         getAllCategoriesClient().catch(() => []),
+
         getSuppliers().catch(() => []),
       ]);
+
       setCategories(cats);
+
       setSuppliers(sups);
     } catch (err) {
       console.error("loadLookups", err);
@@ -539,41 +689,51 @@ export default function MaterialsClient() {
 
   useEffect(() => {
     loadMaterials();
+
     loadLookups();
   }, [loadMaterials, loadLookups]);
+
   useEffect(() => {
     loadDetail(selectedId);
   }, [selectedId, loadDetail]);
 
   const catNames = useMemo(
     () => ["All", ...categories.map((c) => c.name)],
+
     [categories],
   );
+
   const filtered = useMemo(
     () =>
       materials.filter((m) => {
         const haystack = `${m.id} ${m.name} ${m.supplier}`.toLowerCase();
+
         return (
           haystack.includes(search.toLowerCase()) &&
           (catFilter === "All" || m.category === catFilter) &&
           (statusFilter === "All" || m.status === statusFilter)
         );
       }),
+
     [materials, search, catFilter, statusFilter],
   );
 
   const lowStockCount = materials.filter(
     (m) => m.status === "LOW_STOCK",
   ).length;
+
   const outStockCount = materials.filter(
     (m) => m.status === "OUT_OF_STOCK",
   ).length;
+
   const totalValue = materials.reduce((sum, m) => sum + m.stock * m.price, 0);
 
   const selected = selectedDetail ?? materials.find((m) => m.id === selectedId);
+
   const stockPercent = selected
     ? Math.min(100, Math.round((selected.stock / selected.maxStock) * 100))
     : 0;
+
   const stockColor =
     stockPercent > 50
       ? "var(--stage-completed)"
@@ -582,30 +742,41 @@ export default function MaterialsClient() {
         : "var(--stage-contract)";
 
   /* Swipe-right-to-close on the mobile detail view, like a native nav stack */
+
   const touchStart = useRef({ x: 0, y: 0 });
+
   const handleDetailTouchStart = (e) => {
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   };
+
   const handleDetailTouchEnd = (e) => {
     const dx = e.changedTouches[0].clientX - touchStart.current.x;
+
     const dy = e.changedTouches[0].clientY - touchStart.current.y;
+
     if (dx > 80 && Math.abs(dy) < 60) setMobileDetailOpen(false);
   };
 
   const refreshAfterChange = async () => {
     await loadMaterials();
+
     if (selectedId) await loadDetail(selectedId);
   };
 
   const handleAdjust = async (type) => {
     const qty = parseInt(adjustQty);
+
     if (!qty || qty < 1 || !selectedId) return;
+
     try {
       await adjustStockClient(selectedId, {
         type: type === "in" ? "IN" : "OUT",
+
         quantity: qty,
       });
+
       setAdjustQty("");
+
       await refreshAfterChange();
     } catch (err) {
       alert(`Failed to adjust stock: ${err.message}`);
@@ -615,6 +786,7 @@ export default function MaterialsClient() {
   const handleUseLeftover = async (row) => {
     try {
       await useLeftoverClient(selectedId, row.dbId);
+
       await refreshAfterChange();
     } catch (err) {
       alert(`Failed to use leftover: ${err.message}`);
@@ -623,8 +795,10 @@ export default function MaterialsClient() {
 
   const handleDeleteLeftover = async (row) => {
     if (!confirm(`Delete leftover "${row.description}"?`)) return;
+
     try {
       await deleteLeftoverClient(selectedId, row.dbId);
+
       await refreshAfterChange();
     } catch (err) {
       alert(`Failed to delete leftover: ${err.message}`);
@@ -634,16 +808,24 @@ export default function MaterialsClient() {
   const handleAddLeftover = async () => {
     if (!leftoverForm.description.trim() && !leftoverForm.dimensions.trim())
       return;
+
     if (!selectedId) return;
+
     try {
       setLeftoverSubmitting(true);
+
       await addLeftoverClient(selectedId, {
         description: leftoverForm.description,
+
         dimensions: leftoverForm.dimensions,
+
         quantity: leftoverForm.qty,
       });
+
       setLeftoverForm({ description: "", dimensions: "", qty: 1 });
+
       setShowAddLeftover(false);
+
       await refreshAfterChange();
     } catch (err) {
       alert(`Failed to add leftover: ${err.message}`);
@@ -654,27 +836,45 @@ export default function MaterialsClient() {
 
   const handleCreateMaterial = async () => {
     setFormError("");
+
     if (!form.name.trim()) return setFormError("Name is required");
+
     if (!form.supplierId) return setFormError("Supplier is required");
+
     if (form.minStock >= form.maxStock)
       return setFormError("Min stock must be less than max stock");
+
     try {
       setFormSubmitting(true);
+
       const created = await createMaterialClient({
         name: form.name,
+
         categoryId: form.categoryId,
+
         unit: form.unit,
+
         stock: form.stock,
+
         minStock: form.minStock,
+
         maxStock: form.maxStock,
+
         supplierId: form.supplierId,
+
         price: form.price,
+
         location: form.location,
       });
+
       setMaterials((prev) => [created, ...prev]);
+
       setSelectedId(created.id);
+
       setForm(emptyForm);
+
       setShowNewModal(false);
+
       loadMaterials();
     } catch (err) {
       setFormError(err.message);
@@ -684,42 +884,68 @@ export default function MaterialsClient() {
   };
 
   /* Edit material */
+
   const openEditMaterial = () => {
     if (!selected) return;
+
     setEditForm({
       name: selected.name ?? "",
+
       categoryId: selected.categoryId ?? null,
+
       unit: selected.unit ?? "sheet",
+
       stock: selected.stock ?? 0,
+
       minStock: selected.minStock ?? 1,
+
       maxStock: selected.maxStock ?? 10,
+
       supplierId: selected.supplierId ?? null,
+
       price: selected.price ?? 0,
+
       location: selected.location ?? "",
     });
+
     setEditFormError("");
+
     setShowEditModal(true);
   };
 
   const handleEditMaterial = async () => {
     setEditFormError("");
+
     if (!editForm.name.trim()) return setEditFormError("Name is required");
+
     if (!editForm.supplierId) return setEditFormError("Supplier is required");
+
     if (editForm.minStock >= editForm.maxStock)
       return setEditFormError("Min stock must be less than max stock");
+
     try {
       setEditFormSubmitting(true);
+
       await updateMaterialClient(selectedId, {
         name: editForm.name,
+
         categoryId: editForm.categoryId,
+
         unit: editForm.unit,
+
         minStock: editForm.minStock,
+
         maxStock: editForm.maxStock,
+
         supplierId: editForm.supplierId,
+
         price: editForm.price,
+
         location: editForm.location,
       });
+
       setShowEditModal(false);
+
       await refreshAfterChange();
     } catch (err) {
       setEditFormError(err.message);
@@ -729,21 +955,30 @@ export default function MaterialsClient() {
   };
 
   /* Delete material */
+
   const handleDeleteMaterial = async () => {
     if (!selectedId) return;
+
     if (
       !confirm(
         `Delete material "${selected?.name}"? This will also remove all its leftovers and stock movements.`,
       )
     )
       return;
+
     try {
       const codeToDelete = selectedId;
+
       await deleteMaterialClient(codeToDelete);
+
       setSelectedId(null);
+
       setSelectedDetail(null);
+
       const fresh = await getAllMaterialsClient();
+
       setMaterials(fresh);
+
       if (fresh[0]) setSelectedId(fresh[0].id);
     } catch (err) {
       alert(`Failed to delete: ${err.message}`);
@@ -751,36 +986,48 @@ export default function MaterialsClient() {
   };
 
   /* Edit leftover (inline) */
+
   const startEditLeftover = (l) => {
     setEditingLeftoverId(l.dbId);
+
     setEditLeftoverForm({
       description: l.description ?? "",
+
       dimensions: l.dimensions ?? "",
+
       qty: l.qty ?? 1,
     });
   };
 
   const cancelEditLeftover = () => {
     setEditingLeftoverId(null);
+
     setEditLeftoverForm({ description: "", dimensions: "", qty: 1 });
   };
 
   const handleSaveLeftover = async () => {
     if (!editingLeftoverId) return;
+
     if (
       !editLeftoverForm.description.trim() &&
       !editLeftoverForm.dimensions.trim()
     ) {
       return alert("Description or dimensions required");
     }
+
     try {
       setEditLeftoverSubmitting(true);
+
       await updateLeftoverClient(selectedId, editingLeftoverId, {
         description: editLeftoverForm.description,
+
         dimensions: editLeftoverForm.dimensions,
+
         quantity: editLeftoverForm.qty,
       });
+
       cancelEditLeftover();
+
       await refreshAfterChange();
     } catch (err) {
       alert(`Failed to update leftover: ${err.message}`);
@@ -792,19 +1039,25 @@ export default function MaterialsClient() {
   return (
     <div className="flex h-full relative overflow-hidden">
       <AppChrome />
+
       {/* LEFT: Table + Filters */}
+
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {error && (
           <div
             className="flex items-center gap-3 px-4 py-3 shrink-0"
             style={{
               background: "var(--stage-contract)15",
+
               borderBottom: "1px solid rgba(220,38,38,0.2)",
+
               color: "var(--stage-contract)",
             }}
           >
             <Icons.alert />
+
             <span className="text-sm font-medium flex-1 min-w-0">{error}</span>
+
             <button
               onClick={loadMaterials}
               className="ml-auto btn-ghost text-xs flex items-center gap-1 shrink-0"
@@ -819,16 +1072,19 @@ export default function MaterialsClient() {
             className="flex items-center gap-3 px-4 py-3 shrink-0"
             style={{
               background: "var(--accent-soft)",
+
               borderBottom: "1px solid rgba(254,189,17,0.2)",
             }}
           >
             <Icons.alert />
+
             <span
               className="text-sm font-medium flex-1 min-w-0"
               style={{ color: "var(--accent)" }}
             >
               {lowStockCount} low · {outStockCount} out
             </span>
+
             <button
               onClick={() => setStatusFilter("LOW_STOCK")}
               className="ml-auto text-xs font-medium px-3 py-1 rounded-md shrink-0 tap-scale transition-transform"
@@ -840,18 +1096,22 @@ export default function MaterialsClient() {
         )}
 
         <div
-          className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 p-3 sm:p-4 shrink-0"
+          className="flex flex-col gap-2 p-3 sm:p-4 shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <div className="flex items-center gap-2">
+          {/* Row 1: search + actions + count */}
+
+          <div className="flex items-center gap-2 flex-wrap">
             <div
-              className="flex items-center gap-2 px-3 py-2 sm:py-1.5 rounded-md focus-ring flex-1 sm:flex-none sm:w-[240px]"
+              className="flex items-center gap-2 px-3 py-2 sm:py-1.5 rounded-md focus-ring min-w-0 flex-1 sm:flex-none sm:w-[280px]"
               style={{
                 background: "var(--bg)",
+
                 border: "1px solid var(--border)",
               }}
             >
               <Icons.search />
+
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -859,6 +1119,7 @@ export default function MaterialsClient() {
                 className="bg-transparent text-sm outline-none w-full placeholder:text-[var(--ink-muted)]"
                 style={{ color: "var(--ink)" }}
               />
+
               {search && (
                 <button
                   onClick={() => setSearch("")}
@@ -868,17 +1129,34 @@ export default function MaterialsClient() {
                 </button>
               )}
             </div>
+
             <button
               onClick={loadMaterials}
-              className="sm:hidden btn-ghost text-xs px-2.5 py-2 shrink-0"
+              className="btn-ghost text-xs px-2.5 py-2 sm:py-1.5 shrink-0"
               title="Refresh"
               disabled={loading}
             >
               <Icons.refresh />
             </button>
+
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="hidden sm:inline-flex btn-primary text-xs px-3 py-1.5 shrink-0"
+            >
+              <Icons.plus /> New Material
+            </button>
+
+            <div
+              className="text-xs shrink-0 basis-full sm:basis-auto sm:ml-auto text-right sm:text-left"
+              style={{ color: "var(--ink-muted)" }}
+            >
+              {filtered.length} items · {totalValue.toLocaleString()} DZD
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 sm:flex-wrap">
+          {/* Row 2: category chips — always single horizontal-scroll row */}
+
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
             {catNames.map((c) => (
               <button
                 key={c}
@@ -887,7 +1165,9 @@ export default function MaterialsClient() {
                 style={{
                   background:
                     catFilter === c ? "var(--surface-2)" : "transparent",
+
                   color: catFilter === c ? "var(--ink)" : "var(--ink-muted)",
+
                   border: `1px solid ${catFilter === c ? "var(--border)" : "transparent"}`,
                 }}
               >
@@ -896,10 +1176,14 @@ export default function MaterialsClient() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 sm:ml-2 sm:flex-wrap">
+          {/* Row 3: status chips — always single horizontal-scroll row */}
+
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
             {STATUSES.filter((s) => s !== "All").map((s) => {
               const count = materials.filter((m) => m.status === s).length;
+
               const active = statusFilter === s;
+
               return (
                 <button
                   key={s}
@@ -909,7 +1193,9 @@ export default function MaterialsClient() {
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors shrink-0"
                   style={{
                     background: active ? `${STATUS_DOT[s]}15` : "transparent",
+
                     color: active ? STATUS_DOT[s] : "var(--ink-muted)",
+
                     border: `1px solid ${active ? `${STATUS_DOT[s]}40` : "transparent"}`,
                   }}
                 >
@@ -917,11 +1203,14 @@ export default function MaterialsClient() {
                     className="w-1.5 h-1.5 rounded-full"
                     style={{ background: STATUS_DOT[s] }}
                   />
+
                   {s.replace(/_/g, " ")}
+
                   <span
                     className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
                     style={{
                       background: "var(--bg)",
+
                       color: "var(--ink-muted)",
                     }}
                   >
@@ -931,38 +1220,20 @@ export default function MaterialsClient() {
               );
             })}
           </div>
-
-          <div className="hidden sm:block flex-1" />
-          <button
-            onClick={loadMaterials}
-            className="hidden sm:inline-flex btn-ghost text-xs px-2 py-1.5"
-            title="Refresh"
-            disabled={loading}
-          >
-            <Icons.refresh />
-          </button>
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="hidden sm:inline-flex btn-primary text-xs px-3 py-1.5"
-          >
-            <Icons.plus /> New Material
-          </button>
-          <div
-            className="text-xs shrink-0"
-            style={{ color: "var(--ink-muted)" }}
-          >
-            {filtered.length} items · {totalValue.toLocaleString()} DZD
-          </div>
         </div>
 
         {/* Mobile FAB — primary create action, thumb-reachable */}
+
         <button
           onClick={() => setShowNewModal(true)}
           className="sm:hidden fixed z-30 w-14 h-14 rounded-full shadow-lg flex items-center justify-center tap-scale transition-transform"
           style={{
             background: "var(--accent)",
+
             color: "var(--on-accent)",
+
             right: "1.25rem",
+
             bottom: "calc(1.25rem + env(safe-area-inset-bottom))",
           }}
           aria-label="New Material"
@@ -994,61 +1265,73 @@ export default function MaterialsClient() {
                     >
                       ID
                     </th>
+
                     <th
                       className="px-4 py-3 text-xs font-medium"
                       style={{ color: "var(--ink-muted)" }}
                     >
                       Material
                     </th>
+
                     <th
                       className="px-4 py-3 text-xs font-medium"
                       style={{ color: "var(--ink-muted)" }}
                     >
                       Category
                     </th>
+
                     <th
                       className="px-4 py-3 text-xs font-medium"
                       style={{ color: "var(--ink-muted)" }}
                     >
                       Stock
                     </th>
+
                     <th
                       className="px-4 py-3 text-xs font-medium"
                       style={{ color: "var(--ink-muted)" }}
                     >
                       Status
                     </th>
+
                     <th
                       className="px-4 py-3 text-xs font-medium"
                       style={{ color: "var(--ink-muted)" }}
                     >
                       Leftovers
                     </th>
+
                     <th
                       className="px-4 py-3 text-xs font-medium"
                       style={{ color: "var(--ink-muted)" }}
                     >
                       Supplier
                     </th>
+
                     <th
                       className="px-4 py-3 text-xs font-medium text-right"
                       style={{ color: "var(--ink-muted)" }}
                     >
                       Unit Price
                     </th>
+
                     <th
                       className="px-4 py-3 text-xs font-medium text-center"
                       style={{ color: "var(--ink-muted)" }}
                     ></th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {filtered.map((m) => {
                     const isSel = selectedId === m.id;
+
                     const stockPct = Math.min(
                       100,
+
                       (m.stock / m.maxStock) * 100,
                     );
+
                     return (
                       <tr
                         key={m.id}
@@ -1058,6 +1341,7 @@ export default function MaterialsClient() {
                           background: isSel
                             ? "var(--accent-soft)"
                             : "transparent",
+
                           borderTop: "1px solid var(--border)",
                         }}
                       >
@@ -1067,8 +1351,10 @@ export default function MaterialsClient() {
                         >
                           {m.id}
                         </td>
+
                         <td className="px-4 py-3">
                           <div className="font-medium text-sm">{m.name}</div>
+
                           <div
                             className="text-xs"
                             style={{ color: "var(--ink-muted)" }}
@@ -1076,12 +1362,15 @@ export default function MaterialsClient() {
                             {m.location}
                           </div>
                         </td>
+
                         <td className="px-4 py-3 text-xs">{m.category}</td>
+
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <span className="font-medium tabular-nums">
                               {m.stock}
                             </span>
+
                             <span
                               className="text-xs"
                               style={{ color: "var(--ink-muted)" }}
@@ -1089,6 +1378,7 @@ export default function MaterialsClient() {
                               {m.unit}
                             </span>
                           </div>
+
                           <div
                             className="mt-1 h-1 w-16 rounded-full overflow-hidden"
                             style={{ background: "var(--surface-2)" }}
@@ -1097,6 +1387,7 @@ export default function MaterialsClient() {
                               className="h-full rounded-full"
                               style={{
                                 width: `${stockPct}%`,
+
                                 background:
                                   m.status === "OUT_OF_STOCK"
                                     ? "var(--stage-contract)"
@@ -1107,9 +1398,11 @@ export default function MaterialsClient() {
                             />
                           </div>
                         </td>
+
                         <td className="px-4 py-3">
                           <StageBadge stage={m.status} />
                         </td>
+
                         <td className="px-4 py-3">
                           {m.leftoverCount > 0 ? (
                             <span
@@ -1117,9 +1410,11 @@ export default function MaterialsClient() {
                               style={{ color: "var(--ink-muted)" }}
                             >
                               <Icons.ruler />
+
                               <span className="tabular-nums">
                                 {m.leftoverCount}
                               </span>
+
                               <span>piece{m.leftoverCount > 1 ? "s" : ""}</span>
                             </span>
                           ) : (
@@ -1131,10 +1426,13 @@ export default function MaterialsClient() {
                             </span>
                           )}
                         </td>
+
                         <td className="px-4 py-3 text-xs">{m.supplier}</td>
+
                         <td className="px-4 py-3 text-right font-medium tabular-nums">
                           {m.price.toLocaleString()} DZD
                         </td>
+
                         <td className="px-4 py-3 text-center">
                           <button
                             className="btn-ghost p-1"
@@ -1146,6 +1444,7 @@ export default function MaterialsClient() {
                       </tr>
                     );
                   })}
+
                   {filtered.length === 0 && !loading && (
                     <tr>
                       <td
@@ -1161,10 +1460,13 @@ export default function MaterialsClient() {
               </table>
 
               {/* Mobile card list — full-width tappable rows, not a squeezed table */}
+
               <div className="sm:hidden">
                 {filtered.map((m) => {
                   const isSel = selectedId === m.id;
+
                   const stockPct = Math.min(100, (m.stock / m.maxStock) * 100);
+
                   return (
                     <button
                       key={m.id}
@@ -1174,6 +1476,7 @@ export default function MaterialsClient() {
                         background: isSel
                           ? "var(--accent-soft)"
                           : "transparent",
+
                         borderBottom: "1px solid var(--border)",
                       }}
                     >
@@ -1182,14 +1485,17 @@ export default function MaterialsClient() {
                           <span className="font-medium text-sm truncate">
                             {m.name}
                           </span>
+
                           <StageBadge stage={m.status} />
                         </div>
+
                         <div
                           className="text-xs mt-0.5 truncate"
                           style={{ color: "var(--ink-muted)" }}
                         >
                           {m.id} · {m.category} · {m.supplier}
                         </div>
+
                         <div className="flex items-center gap-2 mt-1.5">
                           <div
                             className="h-1 flex-1 rounded-full overflow-hidden"
@@ -1199,6 +1505,7 @@ export default function MaterialsClient() {
                               className="h-full rounded-full"
                               style={{
                                 width: `${stockPct}%`,
+
                                 background:
                                   m.status === "OUT_OF_STOCK"
                                     ? "var(--stage-contract)"
@@ -1208,6 +1515,7 @@ export default function MaterialsClient() {
                               }}
                             />
                           </div>
+
                           <span
                             className="text-xs tabular-nums shrink-0"
                             style={{ color: "var(--ink-muted)" }}
@@ -1216,6 +1524,7 @@ export default function MaterialsClient() {
                           </span>
                         </div>
                       </div>
+
                       <span
                         className="shrink-0"
                         style={{ color: "var(--ink-muted)" }}
@@ -1225,6 +1534,7 @@ export default function MaterialsClient() {
                     </button>
                   );
                 })}
+
                 {filtered.length === 0 && !loading && (
                   <div
                     className="px-4 py-12 text-center text-sm"
@@ -1240,6 +1550,7 @@ export default function MaterialsClient() {
       </div>
 
       {/* RIGHT: Detail Panel — off-canvas full-screen view on mobile, static sidebar on desktop */}
+
       <div
         onTouchStart={handleDetailTouchStart}
         onTouchEnd={handleDetailTouchEnd}
@@ -1248,16 +1559,21 @@ export default function MaterialsClient() {
         }`}
         style={{
           borderLeft: "1px solid var(--border)",
+
           background: "var(--surface)",
+
           WebkitOverflowScrolling: "touch",
         }}
       >
         {/* Mobile-only back header, app nav-bar style */}
+
         <div
           className="sm:hidden flex items-center gap-2 p-3 shrink-0 sticky top-0 z-10"
           style={{
             background: "var(--surface)",
+
             borderBottom: "1px solid var(--border)",
+
             paddingTop: "calc(0.75rem + env(safe-area-inset-top))",
           }}
         >
@@ -1268,9 +1584,11 @@ export default function MaterialsClient() {
           >
             <Icons.chevronLeft />
           </button>
+
           <span className="text-sm font-semibold truncate flex-1">
             {selected ? selected.name : "Material"}
           </span>
+
           {selected && (
             <button
               onClick={openEditMaterial}
@@ -1302,9 +1620,12 @@ export default function MaterialsClient() {
                 >
                   {selected.id}
                 </span>
+
                 <StageBadge stage={selected.status} size="lg" />
               </div>
+
               <h2 className="text-lg font-semibold">{selected.name}</h2>
+
               <div
                 className="text-sm mt-1"
                 style={{ color: "var(--ink-muted)" }}
@@ -1322,6 +1643,7 @@ export default function MaterialsClient() {
                   <div className="text-3xl font-bold tabular-nums">
                     {selected.stock}
                   </div>
+
                   <div
                     className="text-xs"
                     style={{ color: "var(--ink-muted)" }}
@@ -1329,6 +1651,7 @@ export default function MaterialsClient() {
                     {selected.unit} in stock
                   </div>
                 </div>
+
                 <div className="text-right">
                   <div
                     className="text-sm font-medium"
@@ -1336,6 +1659,7 @@ export default function MaterialsClient() {
                   >
                     {stockPercent}% capacity
                   </div>
+
                   <div
                     className="text-xs"
                     style={{ color: "var(--ink-muted)" }}
@@ -1344,10 +1668,12 @@ export default function MaterialsClient() {
                   </div>
                 </div>
               </div>
+
               <div
                 className="h-2 w-full rounded-full overflow-hidden"
                 style={{
                   background: "var(--bg)",
+
                   border: "1px solid var(--border)",
                 }}
               >
@@ -1356,11 +1682,13 @@ export default function MaterialsClient() {
                   style={{ width: `${stockPercent}%`, background: stockColor }}
                 />
               </div>
+
               <div
                 className="flex justify-between mt-1 text-[10px] uppercase tracking-wider"
                 style={{ color: "var(--ink-muted)" }}
               >
                 <span>0</span>
+
                 <span
                   style={{
                     color:
@@ -1371,6 +1699,7 @@ export default function MaterialsClient() {
                 >
                   Min ({selected.minStock})
                 </span>
+
                 <span>Max ({selected.maxStock})</span>
               </div>
             </div>
@@ -1385,6 +1714,7 @@ export default function MaterialsClient() {
               >
                 Quick Adjust
               </h3>
+
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -1394,12 +1724,14 @@ export default function MaterialsClient() {
                   className="flex-1 px-3 py-2 rounded-md text-sm outline-none focus-ring tabular-nums"
                   style={inputStyle}
                 />
+
                 <button
                   onClick={() => handleAdjust("in")}
                   className="btn-primary px-4"
                 >
                   <Icons.plus /> In
                 </button>
+
                 <button
                   onClick={() => handleAdjust("out")}
                   className="btn-ghost px-4 border"
@@ -1408,6 +1740,7 @@ export default function MaterialsClient() {
                   <Icons.minus /> Out
                 </button>
               </div>
+
               <div className="flex gap-2">
                 <button
                   className="btn-ghost flex-1 justify-center text-xs border"
@@ -1415,11 +1748,13 @@ export default function MaterialsClient() {
                 >
                   <Icons.truck /> Order Restock
                 </button>
+
                 <button
                   onClick={() => setShowHistory(!showHistory)}
                   className="btn-ghost flex-1 justify-center text-xs border"
                   style={{
                     borderColor: "var(--border)",
+
                     color: showHistory ? "var(--accent)" : undefined,
                   }}
                 >
@@ -1442,19 +1777,24 @@ export default function MaterialsClient() {
                     className="px-1.5 py-0.5 rounded text-[10px] tabular-nums"
                     style={{
                       background: "var(--bg)",
+
                       color: "var(--ink-muted)",
+
                       border: "1px solid var(--border)",
                     }}
                   >
                     {(selected.leftovers ?? []).reduce((s, l) => s + l.qty, 0)}
                   </span>
                 </h3>
+
                 <button
                   onClick={() => setShowAddLeftover((s) => !s)}
                   className="text-xs font-medium flex items-center gap-1 px-2 py-1 rounded-md"
                   style={{
                     background: "var(--bg)",
+
                     color: "var(--ink)",
+
                     border: "1px solid var(--border)",
                   }}
                 >
@@ -1467,6 +1807,7 @@ export default function MaterialsClient() {
                   className="p-3 rounded-lg space-y-2"
                   style={{
                     background: "var(--bg)",
+
                     border: "1px solid var(--border)",
                   }}
                 >
@@ -1475,6 +1816,7 @@ export default function MaterialsClient() {
                     onChange={(e) =>
                       setLeftoverForm((f) => ({
                         ...f,
+
                         description: e.target.value,
                       }))
                     }
@@ -1482,12 +1824,14 @@ export default function MaterialsClient() {
                     className="w-full px-2.5 py-1.5 rounded text-xs outline-none focus-ring"
                     style={inputStyle}
                   />
+
                   <div className="flex gap-2">
                     <input
                       value={leftoverForm.dimensions}
                       onChange={(e) =>
                         setLeftoverForm((f) => ({
                           ...f,
+
                           dimensions: e.target.value,
                         }))
                       }
@@ -1495,6 +1839,7 @@ export default function MaterialsClient() {
                       className="flex-1 px-2.5 py-1.5 rounded text-xs outline-none focus-ring"
                       style={inputStyle}
                     />
+
                     <input
                       type="number"
                       min="1"
@@ -1506,13 +1851,17 @@ export default function MaterialsClient() {
                       style={inputStyle}
                     />
                   </div>
+
                   <div className="flex gap-2 justify-end">
                     <button
                       onClick={() => {
                         setShowAddLeftover(false);
+
                         setLeftoverForm({
                           description: "",
+
                           dimensions: "",
+
                           qty: 1,
                         });
                       }}
@@ -1520,6 +1869,7 @@ export default function MaterialsClient() {
                     >
                       Cancel
                     </button>
+
                     <button
                       onClick={handleAddLeftover}
                       disabled={leftoverSubmitting}
@@ -1550,11 +1900,13 @@ export default function MaterialsClient() {
                   {(selected.leftovers ?? []).map((l) =>
                     editingLeftoverId === l.dbId ? (
                       /* Inline edit form */
+
                       <div
                         key={l.id}
                         className="p-3 rounded-lg space-y-2"
                         style={{
                           background: "var(--bg)",
+
                           border: "1px solid var(--accent)",
                         }}
                       >
@@ -1563,6 +1915,7 @@ export default function MaterialsClient() {
                           onChange={(e) =>
                             setEditLeftoverForm((f) => ({
                               ...f,
+
                               description: e.target.value,
                             }))
                           }
@@ -1571,12 +1924,14 @@ export default function MaterialsClient() {
                           style={inputStyle}
                           autoFocus
                         />
+
                         <div className="flex gap-2">
                           <input
                             value={editLeftoverForm.dimensions}
                             onChange={(e) =>
                               setEditLeftoverForm((f) => ({
                                 ...f,
+
                                 dimensions: e.target.value,
                               }))
                             }
@@ -1584,6 +1939,7 @@ export default function MaterialsClient() {
                             className="flex-1 px-2.5 py-1.5 rounded text-xs outline-none focus-ring"
                             style={inputStyle}
                           />
+
                           <input
                             type="number"
                             min="1"
@@ -1591,6 +1947,7 @@ export default function MaterialsClient() {
                             onChange={(e) =>
                               setEditLeftoverForm((f) => ({
                                 ...f,
+
                                 qty: e.target.value,
                               }))
                             }
@@ -1598,6 +1955,7 @@ export default function MaterialsClient() {
                             style={inputStyle}
                           />
                         </div>
+
                         <div className="flex gap-2 justify-end">
                           <button
                             onClick={cancelEditLeftover}
@@ -1605,6 +1963,7 @@ export default function MaterialsClient() {
                           >
                             Cancel
                           </button>
+
                           <button
                             onClick={handleSaveLeftover}
                             disabled={editLeftoverSubmitting}
@@ -1616,11 +1975,13 @@ export default function MaterialsClient() {
                       </div>
                     ) : (
                       /* Normal row */
+
                       <div
                         key={l.id}
                         className="p-3 rounded-lg flex items-center gap-3 group"
                         style={{
                           background: "var(--bg)",
+
                           border: "1px solid var(--border)",
                         }}
                       >
@@ -1628,26 +1989,34 @@ export default function MaterialsClient() {
                           className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                           style={{
                             background: "var(--surface-2)",
+
                             color: "var(--accent)",
                           }}
                         >
                           <Icons.ruler />
                         </div>
+
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">
                             {l.description}
                           </div>
+
                           <div
                             className="text-xs flex items-center gap-1.5"
                             style={{ color: "var(--ink-muted)" }}
                           >
                             {l.dimensions && <span>{l.dimensions}</span>}
+
                             {l.dimensions && <span>·</span>}
+
                             <span>{l.source}</span>
+
                             <span>·</span>
+
                             <span>{l.date}</span>
                           </div>
                         </div>
+
                         <div className="flex items-center gap-2">
                           <span
                             className="text-sm font-bold tabular-nums px-2 py-0.5 rounded"
@@ -1655,6 +2024,7 @@ export default function MaterialsClient() {
                           >
                             ×{l.qty}
                           </span>
+
                           <button
                             onClick={() => handleUseLeftover(l)}
                             className="btn-primary text-xs px-2.5 py-1.5"
@@ -1662,6 +2032,7 @@ export default function MaterialsClient() {
                           >
                             <Icons.scissors /> Use
                           </button>
+
                           <button
                             onClick={() => startEditLeftover(l)}
                             className="btn-ghost p-1.5 opacity-50 hover:opacity-100"
@@ -1669,6 +2040,7 @@ export default function MaterialsClient() {
                           >
                             <Icons.edit />
                           </button>
+
                           <button
                             onClick={() => handleDeleteLeftover(l)}
                             className="btn-ghost p-1.5 opacity-50 hover:opacity-100"
@@ -1695,6 +2067,7 @@ export default function MaterialsClient() {
                 >
                   Recent Usage
                 </h3>
+
                 {detailLoading && !selected.usage?.length ? (
                   <div
                     className="text-xs text-center py-4"
@@ -1717,6 +2090,7 @@ export default function MaterialsClient() {
                         className="flex items-center gap-3 p-3 rounded-lg"
                         style={{
                           background: "var(--bg)",
+
                           border: "1px solid var(--border)",
                         }}
                       >
@@ -1724,6 +2098,7 @@ export default function MaterialsClient() {
                           className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
                           style={{
                             background: "var(--surface-2)",
+
                             color:
                               u.type === "in"
                                 ? "var(--stage-completed)"
@@ -1732,10 +2107,12 @@ export default function MaterialsClient() {
                         >
                           {u.type === "in" ? <Icons.box /> : <Icons.package />}
                         </div>
+
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">
                             {u.order}
                           </div>
+
                           <div
                             className="text-xs"
                             style={{ color: "var(--ink-muted)" }}
@@ -1743,6 +2120,7 @@ export default function MaterialsClient() {
                             {u.worker} · {u.date}
                           </div>
                         </div>
+
                         <div
                           className="text-sm font-bold tabular-nums"
                           style={{
@@ -1753,6 +2131,7 @@ export default function MaterialsClient() {
                           }}
                         >
                           {u.type === "in" ? "+" : "-"}
+
                           {u.qty}
                         </div>
                       </div>
@@ -1772,11 +2151,13 @@ export default function MaterialsClient() {
               >
                 Details
               </h3>
+
               <div className="grid grid-cols-2 gap-3">
                 <div
                   className="p-3 rounded-lg"
                   style={{
                     background: "var(--bg)",
+
                     border: "1px solid var(--border)",
                   }}
                 >
@@ -1786,14 +2167,17 @@ export default function MaterialsClient() {
                   >
                     Location
                   </div>
+
                   <div className="text-sm font-medium">
                     {selected.location || "—"}
                   </div>
                 </div>
+
                 <div
                   className="p-3 rounded-lg"
                   style={{
                     background: "var(--bg)",
+
                     border: "1px solid var(--border)",
                   }}
                 >
@@ -1803,11 +2187,13 @@ export default function MaterialsClient() {
                   >
                     Last Used
                   </div>
+
                   <div className="text-sm font-medium">
                     {selected.lastUsed || "—"}
                   </div>
                 </div>
               </div>
+
               <div
                 className="flex justify-between text-sm py-2"
                 style={{ borderTop: "1px solid var(--border)" }}
@@ -1815,6 +2201,7 @@ export default function MaterialsClient() {
                 <span style={{ color: "var(--ink-muted)" }}>
                   Inventory Value
                 </span>
+
                 <span className="font-semibold">
                   {(selected.stock * selected.price).toLocaleString()} DZD
                 </span>
@@ -1833,16 +2220,19 @@ export default function MaterialsClient() {
               >
                 <Icons.edit /> Edit Material
               </button>
+
               <button
                 onClick={handleDeleteMaterial}
                 className="btn-ghost w-full justify-center text-sm border"
                 style={{
                   borderColor: "var(--border)",
+
                   color: "var(--stage-contract)",
                 }}
               >
                 <Icons.trash /> Delete Material
               </button>
+
               <button
                 className="btn-ghost w-full justify-center text-sm border"
                 style={{ borderColor: "var(--border)" }}
@@ -1856,12 +2246,15 @@ export default function MaterialsClient() {
       </div>
 
       {/* New Material Modal */}
+
       {showNewModal && (
         <Modal
           title="New Material"
           onClose={() => {
             setShowNewModal(false);
+
             setFormError("");
+
             setForm(emptyForm);
           }}
           footer={
@@ -1869,13 +2262,16 @@ export default function MaterialsClient() {
               <button
                 onClick={() => {
                   setShowNewModal(false);
+
                   setFormError("");
+
                   setForm(emptyForm);
                 }}
                 className="btn-ghost px-4 text-sm"
               >
                 Cancel
               </button>
+
               <button
                 onClick={handleCreateMaterial}
                 disabled={formSubmitting}
@@ -1898,12 +2294,14 @@ export default function MaterialsClient() {
                 style={inputStyle}
               />
             </Field>
+
             <Field label="Category *">
               <select
                 value={form.categoryId ?? ""}
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
+
                     categoryId: e.target.value ? Number(e.target.value) : null,
                   }))
                 }
@@ -1911,6 +2309,7 @@ export default function MaterialsClient() {
                 style={inputStyle}
               >
                 <option value="">— select —</option>
+
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -1918,6 +2317,7 @@ export default function MaterialsClient() {
                 ))}
               </select>
             </Field>
+
             <Field label="Unit *">
               <select
                 value={form.unit}
@@ -1929,25 +2329,35 @@ export default function MaterialsClient() {
               >
                 {[
                   "m²",
+
                   "sheet",
+
                   "pc",
+
                   "m",
+
                   "roll",
+
                   "can",
+
                   "pair",
+
                   "kg",
+
                   "L",
                 ].map((u) => (
                   <option key={u}>{u}</option>
                 ))}
               </select>
             </Field>
+
             <Field label="Supplier *">
               <select
                 value={form.supplierId ?? ""}
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
+
                     supplierId: e.target.value ? Number(e.target.value) : null,
                   }))
                 }
@@ -1955,6 +2365,7 @@ export default function MaterialsClient() {
                 style={inputStyle}
               >
                 <option value="">— select —</option>
+
                 {suppliers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -1962,6 +2373,7 @@ export default function MaterialsClient() {
                 ))}
               </select>
             </Field>
+
             <Field label="Location">
               <input
                 value={form.location}
@@ -1973,6 +2385,7 @@ export default function MaterialsClient() {
                 style={inputStyle}
               />
             </Field>
+
             <Field label="Unit Price (DZD)">
               <input
                 type="number"
@@ -1981,6 +2394,7 @@ export default function MaterialsClient() {
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
+
                     price: parseInt(e.target.value) || 0,
                   }))
                 }
@@ -1988,6 +2402,7 @@ export default function MaterialsClient() {
                 style={inputStyle}
               />
             </Field>
+
             <Field label="Initial Stock">
               <input
                 type="number"
@@ -1996,6 +2411,7 @@ export default function MaterialsClient() {
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
+
                     stock: parseInt(e.target.value) || 0,
                   }))
                 }
@@ -2003,7 +2419,9 @@ export default function MaterialsClient() {
                 style={inputStyle}
               />
             </Field>
+
             <div />
+
             <Field label="Min Stock" hint="Below this = Low Stock">
               <input
                 type="number"
@@ -2012,6 +2430,7 @@ export default function MaterialsClient() {
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
+
                     minStock: parseInt(e.target.value) || 0,
                   }))
                 }
@@ -2019,6 +2438,7 @@ export default function MaterialsClient() {
                 style={inputStyle}
               />
             </Field>
+
             <Field label="Max Stock" hint="Full capacity">
               <input
                 type="number"
@@ -2027,6 +2447,7 @@ export default function MaterialsClient() {
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
+
                     maxStock: parseInt(e.target.value) || 1,
                   }))
                 }
@@ -2041,7 +2462,9 @@ export default function MaterialsClient() {
               className="mt-4 px-3 py-2 rounded-md text-xs flex items-center gap-2"
               style={{
                 background: "var(--stage-contract)15",
+
                 color: "var(--stage-contract)",
+
                 border: "1px solid var(--stage-contract)40",
               }}
             >
@@ -2053,17 +2476,22 @@ export default function MaterialsClient() {
             className="mt-5 p-3 rounded-lg flex items-center justify-between"
             style={{
               background: "var(--bg)",
+
               border: "1px solid var(--border)",
             }}
           >
             <span className="text-xs" style={{ color: "var(--ink-muted)" }}>
               Computed status
             </span>
+
             <StageBadge
               stage={computeStatus(
                 form.stock,
+
                 form.minStock,
+
                 form.maxStock,
+
                 null,
               )}
             />
@@ -2072,11 +2500,13 @@ export default function MaterialsClient() {
       )}
 
       {/* ─── Edit Material Modal ─── */}
+
       {showEditModal && selected && (
         <Modal
           title={`Edit ${selected.name}`}
           onClose={() => {
             setShowEditModal(false);
+
             setEditFormError("");
           }}
           maxWidth={620}
@@ -2085,12 +2515,14 @@ export default function MaterialsClient() {
               <button
                 onClick={() => {
                   setShowEditModal(false);
+
                   setEditFormError("");
                 }}
                 className="btn-ghost px-4 text-sm"
               >
                 Cancel
               </button>
+
               <button
                 onClick={handleEditMaterial}
                 disabled={editFormSubmitting}
@@ -2112,12 +2544,14 @@ export default function MaterialsClient() {
                 style={inputStyle}
               />
             </Field>
+
             <Field label="Category *">
               <select
                 value={editForm.categoryId ?? ""}
                 onChange={(e) =>
                   setEditForm((f) => ({
                     ...f,
+
                     categoryId: e.target.value ? Number(e.target.value) : null,
                   }))
                 }
@@ -2125,6 +2559,7 @@ export default function MaterialsClient() {
                 style={inputStyle}
               >
                 <option value="">— select —</option>
+
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -2132,6 +2567,7 @@ export default function MaterialsClient() {
                 ))}
               </select>
             </Field>
+
             <Field label="Unit *">
               <select
                 value={editForm.unit}
@@ -2143,25 +2579,35 @@ export default function MaterialsClient() {
               >
                 {[
                   "m²",
+
                   "sheet",
+
                   "pc",
+
                   "m",
+
                   "roll",
+
                   "can",
+
                   "pair",
+
                   "kg",
+
                   "L",
                 ].map((u) => (
                   <option key={u}>{u}</option>
                 ))}
               </select>
             </Field>
+
             <Field label="Supplier *">
               <select
                 value={editForm.supplierId ?? ""}
                 onChange={(e) =>
                   setEditForm((f) => ({
                     ...f,
+
                     supplierId: e.target.value ? Number(e.target.value) : null,
                   }))
                 }
@@ -2169,6 +2615,7 @@ export default function MaterialsClient() {
                 style={inputStyle}
               >
                 <option value="">— select —</option>
+
                 {suppliers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -2176,6 +2623,7 @@ export default function MaterialsClient() {
                 ))}
               </select>
             </Field>
+
             <Field label="Location">
               <input
                 value={editForm.location}
@@ -2186,6 +2634,7 @@ export default function MaterialsClient() {
                 style={inputStyle}
               />
             </Field>
+
             <Field label="Unit Price (DZD)">
               <input
                 type="number"
@@ -2194,6 +2643,7 @@ export default function MaterialsClient() {
                 onChange={(e) =>
                   setEditForm((f) => ({
                     ...f,
+
                     price: parseInt(e.target.value) || 0,
                   }))
                 }
@@ -2201,6 +2651,7 @@ export default function MaterialsClient() {
                 style={inputStyle}
               />
             </Field>
+
             <Field label="Min Stock" hint="Below this = Low Stock">
               <input
                 type="number"
@@ -2209,6 +2660,7 @@ export default function MaterialsClient() {
                 onChange={(e) =>
                   setEditForm((f) => ({
                     ...f,
+
                     minStock: parseInt(e.target.value) || 0,
                   }))
                 }
@@ -2216,6 +2668,7 @@ export default function MaterialsClient() {
                 style={inputStyle}
               />
             </Field>
+
             <Field label="Max Stock" hint="Full capacity">
               <input
                 type="number"
@@ -2224,6 +2677,7 @@ export default function MaterialsClient() {
                 onChange={(e) =>
                   setEditForm((f) => ({
                     ...f,
+
                     maxStock: parseInt(e.target.value) || 1,
                   }))
                 }
@@ -2238,7 +2692,9 @@ export default function MaterialsClient() {
               className="mt-4 px-3 py-2 rounded-md text-xs flex items-center gap-2"
               style={{
                 background: "var(--stage-contract)15",
+
                 color: "var(--stage-contract)",
+
                 border: "1px solid var(--stage-contract)40",
               }}
             >
@@ -2250,6 +2706,7 @@ export default function MaterialsClient() {
             className="mt-5 p-3 rounded-lg"
             style={{
               background: "var(--bg)",
+
               border: "1px solid var(--border)",
             }}
           >
@@ -2263,6 +2720,7 @@ export default function MaterialsClient() {
                   {selected.stock} {selected.unit}
                 </strong>
               </span>
+
               <span>
                 Use Quick Adjust to change stock — it's tracked via IN/OUT
                 movements.

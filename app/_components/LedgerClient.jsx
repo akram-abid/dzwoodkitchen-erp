@@ -10,6 +10,13 @@ import {
   deleteLedgerEntry,
 } from "../../lib/api_helpers/ledger";
 
+import { getAllCategoriesClient } from "../../lib/api_helpers/categories";
+
+import {
+  createMaterialClient,
+  adjustStockClient,
+} from "../../lib/api_helpers/materials";
+
 /* ─── Reusable UI ─── */
 
 const StageBadge = ({ stage, size = "sm", custom }) => {
@@ -588,6 +595,7 @@ export default function LedgerClient() {
   const [workers, setWorkers] = useState([]); // [{id, full_name}]
   const [suppliers, setSuppliers] = useState([]); // [{id, name}]
   const [materialCatalog, setMaterialCatalog] = useState([]); // [{id, name, category_id, default_unit}]
+  const [materialCategories, setMaterialCategories] = useState([]); // [{id, name}] from material_categories table
   const [otherCategories, setOtherCategories] = useState([]); // [{id, name}]
 
   // ── UI state ──
@@ -618,15 +626,17 @@ export default function LedgerClient() {
     setLoading(true);
     setError(null);
     try {
-      const [entriesRes, refs] = await Promise.all([
+      const [entriesRes, refs, matCats] = await Promise.all([
         fetchLedgerEntries({ pageSize: 500 }),
         fetchLedgerReferenceData(),
+        getAllCategoriesClient().catch(() => []),
       ]);
 
       setEntries(entriesRes.data || []);
       setWorkers(refs.workers || []);
       setSuppliers(refs.suppliers || []);
       setMaterialCatalog(refs.materialCatalog || []);
+      setMaterialCategories(matCats || []);
       setOtherCategories(refs.otherCategories || []);
     } catch (err) {
       console.error("[LedgerClient] loadData:", err);
@@ -666,6 +676,85 @@ export default function LedgerClient() {
     () => new Map(materialCatalog.map((m) => [m.name, m.id])),
     [materialCatalog],
   );
+
+  const materialCategoryIdByName = useMemo(
+    () => new Map(materialCategories.map((c) => [c.name, c.id])),
+    [materialCategories],
+  );
+
+  /* ── Ensure every purchased line has a material_catalog id, creating
+     missing ones on the fly. Returns the items annotated with the
+     (possibly newly-created) materialId, plus the new ids so the caller
+     can refresh the local catalog. ── */
+  const ensureMaterialIds = async (items) => {
+    const supplierId = supplierNameToId(form.supplier) || null;
+    const annotated = [];
+    const created = [];
+
+    for (const it of items) {
+      let materialId = materialNameToId(it.material) || null;
+
+      // Real id > 0, not the local placeholder (id: 0) added by handleAddMaterial
+      if (!materialId && it.material) {
+        const categoryId =
+          materialCategoryIdByName.get(newMaterialForm.category) ||
+          materialCategoryIdByName.get("Other") ||
+          null;
+
+        const createdMat = await createMaterialClient({
+          name: String(it.material).trim(),
+          categoryId,
+          unit: it.unit || newMaterialForm.unit || "m²",
+          stock: 0, // stock comes from the IN movement below
+          minStock: 0,
+          maxStock: 100,
+          supplierId,
+          price: parseFloat(it.unitPrice) || 0,
+          location: "",
+        });
+
+        materialId = createdMat.id;
+        created.push({
+          id: createdMat.id,
+          name: createdMat.name,
+          category_id: createdMat.categoryId ?? null,
+          default_unit: createdMat.unit ?? null,
+        });
+      }
+
+      annotated.push({ ...it, materialId });
+    }
+
+    if (created.length > 0) {
+      setMaterialCatalog((prev) => [...prev, ...created]);
+    }
+
+    return annotated;
+  };
+
+  /* ── Add an IN stock movement per item. Called after the ledger entry
+     is persisted, so the stock only goes up once we know the purchase
+     is committed. ── */
+  const applyStockMovementsForPurchase = async (items) => {
+    const results = await Promise.allSettled(
+      items
+        .filter((it) => it.materialId && parseFloat(it.quantity) > 0)
+        .map((it) =>
+          adjustStockClient(it.materialId, {
+            type: "IN",
+            quantity: parseFloat(it.quantity),
+          }),
+        ),
+    );
+
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      console.warn(
+        "[LedgerClient] some stock movements failed:",
+        failed.map((f) => f.reason?.message || f.reason),
+      );
+    }
+  };
 
   const workerNameToId = (n) => workerIdByName.get(n) ?? null;
   const supplierNameToId = (n) => supplierIdByName.get(n) ?? null;
@@ -935,25 +1024,72 @@ export default function LedgerClient() {
   const removeItem = (id) =>
     setForm((f) => ({ ...f, items: f.items.filter((i) => i.id !== id) }));
 
-  // Adding a new material here only updates local state for the datalist.
-  // To persist, you'd POST to a /api/ledger/material-catalog endpoint (not built yet).
-  const handleAddMaterial = () => {
+  // Persists a new material to material_catalog via the materials API.
+  // We piggy-back on the existing endpoint so the ledger and the
+  // materials page always share the same catalog.
+  const handleAddMaterial = async () => {
     const name = newMaterialForm.name.trim();
     if (!name) return;
 
-    if (!materialCatalog.find((m) => m.name === name)) {
-      setMaterialCatalog((prev) => [
-        ...prev,
-        { id: 0, name, category_id: null, default_unit: newMaterialForm.unit },
-      ]);
+    setFormError("");
+
+    // Already in the catalog? just use it.
+    const existing = materialCatalog.find((m) => m.name === name);
+    if (existing && existing.id > 0) {
+      setNewMaterialForm({ name: "", category: "Wood", unit: "m²" });
+      setShowNewMaterial(false);
+      const emptyLine = (form.items || []).find((i) => !i.material);
+      if (emptyLine)
+        updateItem(emptyLine.id, {
+          material: name,
+          unit: existing.default_unit || newMaterialForm.unit,
+        });
+      return;
     }
 
-    setNewMaterialForm({ name: "", category: "Wood", unit: "m²" });
-    setShowNewMaterial(false);
+    try {
+      const categoryId =
+        materialCategoryIdByName.get(newMaterialForm.category) ||
+        materialCategoryIdByName.get("Other") ||
+        null;
 
-    const emptyLine = (form.items || []).find((i) => !i.material);
-    if (emptyLine)
-      updateItem(emptyLine.id, { material: name, unit: newMaterialForm.unit });
+      const supplierId = supplierNameToId(form.supplier) || null;
+
+      const createdMat = await createMaterialClient({
+        name,
+        categoryId,
+        unit: newMaterialForm.unit,
+        stock: 0,
+        minStock: 0,
+        maxStock: 100,
+        supplierId,
+        price: 0,
+        location: "",
+      });
+
+      setMaterialCatalog((prev) => [
+        ...prev,
+        {
+          id: createdMat.id,
+          name: createdMat.name,
+          category_id: createdMat.categoryId ?? null,
+          default_unit: createdMat.unit ?? newMaterialForm.unit,
+        },
+      ]);
+
+      setNewMaterialForm({ name: "", category: "Wood", unit: "m²" });
+      setShowNewMaterial(false);
+
+      const emptyLine = (form.items || []).find((i) => !i.material);
+      if (emptyLine)
+        updateItem(emptyLine.id, {
+          material: name,
+          unit: newMaterialForm.unit,
+        });
+    } catch (err) {
+      console.error("[LedgerClient] handleAddMaterial:", err);
+      setFormError(err.message || "Failed to create material");
+    }
   };
 
   /* ─── Save (create or update) ─── */
@@ -996,7 +1132,12 @@ export default function LedgerClient() {
         if (!supplierId)
           throw new Error(`Supplier "${form.supplier}" not found in database`);
 
-        const total = items.reduce(
+        // Make sure every line has a material_catalog id. New materials
+        // get created here, so the purchase items + the materials table
+        // stay in sync from the very first save.
+        const itemsWithIds = await ensureMaterialIds(items);
+
+        const total = itemsWithIds.reduce(
           (s, i) =>
             s + (parseFloat(i.quantity) || 0) * (parseFloat(i.unitPrice) || 0),
           0,
@@ -1009,14 +1150,17 @@ export default function LedgerClient() {
           reference: form.reference?.trim() || null,
           note: form.note?.trim() || null,
           amount: total,
-          items: items.map((it) => ({
-            materialId: materialNameToId(it.material) || null,
+          items: itemsWithIds.map((it) => ({
+            materialId: it.materialId || null,
             materialName: it.material,
             quantity: parseFloat(it.quantity),
             unit: it.unit,
             unitPrice: parseFloat(it.unitPrice),
           })),
         };
+
+        // Stash for the post-save stock hook below
+        handleSave.__stockItems = itemsWithIds;
       } else if (newType === "OTHER_EXPENSE") {
         const amt = parseFloat(form.amount);
         if (!amt || amt <= 0) throw new Error("Amount must be greater than 0");
@@ -1058,6 +1202,19 @@ export default function LedgerClient() {
         saved = await createLedgerEntry(payload);
         setEntries((prev) => [saved, ...prev]);
       }
+
+      // ── On a NEW material purchase, push IN stock movements so the
+      //    materials table reflects what was just bought. We do this
+      //    AFTER the ledger entry is committed, so a failed purchase
+      //    never leaves phantom stock behind.
+      if (
+        newType === "MATERIAL_PURCHASE" &&
+        !editingId &&
+        handleSave.__stockItems?.length
+      ) {
+        await applyStockMovementsForPurchase(handleSave.__stockItems);
+      }
+      handleSave.__stockItems = null;
 
       closeModal();
     } catch (err) {
