@@ -278,6 +278,13 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
     return { total };
   }, [clients]);
 
+  const workerMap = useMemo(() => {
+    return workersData.reduce((acc, w) => {
+      acc[w.id] = w.full_name;
+      return acc;
+    }, {});
+  }, [workersData]);
+
   const handleCopy = (value, id) => {
     if (!value || value === '—') return;
     if (navigator.clipboard) navigator.clipboard.writeText(value).catch(() => { });
@@ -341,8 +348,8 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
         amount: Number(newOrder.total_amount) || 0,
         dueDate: newOrder.due_date ? new Date(newOrder.due_date).toISOString().split("T")[0] : null,
         stage: (newOrder.state || "APPOINTMENT").toUpperCase(),
-        worker: newOrder.worker_id
-          ? workersData.find(w => w.id === newOrder.worker_id)?.full_name ?? null
+        worker: newOrder.worker
+          ? workersData.find(w => w.full_name === newOrder.worker)?.full_name ?? null
           : null,
 
         items: (newOrder.order_items || []).map((i) => ({
@@ -362,42 +369,6 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
       const res = await createOrderClient(payload);
       const orderObj = res.data
 
-      //  {
-      //   "id": 39,
-      //   "client_id": 2,
-      //   "worker_id": null,
-      //   "project_name": "project 11",
-      //   "total_amount": "100000",
-      //   "state": "appointment",
-      //   "address": null,
-      //   "address_notes": null,
-      //   "latitude": null,
-      //   "longitude": null,
-      //   "lift_cost": "0",
-      //   "is_fully_completed": false,
-      //   "created_at": "2026-07-23T21:48:48.490Z",
-      //   "updated_at": "2026-07-23T21:48:48.490Z",
-      //   "due_date": null,
-
-      //   "clients": {
-      //     "id": 2,
-      //     "name": "K. Amrani",
-      //     "type": "Individual",
-      //     "phone": "0770 88 99 00",
-      //     "email": null,
-      //     // ... other client fields
-      //   },
-
-      //   "workers": null,
-
-      //   "order_items": [],
-
-      //   "payments": [],
-
-      //   "checklist_items": [],
-
-      //   "delivery_notes": []
-      // }
 
       setClients((prev) => {
         const updated = prev.map((c) =>
@@ -563,7 +534,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
                       <span className="flex items-center gap-1 whitespace-nowrap"><Icons.cal /> {formatDate(o.created_at)}</span>
                       {o.due_date && <span className="whitespace-nowrap">→ {o.due_date ? formatDate(o.due_date) : '-'}</span>}
                       <span className="whitespace-nowrap">· {o.order_items?.length || 0} item{(o.order_items?.length || 0) > 1 ? 's' : ''}</span>
-                      <span className="whitespace-nowrap">· {o.workers?.full_name || 'Unassigned'}</span>
+                      <span className="whitespace-nowrap">· {workerMap[o.worker_id] || 'Unassigned'}</span>
                     </div>
                   </div>
                   <div className="text-right shrink-0">

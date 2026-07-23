@@ -524,6 +524,20 @@ const getWeekRangeLabel = (week) => {
   return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 };
 
+const getWorkerStatus = (worker, orders) => {
+  if (!worker) return "OFF";
+
+  const hasActiveOrders = orders?.some(
+    o => o.workers.full_name === worker.full_name &&
+      o.state !== "completed"
+  );
+
+  // Also check assignments
+  const hasActiveAssignments = (worker.assignments || []).length > 0;
+
+  return (hasActiveOrders || hasActiveAssignments) ? "ACTIVE" : "OFF";
+};
+
 /* ─── Module-level helpers ─── */
 const calcEntryHours = (e) => {
   const [inH, inM] = e.clockIn.split(":").map(Number);
@@ -1943,6 +1957,11 @@ const DetailScreen = memo(function DetailScreen({
 
 /* ─── Main App ─── */
 export default function WorkersApp({ workersData, orders = [] }) {
+  const [today, setToday] = useState("");
+
+  useEffect(() => {
+    setToday(formatDate(new Date()));
+  }, []);
   const [screen, setScreen] = useState("list");
   const [activeTab, setActiveTab] = useState("attendance");
   const [search, setSearch] = useState("");
@@ -1956,7 +1975,16 @@ export default function WorkersApp({ workersData, orders = [] }) {
   });
   const [viewMonth, setViewMonthState] = useState(new Date().getMonth());
   const [viewYear, setViewYearState] = useState(CURRENT_YEAR);
-  const [workers, setWorkers] = useState(workersData);
+  const workersWithDynamicStatus = useMemo(() => {
+    return workersData.map(w => ({
+      ...w,
+      status: getWorkerStatus(w, orders)
+    }));
+  }, [workersData, orders]);
+
+
+
+  const [workers, setWorkers] = useState(workersWithDynamicStatus);
   const [showTimeEntryModal, setShowTimeEntryModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);

@@ -2589,7 +2589,8 @@ const OrderFormModal = ({
 
     const data = {
       client_id: parseInt(existingClients[0]?.id) || null,
-      worker_id: formData.worker !== "Unassigned" ? parseInt(formData.worker) : null,
+      // worker_id: formData.worker !== "Unassigned" ? parseInt(formData.worker) : null,
+      worker: formData.worker !== "Unassigned" ? formData.worker : null,
       project_name: formData.project,
       total_amount: Number(formData.amount),
       due_date: formData.dueDate ? new Date(formData.dueDate) : null,
