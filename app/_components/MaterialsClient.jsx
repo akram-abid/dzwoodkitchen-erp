@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   getAllMaterialsClient,
   getMaterialByIdClient,
@@ -289,6 +289,34 @@ const Icons = {
       <path d="M21 4v5h-5" />
     </svg>
   ),
+  chevronLeft: () => (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  ),
+  chevronRight: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  ),
 };
 
 const STATUSES = ["All", "IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK", "ORDERED"];
@@ -308,12 +336,12 @@ const computeStatus = (stock, minStock, maxStock, manual) => {
 
 const Modal = ({ title, onClose, children, footer, maxWidth = 520 }) => (
   <div
-    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
     style={{ background: "rgba(0,0,0,0.55)" }}
     onClick={onClose}
   >
     <div
-      className="w-full rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
+      className="w-full rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[90vh] app-sheet"
       style={{
         background: "var(--surface)",
         border: "1px solid var(--border)",
@@ -321,19 +349,35 @@ const Modal = ({ title, onClose, children, footer, maxWidth = 520 }) => (
       }}
       onClick={(e) => e.stopPropagation()}
     >
+      {/* Drag handle — mobile only */}
+      <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
+        <div
+          className="w-9 h-1 rounded-full"
+          style={{ background: "var(--border)" }}
+        />
+      </div>
       <div
         className="flex items-center justify-between p-4 shrink-0"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
         <h2 className="text-base font-semibold">{title}</h2>
-        <button onClick={onClose} className="btn-ghost p-1" aria-label="Close">
+        <button
+          onClick={onClose}
+          className="btn-ghost p-2 -mr-2 sm:p-1 sm:mr-0"
+          aria-label="Close"
+        >
           <Icons.x />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-5">{children}</div>
+      <div
+        className="flex-1 overflow-y-auto p-5 overscroll-contain"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        {children}
+      </div>
       {footer && (
         <div
-          className="flex items-center justify-end gap-2 p-4 shrink-0"
+          className="flex items-center justify-end gap-2 p-4 shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4"
           style={{ borderTop: "1px solid var(--border)" }}
         >
           {footer}
@@ -363,6 +407,30 @@ const inputStyle = {
   color: "var(--ink)",
 };
 
+/* App-like polish: mobile sheet animation, hidden scrollbars for chip
+   rows, and tap behavior tuned for a PWA rather than a desktop page. */
+const AppChrome = () => (
+  <style>{`
+    @keyframes app-sheet-up {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    @media (max-width: 639px) {
+      .app-sheet { animation: app-sheet-up 0.28s cubic-bezier(0.32, 0.72, 0, 1); }
+    }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    @media (max-width: 639px) {
+      input, select, textarea { font-size: 16px !important; }
+    }
+    button, a, [role="button"] {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .tap-scale:active { transform: scale(0.97); }
+  `}</style>
+);
+
 export default function MaterialsClient() {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -370,6 +438,14 @@ export default function MaterialsClient() {
   const [selectedId, setSelectedId] = useState(null);
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  /* On mobile the detail panel is a full-screen view you navigate into,
+     not an always-visible sidebar — this tracks whether it's open. */
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+
+  const openMaterial = useCallback((id) => {
+    setSelectedId(id);
+    setMobileDetailOpen(true);
+  }, []);
 
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -504,6 +580,17 @@ export default function MaterialsClient() {
       : stockPercent > 20
         ? "var(--accent)"
         : "var(--stage-contract)";
+
+  /* Swipe-right-to-close on the mobile detail view, like a native nav stack */
+  const touchStart = useRef({ x: 0, y: 0 });
+  const handleDetailTouchStart = (e) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const handleDetailTouchEnd = (e) => {
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    if (dx > 80 && Math.abs(dy) < 60) setMobileDetailOpen(false);
+  };
 
   const refreshAfterChange = async () => {
     await loadMaterials();
@@ -703,7 +790,8 @@ export default function MaterialsClient() {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full relative overflow-hidden">
+      <AppChrome />
       {/* LEFT: Table + Filters */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {error && (
@@ -716,12 +804,12 @@ export default function MaterialsClient() {
             }}
           >
             <Icons.alert />
-            <span className="text-sm font-medium">{error}</span>
+            <span className="text-sm font-medium flex-1 min-w-0">{error}</span>
             <button
               onClick={loadMaterials}
-              className="ml-auto btn-ghost text-xs flex items-center gap-1"
+              className="ml-auto btn-ghost text-xs flex items-center gap-1 shrink-0"
             >
-              <Icons.refresh /> Retry
+              <Icons.refresh /> <span className="hidden sm:inline">Retry</span>
             </button>
           </div>
         )}
@@ -736,54 +824,66 @@ export default function MaterialsClient() {
           >
             <Icons.alert />
             <span
-              className="text-sm font-medium"
+              className="text-sm font-medium flex-1 min-w-0"
               style={{ color: "var(--accent)" }}
             >
-              {lowStockCount} low stock · {outStockCount} out of stock
+              {lowStockCount} low · {outStockCount} out
             </span>
             <button
               onClick={() => setStatusFilter("LOW_STOCK")}
-              className="ml-auto text-xs font-medium px-3 py-1 rounded-md"
+              className="ml-auto text-xs font-medium px-3 py-1 rounded-md shrink-0 tap-scale transition-transform"
               style={{ background: "var(--accent)", color: "var(--on-accent)" }}
             >
-              View Low Stock
+              View
             </button>
           </div>
         )}
 
         <div
-          className="flex items-center gap-3 p-4 shrink-0 flex-wrap"
+          className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 p-3 sm:p-4 shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md focus-ring"
-            style={{
-              background: "var(--bg)",
-              border: "1px solid var(--border)",
-              width: 240,
-            }}
-          >
-            <Icons.search />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search materials..."
-              className="bg-transparent text-sm outline-none w-full placeholder:text-[var(--ink-muted)]"
-              style={{ color: "var(--ink)" }}
-            />
-            {search && (
-              <button onClick={() => setSearch("")} className="btn-ghost p-0.5">
-                <Icons.x />
-              </button>
-            )}
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-2 px-3 py-2 sm:py-1.5 rounded-md focus-ring flex-1 sm:flex-none sm:w-[240px]"
+              style={{
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <Icons.search />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search materials..."
+                className="bg-transparent text-sm outline-none w-full placeholder:text-[var(--ink-muted)]"
+                style={{ color: "var(--ink)" }}
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="btn-ghost p-0.5"
+                >
+                  <Icons.x />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={loadMaterials}
+              className="sm:hidden btn-ghost text-xs px-2.5 py-2 shrink-0"
+              title="Refresh"
+              disabled={loading}
+            >
+              <Icons.refresh />
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 sm:flex-wrap">
             {catNames.map((c) => (
               <button
                 key={c}
                 onClick={() => setCatFilter(c)}
-                className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors shrink-0"
                 style={{
                   background:
                     catFilter === c ? "var(--surface-2)" : "transparent",
@@ -796,7 +896,7 @@ export default function MaterialsClient() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 ml-2 flex-wrap">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 sm:ml-2 sm:flex-wrap">
             {STATUSES.filter((s) => s !== "All").map((s) => {
               const count = materials.filter((m) => m.status === s).length;
               const active = statusFilter === s;
@@ -806,7 +906,7 @@ export default function MaterialsClient() {
                   onClick={() =>
                     setStatusFilter(statusFilter === s ? "All" : s)
                   }
-                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors shrink-0"
                   style={{
                     background: active ? `${STATUS_DOT[s]}15` : "transparent",
                     color: active ? STATUS_DOT[s] : "var(--ink-muted)",
@@ -832,10 +932,10 @@ export default function MaterialsClient() {
             })}
           </div>
 
-          <div className="flex-1" />
+          <div className="hidden sm:block flex-1" />
           <button
             onClick={loadMaterials}
-            className="btn-ghost text-xs px-2 py-1.5"
+            className="hidden sm:inline-flex btn-ghost text-xs px-2 py-1.5"
             title="Refresh"
             disabled={loading}
           >
@@ -843,16 +943,36 @@ export default function MaterialsClient() {
           </button>
           <button
             onClick={() => setShowNewModal(true)}
-            className="btn-primary text-xs px-3 py-1.5"
+            className="hidden sm:inline-flex btn-primary text-xs px-3 py-1.5"
           >
             <Icons.plus /> New Material
           </button>
-          <div className="text-xs" style={{ color: "var(--ink-muted)" }}>
+          <div
+            className="text-xs shrink-0"
+            style={{ color: "var(--ink-muted)" }}
+          >
             {filtered.length} items · {totalValue.toLocaleString()} DZD
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto">
+        {/* Mobile FAB — primary create action, thumb-reachable */}
+        <button
+          onClick={() => setShowNewModal(true)}
+          className="sm:hidden fixed z-30 w-14 h-14 rounded-full shadow-lg flex items-center justify-center tap-scale transition-transform"
+          style={{
+            background: "var(--accent)",
+            color: "var(--on-accent)",
+            right: "1.25rem",
+            bottom: "calc(1.25rem + env(safe-area-inset-bottom))",
+          }}
+          aria-label="New Material"
+        >
+          <span style={{ transform: "scale(1.6)" }}>
+            <Icons.plus />
+          </span>
+        </button>
+
+        <div className="flex-1 overflow-auto overscroll-contain">
           {loading ? (
             <div
               className="px-4 py-12 text-center text-sm"
@@ -861,192 +981,307 @@ export default function MaterialsClient() {
               Loading materials…
             </div>
           ) : (
-            <table className="w-full text-left text-sm">
-              <thead
-                className="sticky top-0 z-10"
-                style={{ background: "var(--surface-2)" }}
-              >
-                <tr>
-                  <th
-                    className="px-4 py-3 text-xs font-medium"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    ID
-                  </th>
-                  <th
-                    className="px-4 py-3 text-xs font-medium"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    Material
-                  </th>
-                  <th
-                    className="px-4 py-3 text-xs font-medium"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    Category
-                  </th>
-                  <th
-                    className="px-4 py-3 text-xs font-medium"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    Stock
-                  </th>
-                  <th
-                    className="px-4 py-3 text-xs font-medium"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    Status
-                  </th>
-                  <th
-                    className="px-4 py-3 text-xs font-medium"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    Leftovers
-                  </th>
-                  <th
-                    className="px-4 py-3 text-xs font-medium"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    Supplier
-                  </th>
-                  <th
-                    className="px-4 py-3 text-xs font-medium text-right"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    Unit Price
-                  </th>
-                  <th
-                    className="px-4 py-3 text-xs font-medium text-center"
-                    style={{ color: "var(--ink-muted)" }}
-                  ></th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              <table className="w-full text-left text-sm hidden sm:table">
+                <thead
+                  className="sticky top-0 z-10"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <tr>
+                    <th
+                      className="px-4 py-3 text-xs font-medium"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      ID
+                    </th>
+                    <th
+                      className="px-4 py-3 text-xs font-medium"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      Material
+                    </th>
+                    <th
+                      className="px-4 py-3 text-xs font-medium"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      Category
+                    </th>
+                    <th
+                      className="px-4 py-3 text-xs font-medium"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      Stock
+                    </th>
+                    <th
+                      className="px-4 py-3 text-xs font-medium"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      Status
+                    </th>
+                    <th
+                      className="px-4 py-3 text-xs font-medium"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      Leftovers
+                    </th>
+                    <th
+                      className="px-4 py-3 text-xs font-medium"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      Supplier
+                    </th>
+                    <th
+                      className="px-4 py-3 text-xs font-medium text-right"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      Unit Price
+                    </th>
+                    <th
+                      className="px-4 py-3 text-xs font-medium text-center"
+                      style={{ color: "var(--ink-muted)" }}
+                    ></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((m) => {
+                    const isSel = selectedId === m.id;
+                    const stockPct = Math.min(
+                      100,
+                      (m.stock / m.maxStock) * 100,
+                    );
+                    return (
+                      <tr
+                        key={m.id}
+                        onClick={() => setSelectedId(m.id)}
+                        className="cursor-pointer transition-colors"
+                        style={{
+                          background: isSel
+                            ? "var(--accent-soft)"
+                            : "transparent",
+                          borderTop: "1px solid var(--border)",
+                        }}
+                      >
+                        <td
+                          className="px-4 py-3 font-medium text-xs"
+                          style={{ color: "var(--ink-muted)" }}
+                        >
+                          {m.id}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-sm">{m.name}</div>
+                          <div
+                            className="text-xs"
+                            style={{ color: "var(--ink-muted)" }}
+                          >
+                            {m.location}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs">{m.category}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium tabular-nums">
+                              {m.stock}
+                            </span>
+                            <span
+                              className="text-xs"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              {m.unit}
+                            </span>
+                          </div>
+                          <div
+                            className="mt-1 h-1 w-16 rounded-full overflow-hidden"
+                            style={{ background: "var(--surface-2)" }}
+                          >
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${stockPct}%`,
+                                background:
+                                  m.status === "OUT_OF_STOCK"
+                                    ? "var(--stage-contract)"
+                                    : m.status === "LOW_STOCK"
+                                      ? "var(--accent)"
+                                      : "var(--stage-completed)",
+                              }}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <StageBadge stage={m.status} />
+                        </td>
+                        <td className="px-4 py-3">
+                          {m.leftoverCount > 0 ? (
+                            <span
+                              className="inline-flex items-center gap-1.5 text-xs font-medium"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              <Icons.ruler />
+                              <span className="tabular-nums">
+                                {m.leftoverCount}
+                              </span>
+                              <span>piece{m.leftoverCount > 1 ? "s" : ""}</span>
+                            </span>
+                          ) : (
+                            <span
+                              className="text-xs"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              —
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs">{m.supplier}</td>
+                        <td className="px-4 py-3 text-right font-medium tabular-nums">
+                          {m.price.toLocaleString()} DZD
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            className="btn-ghost p-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Icons.more />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filtered.length === 0 && !loading && (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="px-4 py-12 text-center text-sm"
+                        style={{ color: "var(--ink-muted)" }}
+                      >
+                        No materials match your filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              {/* Mobile card list — full-width tappable rows, not a squeezed table */}
+              <div className="sm:hidden">
                 {filtered.map((m) => {
                   const isSel = selectedId === m.id;
                   const stockPct = Math.min(100, (m.stock / m.maxStock) * 100);
                   return (
-                    <tr
+                    <button
                       key={m.id}
-                      onClick={() => setSelectedId(m.id)}
-                      className="cursor-pointer transition-colors"
+                      onClick={() => openMaterial(m.id)}
+                      className="w-full text-left px-4 py-3.5 flex items-center gap-3 transition-colors"
                       style={{
                         background: isSel
                           ? "var(--accent-soft)"
                           : "transparent",
-                        borderTop: "1px solid var(--border)",
+                        borderBottom: "1px solid var(--border)",
                       }}
                     >
-                      <td
-                        className="px-4 py-3 font-medium text-xs"
-                        style={{ color: "var(--ink-muted)" }}
-                      >
-                        {m.id}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-sm">{m.name}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate">
+                            {m.name}
+                          </span>
+                          <StageBadge stage={m.status} />
+                        </div>
                         <div
-                          className="text-xs"
+                          className="text-xs mt-0.5 truncate"
                           style={{ color: "var(--ink-muted)" }}
                         >
-                          {m.location}
+                          {m.id} · {m.category} · {m.supplier}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-xs">{m.category}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium tabular-nums">
-                            {m.stock}
-                          </span>
-                          <span
-                            className="text-xs"
-                            style={{ color: "var(--ink-muted)" }}
-                          >
-                            {m.unit}
-                          </span>
-                        </div>
-                        <div
-                          className="mt-1 h-1 w-16 rounded-full overflow-hidden"
-                          style={{ background: "var(--surface-2)" }}
-                        >
+                        <div className="flex items-center gap-2 mt-1.5">
                           <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${stockPct}%`,
-                              background:
-                                m.status === "OUT_OF_STOCK"
-                                  ? "var(--stage-contract)"
-                                  : m.status === "LOW_STOCK"
-                                    ? "var(--accent)"
-                                    : "var(--stage-completed)",
-                            }}
-                          />
+                            className="h-1 flex-1 rounded-full overflow-hidden"
+                            style={{ background: "var(--surface-2)" }}
+                          >
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${stockPct}%`,
+                                background:
+                                  m.status === "OUT_OF_STOCK"
+                                    ? "var(--stage-contract)"
+                                    : m.status === "LOW_STOCK"
+                                      ? "var(--accent)"
+                                      : "var(--stage-completed)",
+                              }}
+                            />
+                          </div>
+                          <span
+                            className="text-xs tabular-nums shrink-0"
+                            style={{ color: "var(--ink-muted)" }}
+                          >
+                            {m.stock} {m.unit}
+                          </span>
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StageBadge stage={m.status} />
-                      </td>
-                      <td className="px-4 py-3">
-                        {m.leftoverCount > 0 ? (
-                          <span
-                            className="inline-flex items-center gap-1.5 text-xs font-medium"
-                            style={{ color: "var(--ink-muted)" }}
-                          >
-                            <Icons.ruler />
-                            <span className="tabular-nums">
-                              {m.leftoverCount}
-                            </span>
-                            <span>piece{m.leftoverCount > 1 ? "s" : ""}</span>
-                          </span>
-                        ) : (
-                          <span
-                            className="text-xs"
-                            style={{ color: "var(--ink-muted)" }}
-                          >
-                            —
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs">{m.supplier}</td>
-                      <td className="px-4 py-3 text-right font-medium tabular-nums">
-                        {m.price.toLocaleString()} DZD
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          className="btn-ghost p-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Icons.more />
-                        </button>
-                      </td>
-                    </tr>
+                      </div>
+                      <span
+                        className="shrink-0"
+                        style={{ color: "var(--ink-muted)" }}
+                      >
+                        <Icons.chevronRight />
+                      </span>
+                    </button>
                   );
                 })}
                 {filtered.length === 0 && !loading && (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="px-4 py-12 text-center text-sm"
-                      style={{ color: "var(--ink-muted)" }}
-                    >
-                      No materials match your filters.
-                    </td>
-                  </tr>
+                  <div
+                    className="px-4 py-12 text-center text-sm"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    No materials match your filters.
+                  </div>
                 )}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* RIGHT: Detail Panel */}
+      {/* RIGHT: Detail Panel — off-canvas full-screen view on mobile, static sidebar on desktop */}
       <div
-        className="w-[400px] shrink-0 flex flex-col overflow-y-auto"
+        onTouchStart={handleDetailTouchStart}
+        onTouchEnd={handleDetailTouchEnd}
+        className={`fixed inset-0 z-40 sm:static sm:z-auto w-full sm:w-[400px] shrink-0 flex flex-col overflow-y-auto overscroll-contain transition-transform duration-300 ease-out sm:translate-x-0 ${
+          mobileDetailOpen ? "translate-x-0" : "translate-x-full"
+        }`}
         style={{
           borderLeft: "1px solid var(--border)",
           background: "var(--surface)",
+          WebkitOverflowScrolling: "touch",
         }}
       >
+        {/* Mobile-only back header, app nav-bar style */}
+        <div
+          className="sm:hidden flex items-center gap-2 p-3 shrink-0 sticky top-0 z-10"
+          style={{
+            background: "var(--surface)",
+            borderBottom: "1px solid var(--border)",
+            paddingTop: "calc(0.75rem + env(safe-area-inset-top))",
+          }}
+        >
+          <button
+            onClick={() => setMobileDetailOpen(false)}
+            className="btn-ghost p-1.5 -ml-1"
+            aria-label="Back to materials"
+          >
+            <Icons.chevronLeft />
+          </button>
+          <span className="text-sm font-semibold truncate flex-1">
+            {selected ? selected.name : "Material"}
+          </span>
+          {selected && (
+            <button
+              onClick={openEditMaterial}
+              className="btn-ghost p-1.5 -mr-1"
+              aria-label="Edit material"
+            >
+              <Icons.edit />
+            </button>
+          )}
+        </div>
+
         {!selected ? (
           <div
             className="flex-1 flex items-center justify-center text-sm"
@@ -1586,7 +1821,12 @@ export default function MaterialsClient() {
               </div>
             </div>
 
-            <div className="p-5 mt-auto space-y-2">
+            <div
+              className="p-5 mt-auto space-y-2"
+              style={{
+                paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))",
+              }}
+            >
               <button
                 onClick={openEditMaterial}
                 className="btn-primary w-full justify-center text-sm"
@@ -1646,7 +1886,7 @@ export default function MaterialsClient() {
             </>
           }
         >
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Material Name *">
               <input
                 value={form.name}
@@ -1861,7 +2101,7 @@ export default function MaterialsClient() {
             </>
           }
         >
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Material Name *">
               <input
                 value={editForm.name}
