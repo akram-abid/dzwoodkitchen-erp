@@ -106,7 +106,7 @@ export async function updateOrder(id, data) {
       }
     } else {
       const created = await tx.clients.create({
-        data: { full_name: client, phone: phone || null },
+        data: { name: client, phone: phone || null },
       });
       clientId = created.id;
     }
@@ -220,6 +220,22 @@ export async function updateOrder(id, data) {
   });
 }
 
+// -- Expected columns orders
+// {
+//   id: number                    -- Auto-generated
+//   client_id: number             -- Foreign key to clients.id
+//   worker_id: number | null      -- Foreign key to workers.id
+//   project_name: string          -- Project description
+//   total_amount: number          -- Total order amount in DZD
+//   due_date: datetime | null     -- Due date
+//   state: string                 -- "appointment" | "contract" | "in_production" | "ready_to_delivery" | "completed"
+//   address: string | null        -- Delivery/installation address
+//   is_fully_completed: boolean   -- Whether all items are completed
+//   created_at: datetime          -- Auto-generated
+//   updated_at: datetime          -- Auto-generated
+// ... other columns
+// }
+
 export async function createOrder(data) {
   const {
     client,
@@ -240,7 +256,7 @@ export async function createOrder(data) {
     // client
     let clientId;
     const existingClient = await tx.clients.findFirst({
-      where: { full_name: client },
+      where: { name: client },
     });
     if (existingClient) {
       clientId = existingClient.id;
@@ -252,7 +268,7 @@ export async function createOrder(data) {
       }
     } else {
       const c = await tx.clients.create({
-        data: { full_name: client, phone: phone || null },
+        data: { name: client, phone: phone || null },
       });
       clientId = c.id;
     }
@@ -381,7 +397,7 @@ export async function patchOrder(id, data) {
     if (data.client !== undefined) {
       let clientId;
       const existing = await tx.clients.findFirst({
-        where: { full_name: data.client },
+        where: { name: data.client },
       });
       if (existing) {
         clientId = existing.id;
@@ -393,7 +409,7 @@ export async function patchOrder(id, data) {
         }
       } else {
         const c = await tx.clients.create({
-          data: { full_name: data.client, phone: data.phone || null },
+          data: { name: data.client, phone: data.phone || null },
         });
         clientId = c.id;
       }

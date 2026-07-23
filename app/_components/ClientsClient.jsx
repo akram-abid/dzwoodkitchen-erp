@@ -2,7 +2,13 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { createClient, updateClient, deleteClient } from '../../lib/api_helpers/clients';
-import { createOrder } from '../../lib/api_helpers/orders';
+import {
+  fetchOrders,
+  updateOrderClient,
+  createOrderClient,
+  deleteOrderClient,
+  patchOrderClient,
+} from "../api/orders/orders";
 
 // import order modal 
 import { OrderFormModal } from "./OrdersClient";
@@ -322,6 +328,99 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
       }
     } catch (error) {
       console.error("Failed to delete client:", error);
+    }
+  };
+
+  const handleCreateOrder = async (newOrder) => {
+    try {
+      const payload = {
+        client: selected?.name ?? "",
+        phone: newOrder.phone || selected?.phone || null,
+        address: newOrder.address || selected?.address || null,
+        project: newOrder.project_name ?? "",
+        amount: Number(newOrder.total_amount) || 0,
+        dueDate: newOrder.due_date ? new Date(newOrder.due_date).toISOString().split("T")[0] : null,
+        stage: (newOrder.state || "APPOINTMENT").toUpperCase(),
+        worker: newOrder.worker_id
+          ? workersData.find(w => w.id === newOrder.worker_id)?.full_name ?? null
+          : null,
+
+        items: (newOrder.order_items || []).map((i) => ({
+          name: i.name,
+          qty: Number(i.quantity) || 1,
+          unit: i.unit || "pcs",
+          l: i.length_cm ?? 0,
+          w: i.width_cm ?? 0,
+          h: i.height_cm ?? 0,
+        })),
+
+        payments: [],
+        missingItems: [],
+        technical: {},
+      };
+
+      const res = await createOrderClient(payload);
+      const orderObj = res.data
+
+      //  {
+      //   "id": 39,
+      //   "client_id": 2,
+      //   "worker_id": null,
+      //   "project_name": "project 11",
+      //   "total_amount": "100000",
+      //   "state": "appointment",
+      //   "address": null,
+      //   "address_notes": null,
+      //   "latitude": null,
+      //   "longitude": null,
+      //   "lift_cost": "0",
+      //   "is_fully_completed": false,
+      //   "created_at": "2026-07-23T21:48:48.490Z",
+      //   "updated_at": "2026-07-23T21:48:48.490Z",
+      //   "due_date": null,
+
+      //   "clients": {
+      //     "id": 2,
+      //     "name": "K. Amrani",
+      //     "type": "Individual",
+      //     "phone": "0770 88 99 00",
+      //     "email": null,
+      //     // ... other client fields
+      //   },
+
+      //   "workers": null,
+
+      //   "order_items": [],
+
+      //   "payments": [],
+
+      //   "checklist_items": [],
+
+      //   "delivery_notes": []
+      // }
+
+      setClients((prev) => {
+        const updated = prev.map((c) =>
+          c.id === selected?.id
+            ? {
+              ...c,
+              orders: [
+                ...(c.orders || []),
+                {
+                  ...orderObj,
+                  created_at: new Date(orderObj.created_at),
+                  due_date: orderObj.due_date ? new Date(orderObj.due_date) : null,
+                }
+              ],
+            }
+            : c,
+        );
+        return updated;
+      });
+
+      setSelectedId(orderObj.client_id);
+    } catch (err) {
+      console.error("Failed to create order:", err);
     }
   };
 
@@ -878,30 +977,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
       <OrderFormModal
         isOpen={isOrderModalOpen}
         onClose={() => setIsOrderModalOpen(false)}
-        onSave={async (newOrder) => {
-          try {
-            console.log(newOrder)
-            // Send to API
-            const result = await createOrder({
-              ...newOrder,
-              client_id: selected.id,
-            });
-
-
-            // Update local state with result
-            setClients(prev => prev.map(c =>
-              c.id === selected.id
-                ? {
-                  ...c,
-                  orders: [...c.orders, { ...result, due_date: result.due_date ? new Date(result.due_date) : null, created_at: new Date(result.created_at) }]
-                }
-                : c
-            ));
-            setIsOrderModalOpen(false);
-          } catch (error) {
-            console.error("Failed to create order:", error);
-          }
-        }}
+        onSave={handleCreateOrder}
         initialData={null}
         existingClients={
           selected ? [
