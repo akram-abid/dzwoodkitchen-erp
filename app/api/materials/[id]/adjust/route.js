@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adjustStock } from "../../../services/materialServices";
+import { adjustStock } from "../../../../services/materialServices";
 
 export async function POST(req, { params }) {
   try {

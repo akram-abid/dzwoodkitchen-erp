@@ -5,10 +5,13 @@ import {
   getAllMaterialsClient,
   getMaterialByIdClient,
   createMaterialClient,
+  updateMaterialClient,
+  deleteMaterialClient,
   adjustStockClient,
   addLeftoverClient,
   useLeftoverClient,
   deleteLeftoverClient,
+  updateLeftoverClient,
 } from "../../lib/api_helpers/materials";
 import { getAllCategoriesClient } from "../../lib/api_helpers/categories";
 import { getSuppliers } from "../../lib/api_helpers/supplier";
@@ -402,6 +405,21 @@ export default function MaterialsClient() {
   });
   const [leftoverSubmitting, setLeftoverSubmitting] = useState(false);
 
+  /* Edit leftover (inline) */
+  const [editingLeftoverId, setEditingLeftoverId] = useState(null);
+  const [editLeftoverForm, setEditLeftoverForm] = useState({
+    description: "",
+    dimensions: "",
+    qty: 1,
+  });
+  const [editLeftoverSubmitting, setEditLeftoverSubmitting] = useState(false);
+
+  /* Edit material modal */
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editFormError, setEditFormError] = useState("");
+  const [editFormSubmitting, setEditFormSubmitting] = useState(false);
+
   const loadMaterials = useCallback(async () => {
     try {
       setLoading(true);
@@ -575,6 +593,112 @@ export default function MaterialsClient() {
       setFormError(err.message);
     } finally {
       setFormSubmitting(false);
+    }
+  };
+
+  /* Edit material */
+  const openEditMaterial = () => {
+    if (!selected) return;
+    setEditForm({
+      name: selected.name ?? "",
+      categoryId: selected.categoryId ?? null,
+      unit: selected.unit ?? "sheet",
+      stock: selected.stock ?? 0,
+      minStock: selected.minStock ?? 1,
+      maxStock: selected.maxStock ?? 10,
+      supplierId: selected.supplierId ?? null,
+      price: selected.price ?? 0,
+      location: selected.location ?? "",
+    });
+    setEditFormError("");
+    setShowEditModal(true);
+  };
+
+  const handleEditMaterial = async () => {
+    setEditFormError("");
+    if (!editForm.name.trim()) return setEditFormError("Name is required");
+    if (!editForm.supplierId) return setEditFormError("Supplier is required");
+    if (editForm.minStock >= editForm.maxStock)
+      return setEditFormError("Min stock must be less than max stock");
+    try {
+      setEditFormSubmitting(true);
+      await updateMaterialClient(selectedId, {
+        name: editForm.name,
+        categoryId: editForm.categoryId,
+        unit: editForm.unit,
+        minStock: editForm.minStock,
+        maxStock: editForm.maxStock,
+        supplierId: editForm.supplierId,
+        price: editForm.price,
+        location: editForm.location,
+      });
+      setShowEditModal(false);
+      await refreshAfterChange();
+    } catch (err) {
+      setEditFormError(err.message);
+    } finally {
+      setEditFormSubmitting(false);
+    }
+  };
+
+  /* Delete material */
+  const handleDeleteMaterial = async () => {
+    if (!selectedId) return;
+    if (
+      !confirm(
+        `Delete material "${selected?.name}"? This will also remove all its leftovers and stock movements.`,
+      )
+    )
+      return;
+    try {
+      const codeToDelete = selectedId;
+      await deleteMaterialClient(codeToDelete);
+      setSelectedId(null);
+      setSelectedDetail(null);
+      const fresh = await getAllMaterialsClient();
+      setMaterials(fresh);
+      if (fresh[0]) setSelectedId(fresh[0].id);
+    } catch (err) {
+      alert(`Failed to delete: ${err.message}`);
+    }
+  };
+
+  /* Edit leftover (inline) */
+  const startEditLeftover = (l) => {
+    setEditingLeftoverId(l.dbId);
+    setEditLeftoverForm({
+      description: l.description ?? "",
+      dimensions: l.dimensions ?? "",
+      qty: l.qty ?? 1,
+    });
+  };
+
+  const cancelEditLeftover = () => {
+    setEditingLeftoverId(null);
+    setEditLeftoverForm({ description: "", dimensions: "", qty: 1 });
+  };
+
+  const handleSaveLeftover = async () => {
+    if (!editingLeftoverId) return;
+    if (
+      !editLeftoverForm.description.trim() &&
+      !editLeftoverForm.dimensions.trim()
+    ) {
+      return alert("Description or dimensions required");
+    }
+    try {
+      setEditLeftoverSubmitting(true);
+      await updateLeftoverClient(selectedId, editingLeftoverId, {
+        description: editLeftoverForm.description,
+        dimensions: editLeftoverForm.dimensions,
+        quantity: editLeftoverForm.qty,
+      });
+      cancelEditLeftover();
+      await refreshAfterChange();
+    } catch (err) {
+      alert(`Failed to update leftover: ${err.message}`);
+    } finally {
+      setEditLeftoverSubmitting(false);
     }
   };
 
@@ -1188,63 +1312,139 @@ export default function MaterialsClient() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {(selected.leftovers ?? []).map((l) => (
-                    <div
-                      key={l.id}
-                      className="p-3 rounded-lg flex items-center gap-3 group"
-                      style={{
-                        background: "var(--bg)",
-                        border: "1px solid var(--border)",
-                      }}
-                    >
+                  {(selected.leftovers ?? []).map((l) =>
+                    editingLeftoverId === l.dbId ? (
+                      /* Inline edit form */
                       <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                        key={l.id}
+                        className="p-3 rounded-lg space-y-2"
                         style={{
-                          background: "var(--surface-2)",
-                          color: "var(--accent)",
+                          background: "var(--bg)",
+                          border: "1px solid var(--accent)",
                         }}
                       >
-                        <Icons.ruler />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">
-                          {l.description}
+                        <input
+                          value={editLeftoverForm.description}
+                          onChange={(e) =>
+                            setEditLeftoverForm((f) => ({
+                              ...f,
+                              description: e.target.value,
+                            }))
+                          }
+                          placeholder="Description"
+                          className="w-full px-2.5 py-1.5 rounded text-xs outline-none focus-ring"
+                          style={inputStyle}
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <input
+                            value={editLeftoverForm.dimensions}
+                            onChange={(e) =>
+                              setEditLeftoverForm((f) => ({
+                                ...f,
+                                dimensions: e.target.value,
+                              }))
+                            }
+                            placeholder="Dimensions (60 × 40 cm)"
+                            className="flex-1 px-2.5 py-1.5 rounded text-xs outline-none focus-ring"
+                            style={inputStyle}
+                          />
+                          <input
+                            type="number"
+                            min="1"
+                            value={editLeftoverForm.qty}
+                            onChange={(e) =>
+                              setEditLeftoverForm((f) => ({
+                                ...f,
+                                qty: e.target.value,
+                              }))
+                            }
+                            className="w-16 px-2.5 py-1.5 rounded text-xs outline-none focus-ring tabular-nums text-center"
+                            style={inputStyle}
+                          />
                         </div>
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={cancelEditLeftover}
+                            className="btn-ghost text-xs px-3 py-1"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSaveLeftover}
+                            disabled={editLeftoverSubmitting}
+                            className="btn-primary text-xs px-3 py-1 disabled:opacity-50"
+                          >
+                            {editLeftoverSubmitting ? "Saving…" : "Save"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Normal row */
+                      <div
+                        key={l.id}
+                        className="p-3 rounded-lg flex items-center gap-3 group"
+                        style={{
+                          background: "var(--bg)",
+                          border: "1px solid var(--border)",
+                        }}
+                      >
                         <div
-                          className="text-xs flex items-center gap-1.5"
-                          style={{ color: "var(--ink-muted)" }}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                          style={{
+                            background: "var(--surface-2)",
+                            color: "var(--accent)",
+                          }}
                         >
-                          {l.dimensions && <span>{l.dimensions}</span>}
-                          {l.dimensions && <span>·</span>}
-                          <span>{l.source}</span>
-                          <span>·</span>
-                          <span>{l.date}</span>
+                          <Icons.ruler />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">
+                            {l.description}
+                          </div>
+                          <div
+                            className="text-xs flex items-center gap-1.5"
+                            style={{ color: "var(--ink-muted)" }}
+                          >
+                            {l.dimensions && <span>{l.dimensions}</span>}
+                            {l.dimensions && <span>·</span>}
+                            <span>{l.source}</span>
+                            <span>·</span>
+                            <span>{l.date}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="text-sm font-bold tabular-nums px-2 py-0.5 rounded"
+                            style={{ background: "var(--surface-2)" }}
+                          >
+                            ×{l.qty}
+                          </span>
+                          <button
+                            onClick={() => handleUseLeftover(l)}
+                            className="btn-primary text-xs px-2.5 py-1.5"
+                            title="Use one"
+                          >
+                            <Icons.scissors /> Use
+                          </button>
+                          <button
+                            onClick={() => startEditLeftover(l)}
+                            className="btn-ghost p-1.5 opacity-50 hover:opacity-100"
+                            title="Edit"
+                          >
+                            <Icons.edit />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteLeftover(l)}
+                            className="btn-ghost p-1.5 opacity-50 hover:opacity-100"
+                            title="Delete"
+                          >
+                            <Icons.trash />
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="text-sm font-bold tabular-nums px-2 py-0.5 rounded"
-                          style={{ background: "var(--surface-2)" }}
-                        >
-                          ×{l.qty}
-                        </span>
-                        <button
-                          onClick={() => handleUseLeftover(l)}
-                          className="btn-primary text-xs px-2.5 py-1.5"
-                          title="Use one"
-                        >
-                          <Icons.scissors /> Use
-                        </button>
-                        <button
-                          onClick={() => handleDeleteLeftover(l)}
-                          className="btn-ghost p-1.5 opacity-50 hover:opacity-100"
-                          title="Delete"
-                        >
-                          <Icons.trash />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               )}
             </div>
@@ -1387,8 +1587,21 @@ export default function MaterialsClient() {
             </div>
 
             <div className="p-5 mt-auto space-y-2">
-              <button className="btn-primary w-full justify-center text-sm">
+              <button
+                onClick={openEditMaterial}
+                className="btn-primary w-full justify-center text-sm"
+              >
                 <Icons.edit /> Edit Material
+              </button>
+              <button
+                onClick={handleDeleteMaterial}
+                className="btn-ghost w-full justify-center text-sm border"
+                style={{
+                  borderColor: "var(--border)",
+                  color: "var(--stage-contract)",
+                }}
+              >
+                <Icons.trash /> Delete Material
               </button>
               <button
                 className="btn-ghost w-full justify-center text-sm border"
@@ -1614,6 +1827,207 @@ export default function MaterialsClient() {
                 null,
               )}
             />
+          </div>
+        </Modal>
+      )}
+
+      {/* ─── Edit Material Modal ─── */}
+      {showEditModal && selected && (
+        <Modal
+          title={`Edit ${selected.name}`}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditFormError("");
+          }}
+          maxWidth={620}
+          footer={
+            <>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditFormError("");
+                }}
+                className="btn-ghost px-4 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditMaterial}
+                disabled={editFormSubmitting}
+                className="btn-primary px-4 text-sm disabled:opacity-50"
+              >
+                {editFormSubmitting ? "Saving…" : "Save Changes"}
+              </button>
+            </>
+          }
+        >
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Material Name *">
+              <input
+                value={editForm.name}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, name: e.target.value }))
+                }
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="Category *">
+              <select
+                value={editForm.categoryId ?? ""}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    categoryId: e.target.value ? Number(e.target.value) : null,
+                  }))
+                }
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring"
+                style={inputStyle}
+              >
+                <option value="">— select —</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Unit *">
+              <select
+                value={editForm.unit}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, unit: e.target.value }))
+                }
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring"
+                style={inputStyle}
+              >
+                {[
+                  "m²",
+                  "sheet",
+                  "pc",
+                  "m",
+                  "roll",
+                  "can",
+                  "pair",
+                  "kg",
+                  "L",
+                ].map((u) => (
+                  <option key={u}>{u}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Supplier *">
+              <select
+                value={editForm.supplierId ?? ""}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    supplierId: e.target.value ? Number(e.target.value) : null,
+                  }))
+                }
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring"
+                style={inputStyle}
+              >
+                <option value="">— select —</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Location">
+              <input
+                value={editForm.location}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, location: e.target.value }))
+                }
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="Unit Price (DZD)">
+              <input
+                type="number"
+                min="0"
+                value={editForm.price}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    price: parseInt(e.target.value) || 0,
+                  }))
+                }
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring tabular-nums"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="Min Stock" hint="Below this = Low Stock">
+              <input
+                type="number"
+                min="0"
+                value={editForm.minStock}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    minStock: parseInt(e.target.value) || 0,
+                  }))
+                }
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring tabular-nums"
+                style={inputStyle}
+              />
+            </Field>
+            <Field label="Max Stock" hint="Full capacity">
+              <input
+                type="number"
+                min="1"
+                value={editForm.maxStock}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    maxStock: parseInt(e.target.value) || 1,
+                  }))
+                }
+                className="px-3 py-2 rounded-md text-sm outline-none focus-ring tabular-nums"
+                style={inputStyle}
+              />
+            </Field>
+          </div>
+
+          {editFormError && (
+            <div
+              className="mt-4 px-3 py-2 rounded-md text-xs flex items-center gap-2"
+              style={{
+                background: "var(--stage-contract)15",
+                color: "var(--stage-contract)",
+                border: "1px solid var(--stage-contract)40",
+              }}
+            >
+              <Icons.alert /> {editFormError}
+            </div>
+          )}
+
+          <div
+            className="mt-5 p-3 rounded-lg"
+            style={{
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div
+              className="text-xs flex items-center justify-between"
+              style={{ color: "var(--ink-muted)" }}
+            >
+              <span>
+                Current stock:{" "}
+                <strong style={{ color: "var(--ink)" }}>
+                  {selected.stock} {selected.unit}
+                </strong>
+              </span>
+              <span>
+                Use Quick Adjust to change stock — it's tracked via IN/OUT
+                movements.
+              </span>
+            </div>
           </div>
         </Modal>
       )}

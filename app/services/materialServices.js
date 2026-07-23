@@ -282,3 +282,43 @@ export async function deleteLeftover(code, dbId) {
   await prisma.material_leftovers.delete({ where: { id: dbId } });
   return { deleted: true, dbId };
 }
+
+export async function updateLeftover(code, dbId, patch) {
+  const leftover = await prisma.material_leftovers.findUnique({
+    where: { id: dbId },
+  });
+  if (!leftover) {
+    const err = new Error("Leftover not found");
+    err.status = 404;
+    throw err;
+  }
+  const data = {};
+  if (patch.description !== undefined) {
+    if (!patch.description || !patch.description.trim()) {
+      const err = new Error("description is required");
+      err.status = 400;
+      throw err;
+    }
+    data.description = patch.description.trim();
+  }
+  if (patch.dimensions !== undefined) {
+    data.dimensions = patch.dimensions?.trim() || null;
+  }
+  if (patch.quantity !== undefined) {
+    data.quantity = Math.max(1, parseInt(patch.quantity) || 1);
+  }
+
+  const updated = await prisma.material_leftovers.update({
+    where: { id: dbId },
+    data,
+  });
+  return {
+    id: `L-${updated.id}`,
+    dbId: updated.id,
+    description: updated.description,
+    dimensions: updated.dimensions ?? "",
+    qty: updated.quantity,
+    date: formatDate(updated.date),
+    source: updated.source_order_id ? `#${updated.source_order_id}` : "Manual",
+  };
+}

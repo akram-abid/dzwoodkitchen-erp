@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { addLeftover } from "../../../services/materialServices";
+import { prisma } from "../../../../../lib/prisma";
+import { addLeftover } from "../../../../services/materialServices";
 
 export async function GET(_req, { params }) {
   try {
@@ -9,7 +9,11 @@ export async function GET(_req, { params }) {
       where: { code: id },
       include: { leftovers: { orderBy: { date: "desc" } } },
     });
-    if (!material) return NextResponse.json({ error: "Material not found" }, { status: 404 });
+    if (!material)
+      return NextResponse.json(
+        { error: "Material not found" },
+        { status: 404 },
+      );
     return NextResponse.json(
       material.leftovers.map((l) => ({
         id: `L-${l.id}`,
@@ -22,7 +26,10 @@ export async function GET(_req, { params }) {
       })),
     );
   } catch (err) {
-    return NextResponse.json({ error: err.message || "Failed to load leftovers" }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || "Failed to load leftovers" },
+      { status: 500 },
+    );
   }
 }
 
@@ -33,6 +40,9 @@ export async function POST(req, { params }) {
     const created = await addLeftover(id, body);
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
-    return NextResponse.json({ error: err.message || "Failed to add leftover" }, { status: err.status || 500 });
+    return NextResponse.json(
+      { error: err.message || "Failed to add leftover" },
+      { status: err.status || 500 },
+    );
   }
 }
