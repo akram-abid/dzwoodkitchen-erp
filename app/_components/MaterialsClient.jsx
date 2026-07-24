@@ -769,6 +769,7 @@ export default function MaterialsClient() {
     if (!qty || qty < 1 || !selectedId) return;
 
     try {
+      console.log("Adjusting stock", { type, qty, selectedId });
       await adjustStockClient(selectedId, {
         type: type === "in" ? "IN" : "OUT",
 

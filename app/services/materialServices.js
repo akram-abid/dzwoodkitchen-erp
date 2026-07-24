@@ -143,7 +143,11 @@ export async function createMaterial(data) {
       },
     });
   }
-  return getMaterialByCode(code);
+  const shaped = await getMaterialByCode(code);
+  // shapeMaterial() puts `code` in `.id` (matches how MaterialsClient reads
+  // it), so the real numeric material_catalog.id — needed as the FK for
+  // material_purchase_items.material_id — has to ride along separately.
+  return { ...shaped, dbId: created.id };
 }
 
 export async function updateMaterial(code, patch) {

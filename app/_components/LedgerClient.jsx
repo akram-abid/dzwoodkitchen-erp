@@ -994,12 +994,14 @@ export default function LedgerClient() {
     setShowNewMaterial(false);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, type) => {
     if (!confirm("Delete this entry? This cannot be undone.")) return;
 
     try {
-      await deleteLedgerEntry(id);
-      setEntries((prev) => prev.filter((e) => e.id !== id));
+      await deleteLedgerEntry(id, type);
+      setEntries((prev) =>
+        prev.filter((e) => !(e.id === id && e.type === type)),
+      );
       if (editingId === id) closeModal();
     } catch (err) {
       setError(err.message || "Failed to delete entry");
@@ -1197,7 +1199,11 @@ export default function LedgerClient() {
 
       if (editingId) {
         saved = await updateLedgerEntry(editingId, payload);
-        setEntries((prev) => prev.map((e) => (e.id === editingId ? saved : e)));
+        setEntries((prev) =>
+          prev.map((e) =>
+            e.id === editingId && e.type === newType ? saved : e,
+          ),
+        );
       } else {
         saved = await createLedgerEntry(payload);
         setEntries((prev) => [saved, ...prev]);
@@ -1586,7 +1592,7 @@ export default function LedgerClient() {
                         <Icons.edit />
                       </button>
                       <button
-                        onClick={() => handleDelete(e.id)}
+                        onClick={() => handleDelete(e.id, e.type)}
                         className="btn-ghost p-1.5 hover:text-[var(--stage-contract)]"
                         title="Delete entry"
                       >
@@ -1667,7 +1673,7 @@ export default function LedgerClient() {
               {editingId && (
                 <button
                   onClick={() => {
-                    handleDelete(editingId);
+                    handleDelete(editingId, newType);
                     closeModal();
                   }}
                   className="btn-ghost px-3 text-sm mr-auto"

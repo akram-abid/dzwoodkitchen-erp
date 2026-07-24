@@ -1,6 +1,6 @@
 // =============================================================
 
-// services/ledgerService.js — TABLE-PER-TYPE (v3.1: helpers inlined)
+// services/ledgerService.js — TABLE-PER-TYPE (v3.2: material purchases now write stock movements)
 
 //
 
@@ -11,6 +11,24 @@
 //   • material_purchases (+ items)   → orders from suppliers
 
 //   • other_expenses                 → other expenses
+
+//
+
+// v3.2 change: MATERIAL_PURCHASE create/update/delete now keep
+
+// material_stock_movements in sync, since stock = SUM(IN) - SUM(OUT)
+
+// is computed on read (see schema.prisma comment on that model).
+
+// Movements are tagged via `note: "Purchase #<id>"` so update/delete
+
+// can find and replace/remove exactly the rows a given purchase owns.
+
+// NOTE: material_stock_movements has no purchase_id column, so this
+
+// tagging is a pragmatic stand-in — see the comment near
+
+// STOCK_MOVEMENT_NOTE_PREFIX below for a more robust alternative.
 
 // =============================================================
 
@@ -35,6 +53,15 @@ const TABLE_BY_TYPE = {
   MATERIAL_PURCHASE: "material_purchases",
   OTHER_EXPENSE: "other_expenses",
 };
+
+// Tag used in material_stock_movements.note to identify which movements
+// belong to a given purchase, since there's no purchase_id column on that
+// table. If you can spare a migration, adding a nullable `purchase_id Int?`
+// (+ relation) to material_stock_movements would make this exact and let
+// you drop the note-matching entirely — recommended follow-up.
+const STOCK_MOVEMENT_NOTE_PREFIX = "Purchase #";
+const stockMovementNoteFor = (purchaseId) =>
+  `${STOCK_MOVEMENT_NOTE_PREFIX}${purchaseId}`;
 
 // =============================================================
 
@@ -96,6 +123,22 @@ function buildSearchFilter(search) {
     material: { note: { contains: q, mode: "insensitive" } },
     other: { note: { contains: q, mode: "insensitive" } },
   };
+}
+
+// Builds the material_stock_movements rows for a purchase's items.
+// Only items resolved to a real catalog material (materialId set) get a
+// movement — free-text/one-off items with no material_id don't affect
+// tracked stock, same as they don't show up in MaterialsClient today.
+function buildStockMovements(purchase) {
+  return (purchase.items || [])
+    .filter((it) => it.material_id != null)
+    .map((it) => ({
+      material_id: it.material_id,
+      type: "IN",
+      quantity: it.quantity,
+      date: purchase.date,
+      note: stockMovementNoteFor(purchase.id),
+    }));
 }
 
 function serialize(type, row) {
@@ -409,40 +452,44 @@ export async function createEntry(input) {
         0,
       );
 
-      const created = await prisma.material_purchases.create({
-        data: {
-          supplier_id: input.supplierId,
+      const created = await prisma.$transaction(async (tx) => {
+        const purchase = await tx.material_purchases.create({
+          data: {
+            supplier_id: input.supplierId,
 
-          date: toDate(input.date),
+            date: toDate(input.date),
 
-          amount: total,
+            amount: total,
 
-          reference: input.reference ?? null,
+            reference: input.reference ?? null,
 
-          note: input.note ?? null,
+            note: input.note ?? null,
 
-          items: items.length
-            ? {
-                create: items.map((it) => ({
-                  material_id: it.materialId ?? null,
+            items: items.length
+              ? {
+                  create: items.map((it) => ({
+                    material_id: it.materialId ?? null,
 
-                  material_name: it.materialName,
+                    material_name: it.materialName,
 
-                  quantity: it.quantity,
+                    quantity: it.quantity,
 
-                  unit: it.unit,
+                    unit: it.unit,
 
-                  unit_price: it.unitPrice,
-                })),
-              }
-            : undefined,
-        },
+                    unit_price: it.unitPrice,
+                  })),
+                }
+              : undefined,
+          },
 
-        include: {
-          supplier: { select: { id: true, name: true } },
+          include: {
+            supplier: { select: { id: true, name: true } },
 
-          items: { orderBy: { id: "asc" } },
-        },
+            items: { orderBy: { id: "asc" } },
+          },
+        });
+
+        return purchase;
       });
 
       return serialize(TYPE.MATERIAL_PURCHASE, created);
@@ -535,7 +582,14 @@ export async function updateEntry(type, id, input) {
           });
         }
 
-        return tx.material_purchases.update({
+        // Wipe out the stock movements this purchase previously created —
+        // they'll be rebuilt below from the new item list. This is where
+        // the note-tag matters: it's how we find "this purchase's" rows.
+        await tx.material_stock_movements.deleteMany({
+          where: { note: stockMovementNoteFor(numId) },
+        });
+
+        const purchase = await tx.material_purchases.update({
           where: { id: numId },
 
           data: {
@@ -574,6 +628,16 @@ export async function updateEntry(type, id, input) {
             items: { orderBy: { id: "asc" } },
           },
         });
+
+        const movementRows = buildStockMovements(purchase);
+
+        if (movementRows.length) {
+          await tx.material_stock_movements.createMany({
+            data: movementRows,
+          });
+        }
+
+        return purchase;
       });
 
       return serialize(TYPE.MATERIAL_PURCHASE, updated);
@@ -624,7 +688,15 @@ export async function deleteEntry(type, id) {
       return { ok: true };
 
     case TYPE.MATERIAL_PURCHASE:
-      await prisma.material_purchases.delete({ where: { id: numId } });
+      // Reverse the stock this purchase added before removing the purchase
+      // itself, so deleting a bad entry doesn't leave phantom stock behind.
+      await prisma.$transaction(async (tx) => {
+        await tx.material_stock_movements.deleteMany({
+          where: { note: stockMovementNoteFor(numId) },
+        });
+
+        await tx.material_purchases.delete({ where: { id: numId } });
+      });
 
       return { ok: true };
 
