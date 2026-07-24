@@ -52,24 +52,24 @@ const SEED_ORDERS = [
   { id: "ORD-2026-0201", name: "Bibliothèque El Harrach", owner: "M. Boudiaf", address: "El Harrach, Alger", deliveryDate: "2026-07-15", status: "Pending" },
 ];
 
-const SEED_ASSETS = [
-  { id: "AST-001", type: "TOOL", name: "DeWalt DWS779 Miter Saw", category: "Power Tool", identifier: "DW-779-2024-1842", purchaseDate: "2024-03-15", purchasePrice: 85000, dailyCost: 233, monthlyMaintEstimate: 1500, notes: "Heavy-duty sliding compound" },
-  { id: "AST-002", type: "TOOL", name: "DeWalt DCD996 Impact Drill", category: "Power Tool", identifier: "DW-996-2024-3104", purchaseDate: "2024-06-01", purchasePrice: 42000, dailyCost: 115, monthlyMaintEstimate: 800, notes: "Brushless 20V" },
-  { id: "AST-003", type: "MACHINE", name: "Table Saw 10\" Industrial", category: "Table Saw", identifier: "TS-IND-2023-0078", purchaseDate: "2023-01-20", purchasePrice: 320000, dailyCost: 877, monthlyMaintEstimate: 4500, notes: "Main cutting station" },
-  { id: "AST-004", type: "MACHINE", name: "CNC Router 4x8", category: "CNC", identifier: "CNC-AX-2025-001", purchaseDate: "2025-02-10", purchasePrice: 850000, dailyCost: 2330, monthlyMaintEstimate: 8000, notes: "Computer-controlled cutting" },
-  { id: "AST-005", type: "TOOL", name: "Festool RO 90 Multi Sander", category: "Power Tool", identifier: "FT-90-2025-024", purchaseDate: "2025-09-05", purchasePrice: 65000, dailyCost: 178, monthlyMaintEstimate: 1200, notes: "Precision sander" },
-  { id: "AST-006", type: "TOOL", name: "Makita HR2470 Rotary Hammer", category: "Power Tool", identifier: "MK-2470-2024-088", purchaseDate: "2024-08-12", purchasePrice: 38000, dailyCost: 104, monthlyMaintEstimate: 600, notes: "Masonry work" },
-  { id: "AST-007", type: "MACHINE", name: "DeWalt DWP849X Polisher", category: "Sander", identifier: "DW-849-2024-512", purchaseDate: "2024-04-03", purchasePrice: 55000, dailyCost: 151, monthlyMaintEstimate: 900, notes: "Finishing polisher" },
-  { id: "AST-010", type: "TRUCK", name: "Huanday H100 Daily Delivery Van", category: "Delivery Van", identifier: "00123-116-16", purchaseDate: "2022-11-01", purchasePrice: 1200000, dailyCost: 3288, monthlyMaintEstimate: 12000, currentKm: 87420, fuelType: "Diesel", notes: "Primary delivery vehicle" },
-];
+// const SEED_ASSETS = [
+//   { id: "AST-001", type: "TOOL", name: "DeWalt DWS779 Miter Saw", category: "Power Tool", identifier: "DW-779-2024-1842", purchaseDate: "2024-03-15", purchasePrice: 85000, dailyCost: 233, monthlyMaintEstimate: 1500, notes: "Heavy-duty sliding compound" },
+//   { id: "AST-002", type: "TOOL", name: "DeWalt DCD996 Impact Drill", category: "Power Tool", identifier: "DW-996-2024-3104", purchaseDate: "2024-06-01", purchasePrice: 42000, dailyCost: 115, monthlyMaintEstimate: 800, notes: "Brushless 20V" },
+//   { id: "AST-003", type: "MACHINE", name: "Table Saw 10\" Industrial", category: "Table Saw", identifier: "TS-IND-2023-0078", purchaseDate: "2023-01-20", purchasePrice: 320000, dailyCost: 877, monthlyMaintEstimate: 4500, notes: "Main cutting station" },
+//   { id: "AST-004", type: "MACHINE", name: "CNC Router 4x8", category: "CNC", identifier: "CNC-AX-2025-001", purchaseDate: "2025-02-10", purchasePrice: 850000, dailyCost: 2330, monthlyMaintEstimate: 8000, notes: "Computer-controlled cutting" },
+//   { id: "AST-005", type: "TOOL", name: "Festool RO 90 Multi Sander", category: "Power Tool", identifier: "FT-90-2025-024", purchaseDate: "2025-09-05", purchasePrice: 65000, dailyCost: 178, monthlyMaintEstimate: 1200, notes: "Precision sander" },
+//   { id: "AST-006", type: "TOOL", name: "Makita HR2470 Rotary Hammer", category: "Power Tool", identifier: "MK-2470-2024-088", purchaseDate: "2024-08-12", purchasePrice: 38000, dailyCost: 104, monthlyMaintEstimate: 600, notes: "Masonry work" },
+//   { id: "AST-007", type: "MACHINE", name: "DeWalt DWP849X Polisher", category: "Sander", identifier: "DW-849-2024-512", purchaseDate: "2024-04-03", purchasePrice: 55000, dailyCost: 151, monthlyMaintEstimate: 900, notes: "Finishing polisher" },
+//   { id: "AST-010", type: "TRUCK", name: "Huanday H100 Daily Delivery Van", category: "Delivery Van", identifier: "00123-116-16", purchaseDate: "2022-11-01", purchasePrice: 1200000, dailyCost: 3288, monthlyMaintEstimate: 12000, currentKm: 87420, fuelType: "Diesel", notes: "Primary delivery vehicle" },
+// ];
 
-const SEED_MAINTENANCE = [
-  { id: "MNT-001", assetId: "AST-001", date: "2026-06-15", description: "Blade replacement + alignment", cost: 3500 },
-  { id: "MNT-002", assetId: "AST-001", date: "2026-04-22", description: "Carbon brush replacement", cost: 1800 },
-  { id: "MNT-003", assetId: "AST-003", date: "2026-07-01", description: "Belt tension + dust extraction cleaning", cost: 2200 },
-  { id: "MNT-004", assetId: "AST-010", date: "2026-06-28", description: "Oil change + brake pads", cost: 18500 },
-  { id: "MNT-005", assetId: "AST-010", date: "2026-05-12", description: "Tire rotation + balancing", cost: 4500 },
-];
+// const SEED_MAINTENANCE = [
+//   { id: "MNT-001", assetId: "AST-001", date: "2026-06-15", description: "Blade replacement + alignment", cost: 3500 },
+//   { id: "MNT-002", assetId: "AST-001", date: "2026-04-22", description: "Carbon brush replacement", cost: 1800 },
+//   { id: "MNT-003", assetId: "AST-003", date: "2026-07-01", description: "Belt tension + dust extraction cleaning", cost: 2200 },
+//   { id: "MNT-004", assetId: "AST-010", date: "2026-06-28", description: "Oil change + brake pads", cost: 18500 },
+//   { id: "MNT-005", assetId: "AST-010", date: "2026-05-12", description: "Tire rotation + balancing", cost: 4500 },
+// ];
 
 const SEED_TRIPS = [
   { id: "TRP-001", truckId: "AST-010", date: "2026-04-20", startKm: 85100, endKm: 85165, purpose: "DELIVERY", cost: 2800, orderId: "ORD-2026-0142", notes: "Final delivery + on-site assembly" },
@@ -87,6 +87,21 @@ const SEED_TRIPS = [
 /* ─── Helpers ─── */
 const inMonth = (date, month, year) => { const d = new Date(date); return d.getMonth() === month && d.getFullYear() === year; };
 const distance = (trip) => Math.max(0, (Number(trip.endKm) || 0) - (Number(trip.startKm) || 0));
+
+const mapVehicle = (v) => ({
+  id: String(v.id),
+  type: "TRUCK",
+  name: v.name,
+  category: "Delivery Van",
+  identifier: v.plate_number,
+  purchaseDate: v.purchase_date,
+  purchasePrice: v.purchase_price,
+  dailyCost: v.daily_cost,
+  monthlyMaintEstimate: v.monthly_maint,
+  currentKm: v.current_km,
+  fuelType: v.fuel_type,
+  notes: v.notes || "",
+});
 
 /* ─── Modal ─── */
 const Modal = ({ title, onClose, children, footer, maxWidth = 720 }) => (
@@ -114,10 +129,10 @@ const Field = ({ label, children, hint, required }) => (
 
 const inputStyle = { background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" };
 
-const TypeBadge = ({ type }) => {
-  const meta = ASSET_META[type];
-  return <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wider" style={{ background: `${meta.color}15`, color: meta.color }}>{meta.label}</span>;
-};
+// const TypeBadge = ({ type }) => {
+//   const meta = ASSET_META[type];
+//   return <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wider" style={{ background: `${meta.color}15`, color: meta.color }}>{meta.label}</span>;
+// };
 
 /* ─── Order Picker ─── */
 const OrderPicker = ({ value, onChange, orders }) => {
@@ -192,9 +207,9 @@ const OrderPicker = ({ value, onChange, orders }) => {
 };
 
 /* ─── Main ─── */
-export default function FleetClient() {
-  const [assets, setAssets] = useState(SEED_ASSETS);
-  const [maintenance, setMaintenance] = useState(SEED_MAINTENANCE);
+export default function FleetClient({ initialVehicles = [] }) {
+  const [assets, setAssets] = useState(() => initialVehicles.map(mapVehicle));
+  const [maintenance, setMaintenance] = useState([]);
   const [trips, setTrips] = useState(SEED_TRIPS);
   const [orders] = useState(SEED_ORDERS);
 
@@ -223,8 +238,9 @@ export default function FleetClient() {
 
 
   /* ─── Truck derived ─── */
-  const truck = useMemo(() => assets.find((a) => a.type === "TRUCK"), [assets]);
-  const monthTrips = useMemo(() => trips.filter((t) => inMonth(t.date, cm, cy)), [trips, cm, cy]);
+  const [selectedTruckId, setSelectedTruckId] = useState(null);
+  const trucks = useMemo(() => assets.filter((a) => a.type === "TRUCK"), [assets]);
+  const truck = useMemo(() => trucks.find((t) => t.id === selectedTruckId) || trucks[0], [trucks, selectedTruckId]); const monthTrips = useMemo(() => trips.filter((t) => inMonth(t.date, cm, cy)), [trips, cm, cy]);
   const truckStats = useMemo(() => {
     const monthMaint = maintenance.filter((m) => m.assetId === truck?.id && inMonth(m.date, cm, cy)).reduce((s, m) => s + m.cost, 0);
     const tripCost = monthTrips.reduce((s, t) => s + (t.cost || 0), 0);
@@ -258,7 +274,7 @@ export default function FleetClient() {
     setAssetError("");
     if (editingAssetId) setAssets((prev) => prev.map((a) => (a.id === editingAssetId ? { ...a, ...entry } : a)));
     else {
-      const prefix = entry.type === "TRUCK" ? "AST-T" : entry.type === "MACHINE" ? "AST-M" : "AST";
+      const prefix = "AST-T";
       const next = `${prefix}-${String(assets.length + 1).padStart(3, "0")}`;
       setAssets((prev) => [{ id: next, ...entry }, ...prev]);
     }
@@ -323,6 +339,16 @@ export default function FleetClient() {
               {/* Truck header */}
               <div className="p-3 shrink-0 grid grid-cols-1 lg:grid-cols-3 gap-3" style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
                 <div className="lg:col-span-1 p-4 rounded-xl" style={{ background: "linear-gradient(135deg, #3b82f615, #3b82f605)", border: "1px solid #3b82f630" }}>
+                  {trucks.length > 1 && (
+                    <select
+                      value={truck.id}
+                      onChange={(e) => setSelectedTruckId(e.target.value)}
+                      className="text-xs px-2 py-1 rounded-md mb-2"
+                      style={inputStyle}
+                    >
+                      {trucks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  )}
                   <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#3b82f6" }}><Icons.truck /> Delivery Truck</div>
                   <div className="text-lg font-bold mt-1 truncate">{truck.name}</div>
                   <div className="text-xs mt-0.5" style={{ color: "var(--ink-muted)" }}>{truck.identifier} · {truck.fuelType || "—"}</div>

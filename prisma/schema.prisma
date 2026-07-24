@@ -93,30 +93,30 @@ model order_photos {
 }
 
 model orders {
-  id                 Int               @id @default(autoincrement())
-  client_id          Int
-  worker_id          Int?
-  project_name       String?           @db.VarChar(255)
-  total_amount       Decimal?          @db.Decimal(10, 2)
-  due_date           DateTime?         @db.Date
-  state              order_state       @default(appointment)
-  address            String?           @db.VarChar(255)
-  address_notes      String?
-  longitude          Decimal?          @db.Decimal(10, 7)
-  latitude           Decimal?          @db.Decimal(10, 7)
-  lift_cost          Decimal?          @default(0) @db.Decimal(10, 2)
-  is_fully_completed Boolean           @default(false)
-  created_at         DateTime          @default(now()) @db.Timestamp(6)
-  updated_at         DateTime          @default(now()) @db.Timestamp(6)
-  checklist_items    checklist_items[]
-  delivery_notes     delivery_notes[]
-  order_items        order_items[]
-  order_photos       order_photos[]
-  clients            clients           @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  workers            workers?          @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  payments           payments[]
-  vehicle_trips      vehicle_trips[]
-  material_leftovers material_leftovers[]
+  id                       Int                        @id @default(autoincrement())
+  client_id                Int
+  worker_id                Int?
+  project_name             String?                    @db.VarChar(255)
+  total_amount             Decimal?                   @db.Decimal(10, 2)
+  due_date                 DateTime?                  @db.Date
+  state                    order_state                @default(appointment)
+  address                  String?                    @db.VarChar(255)
+  address_notes            String?
+  longitude                Decimal?                   @db.Decimal(10, 7)
+  latitude                 Decimal?                   @db.Decimal(10, 7)
+  lift_cost                Decimal?                   @default(0) @db.Decimal(10, 2)
+  is_fully_completed       Boolean                    @default(false)
+  created_at               DateTime                   @default(now()) @db.Timestamp(6)
+  updated_at               DateTime                   @default(now()) @db.Timestamp(6)
+  checklist_items          checklist_items[]
+  delivery_notes           delivery_notes[]
+  order_items              order_items[]
+  order_photos             order_photos[]
+  clients                  clients                    @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workers                  workers?                   @relation(fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments                 payments[]
+  vehicle_trips            vehicle_trips[]
+  material_leftovers       material_leftovers[]
   material_stock_movements material_stock_movements[]
 
   @@index([client_id], map: "idx_orders_client_id")
@@ -149,12 +149,25 @@ model vehicle_trips {
   @@index([vehicle_id], map: "idx_vehicle_trips_vehicle_id")
 }
 
+// model vehicles {
+//   total_kilometers Decimal         @default(0) @db.Decimal(10, 2)
+// }
+
 model vehicles {
-  id               Int             @id @default(autoincrement())
-  name             String          @db.VarChar(100)
-  plate_number     String          @unique @db.VarChar(20)
-  total_kilometers Decimal         @default(0) @db.Decimal(10, 2)
-  vehicle_trips    vehicle_trips[]
+  id             Int       @id @default(autoincrement())
+  name           String    @db.VarChar(100)
+  plate_number   String    @unique @db.VarChar(50)
+  purchase_date  DateTime? @db.Date
+  purchase_price Decimal?  @db.Decimal(10, 2)
+  daily_cost     Decimal?  @db.Decimal(10, 2)
+  monthly_maint  Decimal?  @db.Decimal(10, 2)
+  current_km     Decimal?  @db.Decimal(10, 2)
+  fuel_type      String?   @db.VarChar(20)
+  notes          String?
+  created_at     DateTime  @default(now()) @db.Timestamp(6)
+  updated_at     DateTime  @default(now()) @db.Timestamp(6)
+
+  vehicle_trips vehicle_trips[]
 }
 
 // =============================================================
@@ -176,10 +189,10 @@ model workers {
 
   sold Float @default(0) // Balance carried from previous months
 
-  attendance      Attendance[]
-  timeEntries     TimeEntries[]
-  assignments     Assignment[]
-  workersPayments WorkersPayments[]   // all worker cash-out events (advances + bi-weekly wages)
+  attendance               Attendance[]
+  timeEntries              TimeEntries[]
+  assignments              Assignment[]
+  workersPayments          WorkersPayments[] // all worker cash-out events (advances + bi-weekly wages)
   material_stock_movements material_stock_movements[]
 }
 
@@ -249,25 +262,25 @@ model material_categories {
 }
 
 model material_catalog {
-  id              Int                            @id @default(autoincrement())
-  code            String                         @unique @db.VarChar(20)
-  name            String                         @unique @db.VarChar(150)
+  id              Int                       @id @default(autoincrement())
+  code            String                    @unique @db.VarChar(20)
+  name            String                    @unique @db.VarChar(150)
   category_id     Int?
-  default_unit    String?                        @db.VarChar(20)
-  min_stock       Decimal                        @default(0) @db.Decimal(10, 2)
-  max_stock       Decimal                        @default(0) @db.Decimal(10, 2)
-  unit_price      Decimal                        @default(0) @db.Decimal(10, 2)
-  location        String?                        @db.VarChar(100)
+  default_unit    String?                   @db.VarChar(20)
+  min_stock       Decimal                   @default(0) @db.Decimal(10, 2)
+  max_stock       Decimal                   @default(0) @db.Decimal(10, 2)
+  unit_price      Decimal                   @default(0) @db.Decimal(10, 2)
+  location        String?                   @db.VarChar(100)
   supplier_id     Int?
   status_override material_status_override?
-  created_at      DateTime                       @default(now()) @db.Timestamp(6)
-  updated_at      DateTime                       @default(now()) @db.Timestamp(6)
+  created_at      DateTime                  @default(now()) @db.Timestamp(6)
+  updated_at      DateTime                  @default(now()) @db.Timestamp(6)
 
-  category         material_categories?      @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  supplier         suppliers?                @relation(fields: [supplier_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  items            material_purchase_items[]
-  leftovers        material_leftovers[]
-  stock_movements  material_stock_movements[]
+  category        material_categories?       @relation(fields: [category_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  supplier        suppliers?                 @relation(fields: [supplier_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  items           material_purchase_items[]
+  leftovers       material_leftovers[]
+  stock_movements material_stock_movements[]
 
   @@index([category_id], map: "idx_material_catalog_category_id")
   @@index([supplier_id], map: "idx_material_catalog_supplier_id")
@@ -280,17 +293,17 @@ enum material_status_override {
 }
 
 model material_leftovers {
-  id              Int       @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   material_id     Int
-  description     String    @db.VarChar(255)
-  dimensions      String?   @db.VarChar(100)
-  quantity        Int       @default(1)
-  date            DateTime  @default(now()) @db.Date
+  description     String   @db.VarChar(255)
+  dimensions      String?  @db.VarChar(100)
+  quantity        Int      @default(1)
+  date            DateTime @default(now()) @db.Date
   source_order_id Int?
-  created_at      DateTime  @default(now()) @db.Timestamp(6)
+  created_at      DateTime @default(now()) @db.Timestamp(6)
 
   material material_catalog @relation(fields: [material_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  order    orders?           @relation(fields: [source_order_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  order    orders?          @relation(fields: [source_order_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([material_id], map: "idx_material_leftovers_material_id")
 }
@@ -332,9 +345,9 @@ model suppliers {
   created_at DateTime        @default(now()) @db.Timestamp(6)
   updated_at DateTime        @default(now()) @db.Timestamp(6)
 
-  purchase_orders  purchase_orders[]
+  purchase_orders    purchase_orders[]
   material_purchases material_purchases[]
-  materials        material_catalog[]
+  materials          material_catalog[]
 }
 
 model purchase_orders {
@@ -401,7 +414,7 @@ model material_purchases {
   created_at  DateTime @default(now()) @db.Timestamp(6)
   updated_at  DateTime @default(now()) @db.Timestamp(6)
 
-  supplier suppliers                @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplier suppliers                 @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   items    material_purchase_items[]
 
   @@index([supplier_id], map: "idx_material_purchases_supplier_id")
