@@ -258,8 +258,15 @@ export default function FleetClient({ initialVehicles = [] }) {
 
   const openEditAsset = (a) => {
     setEditingAssetId(a.id);
-    setAssetForm({ ...a, purchasePrice: String(a.purchasePrice), dailyCost: String(a.dailyCost), monthlyMaintEstimate: String(a.monthlyMaintEstimate), currentKm: a.currentKm != null ? String(a.currentKm) : "" });
-    setAssetError(""); setShowAssetModal(true);
+    setAssetForm({
+      ...a,
+      purchasePrice: String(a.purchasePrice),
+      dailyCost: String(a.dailyCost),
+      monthlyMaintEstimate: String(a.monthlyMaintEstimate),
+      currentKm: a.currentKm != null ? String(a.currentKm) : ""
+    });
+    setAssetError("");
+    setShowAssetModal(true);
   };
 
   const saveAsset = async () => {
@@ -285,17 +292,35 @@ export default function FleetClient({ initialVehicles = [] }) {
     setAssetError("");
 
     try {
-      const res = await fetch("/api/vehicles", {
-        method: "POST",
+      let result;
+      let url = "/api/vehicles";
+      let method = "POST";
+
+      if (editingAssetId) {
+        // UPDATE
+        url = `/api/vehicles/${editingAssetId}`;
+        method = "PUT";
+      }
+
+      const res = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(entry),
       });
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Failed to create truck");
+      result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to save truck");
 
       const mapped = mapVehicle(result.data);
-      setAssets((prev) => [...prev, mapped]);
+
+      if (editingAssetId) {
+        // ✅ Update existing
+        setAssets((prev) => prev.map((a) => (a.id === mapped.id ? mapped : a)));
+      } else {
+        // ✅ Add new
+        setAssets((prev) => [...prev, mapped]);
+      }
+
       setShowAssetModal(false);
     } catch (error) {
       setAssetError(error.message);
