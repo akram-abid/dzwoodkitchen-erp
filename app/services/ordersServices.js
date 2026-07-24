@@ -13,6 +13,7 @@ export async function getAllOrders({
     ...(worker_id && { worker_id }),
   };
 
+  // Build where clause - if empty, use undefined (returns all)
   const whereClause = Object.keys(where).length > 0 ? where : undefined;
 
   const [orders, total] = await Promise.all([
@@ -30,7 +31,8 @@ export async function getAllOrders({
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
-    prisma.orders.count(whereClause ? { where: whereClause } : undefined),
+    // ✅ Fix: Use whereClause consistently
+    prisma.orders.count({ where: whereClause }),
   ]);
 
   return {
@@ -41,7 +43,6 @@ export async function getAllOrders({
       total,
       totalPages: Math.ceil(total / pageSize),
     },
-
   };
 }
 

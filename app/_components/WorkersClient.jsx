@@ -527,12 +527,11 @@ const getWeekRangeLabel = (week) => {
 const getWorkerStatus = (worker, orders) => {
   if (!worker) return "OFF";
 
-  const hasActiveOrders = orders?.some(
-    o => o.workers.full_name === worker.full_name &&
-      o.state !== "completed"
-  );
+  const hasActiveOrders = orders?.some(o => {
+    if (!o.workers) return false;
+    if (o.worker_id === worker.id && o.state !== "completed") return true
+  });
 
-  // Also check assignments
   const hasActiveAssignments = (worker.assignments || []).length > 0;
 
   return (hasActiveOrders || hasActiveAssignments) ? "ACTIVE" : "OFF";
@@ -1957,11 +1956,11 @@ const DetailScreen = memo(function DetailScreen({
 
 /* ─── Main App ─── */
 export default function WorkersApp({ workersData, orders = [] }) {
-  const [today, setToday] = useState("");
+  // const [today, setToday] = useState("");
 
-  useEffect(() => {
-    setToday(formatDate(new Date()));
-  }, []);
+  // useEffect(() => {
+  //   setToday(formatDate(new Date()));
+  // }, []);
   const [screen, setScreen] = useState("list");
   const [activeTab, setActiveTab] = useState("attendance");
   const [search, setSearch] = useState("");
