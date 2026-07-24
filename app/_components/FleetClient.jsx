@@ -262,25 +262,45 @@ export default function FleetClient({ initialVehicles = [] }) {
     setAssetError(""); setShowAssetModal(true);
   };
 
-  const saveAsset = () => {
+  const saveAsset = async () => {
     if (!assetForm.name?.trim()) return setAssetError("Name is required");
-    if (!assetForm.identifier?.trim()) return setAssetError(assetForm.type === "TRUCK" ? "Plate number is required" : "Serial number is required");
+    if (!assetForm.identifier?.trim()) return setAssetError("Plate number is required");
     const price = parseFloat(assetForm.purchasePrice);
     if (!price || price <= 0) return setAssetError("Purchase price must be > 0");
     const daily = parseFloat(assetForm.dailyCost);
     if (isNaN(daily) || daily < 0) return setAssetError("Daily cost must be ≥ 0");
 
-    const entry = { ...assetForm, purchasePrice: price, dailyCost: daily, monthlyMaintEstimate: parseFloat(assetForm.monthlyMaintEstimate) || 0, currentKm: assetForm.currentKm ? Number(assetForm.currentKm) : null };
-    setAssetError("");
-    if (editingAssetId) setAssets((prev) => prev.map((a) => (a.id === editingAssetId ? { ...a, ...entry } : a)));
-    else {
-      const prefix = "AST-T";
-      const next = `${prefix}-${String(assets.length + 1).padStart(3, "0")}`;
-      setAssets((prev) => [{ id: next, ...entry }, ...prev]);
-    }
-    setShowAssetModal(false);
-  };
+    const entry = {
+      name: assetForm.name,
+      plate_number: assetForm.identifier,
+      purchase_date: assetForm.purchaseDate,
+      purchase_price: price,
+      daily_cost: daily,
+      monthly_maint: parseFloat(assetForm.monthlyMaintEstimate) || 0,
+      current_km: assetForm.currentKm ? Number(assetForm.currentKm) : null,
+      fuel_type: assetForm.fuelType || null,
+      notes: assetForm.notes || null,
+    };
 
+    setAssetError("");
+
+    try {
+      const res = await fetch("/api/vehicles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to create truck");
+
+      const mapped = mapVehicle(result.data);
+      setAssets((prev) => [...prev, mapped]);
+      setShowAssetModal(false);
+    } catch (error) {
+      setAssetError(error.message);
+    }
+  };
   const deleteAsset = (id) => { if (!confirm("Delete this asset and all its history?")) return; setAssets((prev) => prev.filter((a) => a.id !== id)); setMaintenance((prev) => prev.filter((m) => m.assetId !== id)); setTrips((prev) => prev.filter((t) => t.truckId !== id)); };
 
   const openAddMaint = (assetId) => { setMaintAssetId(assetId); setMaintForm({ date: today(), description: "", cost: "" }); setMaintError(""); setShowMaintModal(true); };
@@ -336,6 +356,14 @@ export default function FleetClient({ initialVehicles = [] }) {
             </div>
           ) : (
             <>
+              <div className="flex items-center justify-between p-3 shrink-0" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold" style={{ color: "var(--ink)" }}>Vehicles</span>
+                  <button onClick={() => openNewAsset("TRUCK")} className="text-xs px-3 py-1.5 rounded-md font-medium flex items-center gap-1" style={{ background: "#3b82f6", color: "#fff" }}>
+                    <Icons.plus /> Add Truck
+                  </button>
+                </div>
+              </div>
               {/* Truck header */}
               <div className="p-3 shrink-0 grid grid-cols-1 lg:grid-cols-3 gap-3" style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
                 <div className="lg:col-span-1 p-4 rounded-xl" style={{ background: "linear-gradient(135deg, #3b82f615, #3b82f605)", border: "1px solid #3b82f630" }}>
