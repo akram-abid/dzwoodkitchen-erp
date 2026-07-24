@@ -4,31 +4,31 @@ import { useState, useMemo, useEffect, useRef } from "react";
 
 /* ─── Icons ─── */
 const Icons = {
-  search: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>),
-  x: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>),
-  plus: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>),
-  edit: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>),
-  trash: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>),
-  alert: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>),
-  cal: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>),
-  trend: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>),
-  truck: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>),
-  cog: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/><path d="M12 22v-2"/><path d="m17 20.66-1-1.73"/><path d="M11 10.27 7 3.34"/><path d="m20.66 17-1.73-1"/><path d="m3.34 7 1.73 1"/><path d="m14 12h8"/><path d="M2 12h2"/><path d="m20.66 7-1.73 1"/><path d="m3.34 17 1.73-1"/><path d="m17 3.34-1 1.73"/><path d="m11 13.73-4 6.93"/></svg>),
-  wrench: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/></svg>),
-  gauge: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>),
-  road: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22 6 2"/><path d="M18 2l2 20"/><path d="M12 2v6"/><path d="M12 14v4"/><path d="M12 22h.01"/></svg>),
-  box: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>),
+  search: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>),
+  x: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>),
+  plus: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>),
+  edit: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>),
+  trash: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>),
+  alert: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>),
+  cal: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>),
+  trend: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>),
+  truck: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" /><path d="M15 18H9" /><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" /><circle cx="17" cy="18" r="2" /><circle cx="7" cy="18" r="2" /></svg>),
+  cog: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" /><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" /><path d="M12 2v2" /><path d="M12 22v-2" /><path d="m17 20.66-1-1.73" /><path d="M11 10.27 7 3.34" /><path d="m20.66 17-1.73-1" /><path d="m3.34 7 1.73 1" /><path d="m14 12h8" /><path d="M2 12h2" /><path d="m20.66 7-1.73 1" /><path d="m3.34 17 1.73-1" /><path d="m17 3.34-1 1.73" /><path d="m11 13.73-4 6.93" /></svg>),
+  wrench: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z" /></svg>),
+  gauge: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" /></svg>),
+  road: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22 6 2" /><path d="M18 2l2 20" /><path d="M12 2v6" /><path d="M12 14v4" /><path d="M12 22h.01" /></svg>),
+  box: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></svg>),
 };
 
 /* ─── Constants ─── */
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const formatDZD = (n) => `${(n || 0).toLocaleString()} DZD`;
 const today = () => new Date().toISOString().slice(0, 10);
 const currentYM = () => { const d = new Date(); return { month: d.getMonth(), year: d.getFullYear() }; };
 
 const ASSET_META = {
-  TOOL: { color: "#f59e0b", label: "Tool", icon: Icons.wrench, categories: ["Power Tool", "Hand Tool", "Measuring", "Finishing", "Other"] },
-  MACHINE: { color: "#8b5cf6", label: "Machine", icon: Icons.cog, categories: ["Table Saw", "Miter Saw", "Planer", "CNC", "Band Saw", "Sander", "Jointer", "Other"] },
+  // TOOL: { color: "#f59e0b", label: "Tool", icon: Icons.wrench, categories: ["Power Tool", "Hand Tool", "Measuring", "Finishing", "Other"] },
+  // MACHINE: { color: "#8b5cf6", label: "Machine", icon: Icons.cog, categories: ["Table Saw", "Miter Saw", "Planer", "CNC", "Band Saw", "Sander", "Jointer", "Other"] },
   TRUCK: { color: "#3b82f6", label: "Truck", icon: Icons.truck, categories: ["Delivery Van", "Pickup", "Box Truck"] },
 };
 
@@ -198,7 +198,7 @@ export default function FleetClient() {
   const [trips, setTrips] = useState(SEED_TRIPS);
   const [orders] = useState(SEED_ORDERS);
 
-  const [tab, setTab] = useState("TOOLS");
+  const [tab, setTab] = useState("TRUCK");
   const [assetFilter, setAssetFilter] = useState("ALL");
   const [search, setSearch] = useState("");
 
@@ -221,27 +221,6 @@ export default function FleetClient() {
 
   const { month: cm, year: cy } = currentYM();
 
-  /* ─── Tools/Machines derived ─── */
-  const toolsMachines = useMemo(() => assets.filter((a) => a.type !== "TRUCK"), [assets]);
-  const filteredAssets = useMemo(() => {
-    return toolsMachines
-      .filter((a) => assetFilter === "ALL" || a.type === assetFilter)
-      .filter((a) => { const q = search.toLowerCase(); return !q || `${a.name} ${a.identifier} ${a.category} ${a.notes || ""}`.toLowerCase().includes(q); })
-      .sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
-  }, [toolsMachines, assetFilter, search]);
-
-  const toolStats = useMemo(() => {
-    const totalDaily = toolsMachines.reduce((s, a) => s + (Number(a.dailyCost) || 0), 0);
-    const totalMaint = toolsMachines.reduce((s, a) => s + (Number(a.monthlyMaintEstimate) || 0), 0);
-    return {
-      count: toolsMachines.length,
-      tools: toolsMachines.filter((a) => a.type === "TOOL").length,
-      machines: toolsMachines.filter((a) => a.type === "MACHINE").length,
-      monthlyTotal: totalDaily * 30 + totalMaint,
-      dailyTotal: totalDaily,
-      maintBudget: totalMaint,
-    };
-  }, [toolsMachines]);
 
   /* ─── Truck derived ─── */
   const truck = useMemo(() => assets.find((a) => a.type === "TRUCK"), [assets]);
@@ -326,142 +305,7 @@ export default function FleetClient() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Tab switcher */}
-      <div className="flex items-center gap-2 p-3 shrink-0 flex-wrap" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-        <div className="flex items-center p-1 rounded-lg shrink-0" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
-          {[
-            { id: "TOOLS", label: "Tools & Machines", icon: Icons.wrench, color: "#f59e0b" },
-            { id: "TRUCK", label: "Delivery Truck", icon: Icons.truck, color: "#3b82f6" },
-          ].map((t) => {
-            const Icon = t.icon;
-            const active = tab === t.id;
-            return (
-              <button key={t.id} onClick={() => setTab(t.id)} className="text-xs font-medium px-3 py-1.5 rounded-md flex items-center gap-1.5" style={{ background: active ? "var(--surface-2)" : "transparent", color: active ? t.color : "var(--ink-muted)" }}>
-                <Icon /> {t.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
-      {/* ═══ TOOLS & MACHINES ═══ */}
-      {tab === "TOOLS" && (
-        <>
-          {/* Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 p-3 shrink-0" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-            <StatCard label="Total Assets" value={String(toolStats.count)} sub={`${toolStats.tools} tools · ${toolStats.machines} machines`} color="#f59e0b" icon={Icons.wrench} />
-            <StatCard label="Daily Depreciation" value={formatDZD(toolStats.dailyTotal)} sub="Sum of all assets" color="#8b5cf6" icon={Icons.gauge} />
-            <StatCard label="Maint. Budget / mo" value={formatDZD(toolStats.maintBudget)} sub="Estimated" color="var(--stage-contract)" icon={Icons.wrench} />
-            <StatCard label="Total Monthly Cost" value={formatDZD(toolStats.monthlyTotal)} sub="Depreciation + Maint" color="var(--ink)" icon={Icons.trend} />
-          </div>
-
-          {/* Filters */}
-          <div className="flex items-center gap-2 p-3 shrink-0 flex-wrap" style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-            <div className="flex items-center gap-2 flex-wrap">
-              {[
-                { id: "ALL", label: "All" },
-                { id: "TOOL", label: "Tools", color: "#f59e0b" },
-                { id: "MACHINE", label: "Machines", color: "#8b5cf6" },
-              ].map((c) => {
-                const active = assetFilter === c.id;
-                return (
-                  <button key={c.id} onClick={() => setAssetFilter(c.id)} className="text-xs font-medium px-2.5 py-1.5 rounded-md flex items-center gap-1.5" style={{ background: active ? `${c.color || "var(--ink-muted)"}15` : "transparent", color: active ? c.color : "var(--ink-muted)", border: `1px solid ${active ? `${c.color || "var(--ink-muted)"}40` : "transparent"}` }}>
-                    {c.color && <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.color }} />}
-                    {c.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md flex-1 min-w-[180px]" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
-              <Icons.search />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search assets…" className="bg-transparent text-sm outline-none w-full placeholder:text-[var(--ink-muted)]" style={{ color: "var(--ink)" }} />
-              {search && <button onClick={() => setSearch("")} className="btn-ghost p-0.5"><Icons.x /></button>}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => openNewAsset("TOOL")} className="text-xs px-3 py-1.5 rounded-md font-medium flex items-center gap-1.5" style={{ background: "#f59e0b15", color: "#f59e0b", border: "1px solid #f59e0b40" }}><Icons.plus /> Add Tool</button>
-              <button onClick={() => openNewAsset("MACHINE")} className="text-xs px-3 py-1.5 rounded-md font-medium flex items-center gap-1.5" style={{ background: "#8b5cf615", color: "#8b5cf6", border: "1px solid #8b5cf640" }}><Icons.plus /> Add Machine</button>
-            </div>
-          </div>
-
-          {/* Table */}
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-left text-sm" style={{ minWidth: 1000 }}>
-              <thead className="sticky top-0 z-10" style={{ background: "var(--surface-2)" }}>
-                <tr>
-                  <th className="px-4 py-3 text-xs font-medium" style={{ color: "var(--ink-muted)" }}>Asset</th>
-                  <th className="px-4 py-3 text-xs font-medium hidden lg:table-cell" style={{ color: "var(--ink-muted)" }}>Serial / ID</th>
-                  <th className="px-4 py-3 text-xs font-medium" style={{ color: "var(--ink-muted)" }}>Category</th>
-                  <th className="px-4 py-3 text-xs font-medium hidden md:table-cell" style={{ color: "var(--ink-muted)" }}>Purchased</th>
-                  <th className="px-4 py-3 text-xs font-medium text-right" style={{ color: "var(--ink-muted)" }}>Price</th>
-                  <th className="px-4 py-3 text-xs font-medium text-right" style={{ color: "var(--ink-muted)" }}>Daily</th>
-                  <th className="px-4 py-3 text-xs font-medium text-right hidden md:table-cell" style={{ color: "var(--ink-muted)" }}>Maint Budget</th>
-                  <th className="px-4 py-3 text-xs font-medium text-right" style={{ color: "var(--ink-muted)" }}>This Month</th>
-                  <th className="px-4 py-3 text-xs font-medium text-center" style={{ color: "var(--ink-muted)" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAssets.map((a) => {
-                  const meta = ASSET_META[a.type];
-                  const Icon = meta.icon;
-                  const mThisMonth = maintenance.filter((m) => m.assetId === a.id && inMonth(m.date, cm, cy)).reduce((s, m) => s + m.cost, 0);
-                  const monthActual = (a.dailyCost || 0) * 30 + mThisMonth;
-                  const overBudget = mThisMonth > (a.monthlyMaintEstimate || 0);
-                  return (
-                    <tr key={a.id} className="group transition-colors" style={{ borderTop: "1px solid var(--border)" }}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${meta.color}15`, color: meta.color }}><Icon /></span>
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm truncate">{a.name}</div>
-                            <div className="mt-0.5"><TypeBadge type={a.type} /></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-xs font-mono hidden lg:table-cell" style={{ color: "var(--ink-muted)" }}>{a.identifier}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "var(--ink-muted)" }}>{a.category}</td>
-                      <td className="px-4 py-3 text-xs whitespace-nowrap hidden md:table-cell" style={{ color: "var(--ink-muted)" }}>{a.purchaseDate}</td>
-                      <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: "var(--ink)" }}>{(a.purchasePrice || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right text-sm font-semibold tabular-nums" style={{ color: meta.color }}>{(a.dailyCost || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right text-xs tabular-nums hidden md:table-cell" style={{ color: "var(--ink-muted)" }}>
-                        {(a.monthlyMaintEstimate || 0).toLocaleString()}
-                        {overBudget && <span className="ml-1 text-[10px] font-bold" style={{ color: "var(--stage-contract)" }}>⚠</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="font-bold tabular-nums text-sm" style={{ color: meta.color }}>{monthActual.toLocaleString()}</div>
-                        <div className="text-[10px] tabular-nums" style={{ color: "var(--ink-muted)" }}>+{mThisMonth.toLocaleString()} maint</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openAddMaint(a.id)} className="btn-ghost p-1.5" title="Log maintenance"><Icons.wrench /></button>
-                          <button onClick={() => setShowMaintHistory(a.id)} className="btn-ghost p-1.5" title="Maintenance history"><Icons.trend /></button>
-                          <button onClick={() => openEditAsset(a)} className="btn-ghost p-1.5" title="Edit"><Icons.edit /></button>
-                          <button onClick={() => deleteAsset(a.id)} className="btn-ghost p-1.5 hover:text-[var(--stage-contract)]" title="Delete"><Icons.trash /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {filteredAssets.length === 0 && (
-                  <tr><td colSpan={9} className="px-4 py-16 text-center text-sm" style={{ color: "var(--ink-muted)" }}>
-                    <Icons.wrench />
-                    <p className="mt-2">No assets yet. Add a tool or machine to get started.</p>
-                  </td></tr>
-                )}
-                {filteredAssets.length > 0 && (
-                  <tr style={{ background: "var(--surface-2)", borderTop: "2px solid var(--border)" }}>
-                    <td colSpan={4} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--ink-muted)" }}>Totals ({MONTHS[cm]} {cy})</td>
-                    <td className="px-4 py-3 text-right text-sm font-bold tabular-nums">{toolsMachines.reduce((s, a) => s + (a.purchasePrice || 0), 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right text-sm font-bold tabular-nums">{toolStats.dailyTotal.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right text-sm font-bold tabular-nums hidden md:table-cell">{toolStats.maintBudget.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right text-sm font-bold tabular-nums">{toolStats.monthlyTotal.toLocaleString()}</td>
-                    <td />
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
 
       {/* ═══ TRUCK ═══ */}
       {tab === "TRUCK" && (
