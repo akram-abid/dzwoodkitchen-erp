@@ -78,3 +78,10 @@ export async function updateVehicle(id, data) {
         notes: vehicle.notes,
     };
 }
+
+export async function deleteVehicle(id) {
+    await prisma.vehicles.delete({
+        where: { id: parseInt(id) },
+    });
+    return { success: true };
+}

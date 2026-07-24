@@ -326,7 +326,34 @@ export default function FleetClient({ initialVehicles = [] }) {
       setAssetError(error.message);
     }
   };
-  const deleteAsset = (id) => { if (!confirm("Delete this asset and all its history?")) return; setAssets((prev) => prev.filter((a) => a.id !== id)); setMaintenance((prev) => prev.filter((m) => m.assetId !== id)); setTrips((prev) => prev.filter((t) => t.truckId !== id)); };
+  const deleteAsset = async (id) => {
+    if (!confirm("Delete this truck and all its history?")) return;
+
+    try {
+      const res = await fetch(`/api/vehicles/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const result = await res.json();
+        throw new Error(result.error || "Failed to delete truck");
+      }
+
+      // Remove from state
+      setAssets((prev) => prev.filter((a) => a.id !== id));
+      setMaintenance((prev) => prev.filter((m) => m.assetId !== id));
+      setTrips((prev) => prev.filter((t) => t.truckId !== id));
+
+      // If deleted truck was selected, select first available
+      if (selectedTruckId === id) {
+        const remaining = assets.filter((a) => a.id !== id);
+        setSelectedTruckId(remaining.length > 0 ? remaining[0].id : null);
+      }
+    } catch (error) {
+      setAssetError(error.message);
+      alert(error.message);
+    }
+  };
 
   const openAddMaint = (assetId) => { setMaintAssetId(assetId); setMaintForm({ date: today(), description: "", cost: "" }); setMaintError(""); setShowMaintModal(true); };
   const saveMaint = () => {
@@ -412,6 +439,7 @@ export default function FleetClient({ initialVehicles = [] }) {
                   <div className="flex gap-2 mt-3">
                     <button onClick={() => openEditAsset(truck)} className="text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1" style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}><Icons.edit /> Edit</button>
                     <button onClick={() => openAddMaint(truck.id)} className="text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1" style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}><Icons.wrench /> Maintenance</button>
+                    <button onClick={() => deleteAsset(truck.id)} className="text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1" style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--stage-contract)" }}><Icons.trash /> Delete</button>
                   </div>
                 </div>
                 <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-2">
