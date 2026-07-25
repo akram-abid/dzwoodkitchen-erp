@@ -137,3 +137,33 @@ export async function getTripsByVehicle(vehicleId) {
         notes: t.notes,
     }));
 }
+
+export async function getAllVehicleTrips() {
+    const trips = await prisma.vehicle_trips.findMany({
+        include: {
+            vehicle: true,
+            order: {
+                include: {
+                    clients: true,
+                },
+            },
+        },
+        orderBy: { date: "desc" },
+    });
+
+    return trips.map(t => ({
+        id: t.id,
+        vehicleId: t.vehicle_id,
+        vehicleName: t.vehicle?.name || null,
+        plateNumber: t.vehicle?.plate_number || null,
+        date: t.date.toISOString().split("T")[0],
+        startKm: Number(t.start_km),
+        endKm: Number(t.end_km),
+        purpose: t.purpose,
+        cost: Number(t.cost),
+        orderId: t.order_id,
+        orderName: t.order?.project_name || null,
+        clientName: t.order?.clients?.name || null,
+        notes: t.notes,
+    }));
+}
