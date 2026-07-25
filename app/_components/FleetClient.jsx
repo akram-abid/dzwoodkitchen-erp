@@ -389,7 +389,20 @@ export default function FleetClient({ initialVehicles = [] }) {
     setTripForm({ date: today(), startKm: lastTrip ? String(lastTrip.endKm) : (truck?.currentKm != null ? String(truck.currentKm) : ""), endKm: "", purpose: "DELIVERY", cost: "", orderId: null, notes: "" });
     setTripError(""); setShowTripModal(true);
   };
-  const openEditTrip = (t) => { setEditingTripId(t.id); setTripForm({ ...t, startKm: String(t.startKm), endKm: String(t.endKm), cost: String(t.cost) }); setTripError(""); setShowTripModal(true); };
+  const openEditTrip = (t) => {
+    setEditingTripId(t.id);
+    setTripForm({
+      date: t.date,
+      startKm: String(t.startKm),
+      endKm: String(t.endKm),
+      purpose: t.purpose,
+      cost: String(t.cost),
+      orderId: t.orderId || null,
+      notes: t.notes || "",
+    });
+    setTripError("");
+    setShowTripModal(true);
+  };
   const saveTrip = async () => {
     if (!tripForm.date) return setTripError("Date is required");
     const start = Number(tripForm.startKm);
@@ -419,7 +432,8 @@ export default function FleetClient({ initialVehicles = [] }) {
       let method = "POST";
 
       if (editingTripId) {
-        // Update later
+        url = `/api/vehicles_trips/${editingTripId}`;
+        method = "PUT";
       }
 
       const res = await fetch(url, {

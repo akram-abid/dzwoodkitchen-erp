@@ -167,3 +167,37 @@ export async function getAllVehicleTrips() {
         notes: t.notes,
     }));
 }
+
+export async function updateTrip(id, data) {
+    const trip = await prisma.vehicle_trips.update({
+        where: { id: parseInt(id) },
+        data: {
+            date: new Date(data.date),
+            start_km: data.startKm,
+            end_km: data.endKm,
+            purpose: data.purpose,
+            cost: data.cost,
+            order_id: data.orderId ? parseInt(data.orderId) : null,
+            notes: data.notes || null,
+        },
+    });
+
+    // Update vehicle current_km
+    if (data.endKm) {
+        await prisma.vehicles.update({
+            where: { id: parseInt(data.vehicleId) },
+            data: { current_km: data.endKm },
+        });
+    }
+
+    return {
+        id: trip.id,
+        date: trip.date.toISOString().split("T")[0],
+        startKm: Number(trip.start_km),
+        endKm: Number(trip.end_km),
+        purpose: trip.purpose,
+        cost: Number(trip.cost),
+        orderId: trip.order_id,
+        notes: trip.notes,
+    };
+}
