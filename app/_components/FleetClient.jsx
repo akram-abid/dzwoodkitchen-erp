@@ -477,8 +477,24 @@ export default function FleetClient({ initialVehicles = [] }) {
       setTripError(error.message);
     }
   };
-  const deleteTrip = (id) => { if (!confirm("Delete this trip?")) return; setTrips((prev) => prev.filter((t) => t.id !== id)); };
+  const deleteTrip = async (id) => {
+    if (!confirm("Delete this trip?")) return;
 
+    try {
+      const res = await fetch(`/api/vehicles_trips/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const result = await res.json();
+        throw new Error(result.error || "Failed to delete trip");
+      }
+
+      setTrips((prev) => prev.filter((t) => t.id !== id));
+    } catch (error) {
+      alert(error.message);
+    }
+  };
   return (
     <div className="flex flex-col h-full">
 

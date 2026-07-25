@@ -201,3 +201,10 @@ export async function updateTrip(id, data) {
         notes: trip.notes,
     };
 }
+
+export async function deleteTrip(id) {
+    await prisma.vehicle_trips.delete({
+        where: { id: parseInt(id) },
+    });
+    return { success: true };
+}
