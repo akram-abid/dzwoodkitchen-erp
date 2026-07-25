@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   fetchOrders,
   updateOrderClient,
@@ -1387,8 +1387,8 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
                 </span>
               </div>
               <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
-                Uncheck items or add custom missing parts. Order moves to
-                Ready to Deliver with the missing parts recorded.
+                Uncheck items or add custom missing parts. Order moves to Ready
+                to Deliver with the missing parts recorded.
               </p>
             </div>
           </div>
@@ -2148,10 +2148,7 @@ const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
                             }}
                             value={editDraft.payment_date}
                             onChange={(e) =>
-                              updateEditDraft(
-                                "payment_date",
-                                e.target.value,
-                              )
+                              updateEditDraft("payment_date", e.target.value)
                             }
                           />
                           <div className="col-span-3 flex gap-1">
@@ -2308,8 +2305,7 @@ const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
                   value={draft.amount}
                   onChange={(e) => updateDraft("amount", e.target.value)}
                   onKeyDown={(e) =>
-                    e.key === "Enter" &&
-                    (e.preventDefault(), addPayment())
+                    e.key === "Enter" && (e.preventDefault(), addPayment())
                   }
                 />
               </div>
@@ -2329,12 +2325,9 @@ const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
                     color: "var(--ink)",
                   }}
                   value={draft.payment_date}
-                  onChange={(e) =>
-                    updateDraft("payment_date", e.target.value)
-                  }
+                  onChange={(e) => updateDraft("payment_date", e.target.value)}
                   onKeyDown={(e) =>
-                    e.key === "Enter" &&
-                    (e.preventDefault(), addPayment())
+                    e.key === "Enter" && (e.preventDefault(), addPayment())
                   }
                 />
               </div>
@@ -3294,6 +3287,11 @@ export default function OrdersClient() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [selectedId, setSelectedId] = useState(null);
+  // Order ID passed via the URL (e.g. /ordresclient?order=123) so that
+  // a click from another page can deep-link straight into the right panel.
+  // Consumed once on mount, then cleared so it doesn't override the
+  // user's later selections.
+  const [requestedOrderId, setRequestedOrderId] = useState(null);
   const [sortKey, setSortKey] = useState("created");
   const [sortDir, setSortDir] = useState("desc");
   const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
@@ -3311,6 +3309,32 @@ export default function OrdersClient() {
   const [viewYear, setViewYear] = useState(now.getFullYear());
 
   const today = new Date().setHours(0, 0, 0, 0);
+
+  // Read ?order=<id> from the URL exactly once on mount, then strip it
+  // so the user navigating inside the page doesn't keep being snapped
+  // back to the deep-linked order on every re-render.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("order");
+    if (id) {
+      setRequestedOrderId(id);
+      setSelectedId(id);
+      // If we landed on a small screen, open the mobile detail overlay
+      // so the user actually sees the right-panel content immediately.
+      if (window.innerWidth < 768) {
+        setIsMobileDetailOpen(true);
+      }
+      // Clean the URL without triggering a navigation/re-render.
+      params.delete("order");
+      const cleaned =
+        window.location.pathname +
+        (params.toString() ? `?${params.toString()}` : "") +
+        window.location.hash;
+      window.history.replaceState({}, "", cleaned);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -3326,7 +3350,21 @@ export default function OrdersClient() {
 
         setSelectedId((curr) => {
           if (normalized.length === 0) return curr;
-          return curr == null || !normalized.find((o) => o.id === curr)
+          // Honour the deep-link request if the order exists in the
+          // freshly-loaded list; otherwise keep the current selection,
+          // falling back to the first order.
+          if (
+            requestedOrderId &&
+            normalized.find((o) => String(o.id) === String(requestedOrderId))
+          ) {
+            // Return the order's actual id (not the string from the URL)
+            // so its type matches every other id in the `orders` list.
+            return normalized.find(
+              (o) => String(o.id) === String(requestedOrderId),
+            ).id;
+          }
+          return curr == null ||
+            !normalized.find((o) => String(o.id) === String(curr))
             ? normalized[0].id
             : curr;
         });
@@ -3336,7 +3374,7 @@ export default function OrdersClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [requestedOrderId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3410,7 +3448,8 @@ export default function OrdersClient() {
     return rows;
   }, [search, statusFilter, sortKey, sortDir, orders, viewMonth, viewYear]);
 
-  const selected = orders.find((o) => o.id === selectedId) || orders[0];
+  const selected =
+    orders.find((o) => String(o.id) === String(selectedId)) || orders[0];
   const totalAmount = filtered.reduce((sum, o) => sum + totalWithTech(o), 0);
   const blockedCount = filtered.filter(hasBlockingMissing).length;
 
@@ -3571,7 +3610,10 @@ export default function OrdersClient() {
   };
   const handleUpdateMissingParts = async (newMissingItems) => {
     try {
-      console.log("🟡 PATCH missing parts", { managingOrderId, newMissingItems });
+      console.log("🟡 PATCH missing parts", {
+        managingOrderId,
+        newMissingItems,
+      });
       const res = await patchOrderClient(managingOrderId, {
         missingItems: newMissingItems,
       });
@@ -3599,13 +3641,9 @@ export default function OrdersClient() {
     try {
       const res = await fetchOrders({ page: 1, pageSize: 100 });
       const list = Array.isArray(res?.data) ? res.data : [];
-      const fresh = list
-        .map(normalizeOrder)
-        .find((o) => o.id === orderId);
+      const fresh = list.map(normalizeOrder).find((o) => o.id === orderId);
       if (fresh) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === fresh.id ? fresh : o)),
-        );
+        setOrders((prev) => prev.map((o) => (o.id === fresh.id ? fresh : o)));
       }
     } catch (err) {
       console.error("Failed to refresh order:", err);
@@ -3634,7 +3672,11 @@ export default function OrdersClient() {
 
   const handleReadyConfirm = async ({ missingItems, stage }) => {
     try {
-      console.log("🟢 PATCH ready confirm", { assigningOrderId, stage, missingItems });
+      console.log("🟢 PATCH ready confirm", {
+        assigningOrderId,
+        stage,
+        missingItems,
+      });
       const res = await patchOrderClient(assigningOrderId, {
         stage,
         missingItems,

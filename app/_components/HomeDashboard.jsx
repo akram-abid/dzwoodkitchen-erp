@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 // ─── API helpers (same imports as the source pages) ───────────
 import {
@@ -11,6 +18,7 @@ import {
 import {
   getSuppliers,
   createSupplierClient,
+  getSupplierPurchasesClient,
 } from "../../lib/api_helpers/supplier";
 import {
   fetchOrders,
@@ -18,6 +26,7 @@ import {
   patchOrderClient,
 } from "../api/orders/orders";
 import { createPaymentClient } from "../api/payments/payments";
+import { useRouter } from "next/navigation";
 import { fetchWorkers } from "../api/workers/workers";
 import { batchUpdateAttendance } from "../../lib/api_helpers/workers";
 import {
@@ -25,14 +34,16 @@ import {
   createLedgerEntry,
   fetchLedgerReferenceData,
 } from "../../lib/api_helpers/ledger";
-import { getSupplierPurchasesClient } from "../../lib/api_helpers/supplier";
+import { OrderFormModal } from "../../lib/components/Orderformmodal";
 
-/* ────────────────────────────────────────────────────────────────
-   GLOBAL STYLES — local classes only; design tokens are inherited
-   from the app shell (--accent, --surface, --panel, .btn-primary, etc.)
-   ──────────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════
+   GLOBAL STYLES
+   The .pwa-shell prefix scopes the mobile tab layout so it never
+   collides with the original desktop grid below it.
+   ════════════════════════════════════════════════════════════════ */
 const GlobalStyles = () => (
   <style>{`
+    /* ─── SHARED (desktop + mobile) ─────────────────── */
     .kpi-card { transition: transform .15s ease, border-color .15s ease; }
     .kpi-card:hover { transform: translateY(-1px); border-color: var(--accent) !important; }
     .ring-pulse::before {
@@ -77,7 +88,7 @@ const GlobalStyles = () => (
     }
     @keyframes modalIn { from { opacity: 0; transform: translate(-50%, -48%) scale(.96); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 
-    /* compact form — mirrors the style of the source pages' forms */
+    /* compact form */
     .f-input, .f-select, .f-textarea {
       width: 100%; padding: 9px 12px; border-radius: 8px;
       background: var(--surface-2); border: 1px solid var(--border);
@@ -120,6 +131,181 @@ const GlobalStyles = () => (
     .chart-bar { transition: width .5s cubic-bezier(.2,.7,.2,1); }
     .chart-legend { display: flex; gap: 12px; font-size: 11px; color: var(--ink-muted); }
     .chart-legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+    /* ═══ PWA / mobile (scoped to .pwa-shell) ═══ */
+    .pwa-shell {
+      min-height: 100vh;
+      min-height: 100dvh;
+      background: var(--bg);
+      padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+    .pwa-shell .pwa-header {
+      position: sticky; top: 0; z-index: 20;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      padding-top: calc(12px + env(safe-area-inset-top));
+    }
+    .pwa-shell .pwa-header-row {
+      display: flex; align-items: center; gap: 10px;
+      max-width: 720px; margin: 0 auto;
+    }
+    .pwa-shell .pwa-main {
+      padding: 12px 12px 24px;
+      max-width: 720px; margin: 0 auto;
+    }
+
+    /* bottom tab bar */
+    .pwa-shell .pwa-tabbar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+      display: flex;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding-bottom: env(safe-area-inset-bottom);
+      box-shadow: 0 -6px 20px rgba(0,0,0,.18);
+    }
+    .pwa-shell .tab-btn {
+      flex: 1; min-height: 56px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 2px; padding: 8px 4px;
+      background: none; border: none;
+      color: var(--ink-muted);
+      cursor: pointer;
+      font-family: inherit; font-size: 10px; font-weight: 500;
+      letter-spacing: .02em;
+      position: relative;
+      -webkit-tap-highlight-color: transparent;
+      transition: color .15s ease;
+    }
+    .pwa-shell .tab-btn.active { color: var(--accent); }
+    .pwa-shell .tab-btn.active .tab-dot {
+      opacity: 1; transform: scaleX(1);
+    }
+    .pwa-shell .tab-dot {
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%) scaleX(.2);
+      width: 16px; height: 3px; border-radius: 2px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    /* collapsible panel */
+    .pwa-shell .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .pwa-shell .panel + .panel { margin-top: 10px; }
+    .pwa-shell .panel-head {
+      width: 100%;
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px;
+      background: none; border: none; cursor: pointer;
+      color: var(--ink);
+      font-family: inherit; font-size: 14px; font-weight: 600;
+      text-align: left; min-height: 48px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .pwa-shell .panel-head:active { background: var(--surface-2); }
+    .pwa-shell .panel-head .ph-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--accent-soft); color: var(--accent);
+      flex-shrink: 0;
+    }
+    .pwa-shell .panel-head .ph-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pwa-shell .panel-head .ph-count {
+      font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 999px;
+      background: var(--surface-2); color: var(--ink-muted);
+    }
+    .pwa-shell .panel-head .ph-chev {
+      color: var(--ink-muted); transition: transform .2s ease;
+      display: flex; align-items: center; flex-shrink: 0;
+    }
+    .pwa-shell .panel.collapsed .ph-chev { transform: rotate(-90deg); }
+    .pwa-shell .panel-body { border-top: 1px solid var(--border); animation: panelIn .18s ease-out; }
+    .pwa-shell .panel.collapsed .panel-body { display: none; }
+    @keyframes panelIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+    .pwa-shell .list-item { padding: 12px 14px; border-top: 1px solid var(--border); }
+    .pwa-shell .list-item:first-child { border-top: none; }
+    .pwa-shell .list-empty {
+      padding: 18px 14px; text-align: center;
+      font-size: 12px; color: var(--ink-muted);
+    }
+    .pwa-shell .list-more {
+      width: 100%; padding: 10px;
+      background: none; border: none; cursor: pointer;
+      color: var(--accent);
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      text-align: center; min-height: 40px;
+      border-top: 1px solid var(--border);
+    }
+    .pwa-shell .list-more:active { background: var(--surface-2); }
+
+    .pwa-shell .tab-pane { animation: tabIn .18s ease-out; }
+    @keyframes tabIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .pwa-shell .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .pwa-shell .kpi-card {
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--surface-2);
+    }
+    .pwa-shell .kpi-card .k-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .04em; color: var(--ink-muted);
+    }
+    .pwa-shell .kpi-card .k-value {
+      font-size: 18px; font-weight: 700; color: var(--ink);
+      margin-top: 4px;
+    }
+    .pwa-shell .kpi-card .k-sub { font-size: 10px; color: var(--ink-muted); margin-top: 2px; }
+
+    .pwa-shell .chip-row {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+    }
+    .pwa-shell .chip {
+      padding: 6px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 500;
+      background: var(--surface-2); color: var(--ink-muted);
+      border: 1px solid transparent; cursor: pointer;
+      font-family: inherit; min-height: 28px;
+    }
+    .pwa-shell .chip.active {
+      background: var(--accent-soft); color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .pwa-shell .muted { color: var(--ink-muted); }
+    .pwa-shell .row { display: flex; align-items: center; gap: 8px; }
+    .pwa-shell .grow { flex: 1; min-width: 0; }
+    .pwa-shell .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .pwa-shell .pwa-cta {
+      width: 100%;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px; border-radius: 12px;
+      background: var(--accent); color: #fff;
+      border: none; cursor: pointer;
+      font-family: inherit; font-size: 14px; font-weight: 600;
+      min-height: 48px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .pwa-shell .pwa-cta:active { opacity: .9; }
   `}</style>
 );
 
@@ -145,7 +331,7 @@ const ATTENDANCE_OPTIONS = [
 ];
 const cycleAttendance = (current) => {
   if (current === "PRESENT") return "ABSENT";
-  if (current === "ABSENT") return undefined; // clear -> "Not set"
+  if (current === "ABSENT") return undefined;
   return "PRESENT";
 };
 const LEDGER_TYPES = [
@@ -193,6 +379,16 @@ const MATERIAL_UNITS = [
   "box",
   "roll",
 ];
+
+/* ════════════════════════════════════════════════════════════════
+   HARD-CODED PASSWORD to unlock money amounts
+   ──────────────────────────────────────────────────────────────
+   All monetary values (prices, totals, profit, expenses) are
+   masked by default with •••. Click the eye icon in the header
+   and enter this password to reveal them. Click again to re-lock.
+   Change the value below to your own PIN.
+   ════════════════════════════════════════════════════════════════ */
+const MONEY_PASSWORD = "1234";
 
 /* ─── Reusable badges ─── */
 const StageBadge = ({ stage, onClick }) => {
@@ -529,7 +725,7 @@ const Icons = {
   trash: () => (
     <svg
       width="12"
-      height="12"
+      width="12"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -557,10 +753,10 @@ const Icons = {
       <polyline points="12 5 19 12 12 19" />
     </svg>
   ),
-  logIn: () => (
+  home: (p) => (
     <svg
-      width="12"
-      height="12"
+      width={p?.size ?? 22}
+      height={p?.size ?? 22}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -568,12 +764,29 @@ const Icons = {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-      <polyline points="10 17 15 12 10 7" />
-      <line x1="15" x2="3" y1="12" y2="12" />
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
     </svg>
   ),
-  logOut: () => (
+  workshop: (p) => (
+    <svg
+      width={p?.size ?? 22}
+      height={p?.size ?? 22}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
+      <path d="M15 18H9" />
+      <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />
+      <circle cx="17" cy="18" r="2" />
+      <circle cx="7" cy="18" r="2" />
+    </svg>
+  ),
+  edit: () => (
     <svg
       width="12"
       height="12"
@@ -584,9 +797,7 @@ const Icons = {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" x2="9" y1="12" y2="12" />
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
     </svg>
   ),
   search: () => (
@@ -604,10 +815,10 @@ const Icons = {
       <line x1="21" x2="16.65" y1="21" y2="16.65" />
     </svg>
   ),
-  edit: () => (
+  eye: (p) => (
     <svg
-      width="12"
-      height="12"
+      width={p?.size ?? 16}
+      height={p?.size ?? 16}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -615,7 +826,53 @@ const Icons = {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  eyeOff: (p) => (
+    <svg
+      width={p?.size ?? 16}
+      height={p?.size ?? 16}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" x2="23" y1="1" y2="23" />
+    </svg>
+  ),
+  lock: (p) => (
+    <svg
+      width={p?.size ?? 22}
+      height={p?.size ?? 22}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  ),
+  unlock: (p) => (
+    <svg
+      width={p?.size ?? 22}
+      height={p?.size ?? 22}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 9.9-1" />
     </svg>
   ),
 };
@@ -628,6 +885,12 @@ const fmtDZDCompact = (n) => {
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k DZD`;
   return `${n} DZD`;
 };
+/* money-masking helpers (depend on `moneyUnlocked` state — see below) */
+const displayMoney = (unlocked, n) => (unlocked ? fmtDZD(n) : "•••• DZD");
+const displayMoneyCompact = (unlocked, n) =>
+  unlocked ? fmtDZDCompact(n) : "•••";
+const maskChartValue = (unlocked, t) =>
+  unlocked ? (t >= 1000 ? `${Math.round(t / 1000)}k` : t) : "•••";
 const todayLabel = () =>
   new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -653,9 +916,6 @@ const initials = (name) =>
     .toUpperCase();
 const safe = (v, fb = []) => (Array.isArray(v) ? v : fb);
 
-/* DB `order_state` enum <-> UI stage constant (mirrors OrdersClient.jsx —
-   these don't map 1:1 via simple case conversion, e.g. READY_TO_DELIVER vs
-   ready_to_delivery) */
 const DB_STATE_TO_STAGE = {
   appointment: "APPOINTMENT",
   contract: "CONTRACT",
@@ -666,10 +926,6 @@ const DB_STATE_TO_STAGE = {
 const dbStateToStage = (state) =>
   DB_STATE_TO_STAGE[state] ?? (state || "appointment").toUpperCase();
 
-/* The orders/workers/ledger endpoints all return raw DB-shaped records
-   wrapped in { data: [...] }. This turns one raw order row into the flat
-   shape this dashboard's UI expects (same mapping as normalizeOrder in
-   OrdersClient.jsx) so stage/amount/dueDate/client/payments actually populate. */
 const normalizeOrderLite = (o) => {
   const payments = safe(o.payments).map((p) => ({
     id: p.id,
@@ -693,9 +949,9 @@ const normalizeOrderLite = (o) => {
 };
 
 /* ════════════════════════════════════════════════════════════════
-   CHART COMPONENTS (pure inline SVG, no deps)
+   CHARTS (pure inline SVG, no deps)
    ════════════════════════════════════════════════════════════════ */
-const LineChart = ({ data, width = 700, height = 200 }) => {
+const LineChart = ({ data, width = 700, height = 200, formatAxis }) => {
   if (!data || data.length === 0) return null;
   const pad = { top: 16, right: 12, bottom: 24, left: 44 };
   const w = width - pad.left - pad.right;
@@ -723,7 +979,8 @@ const LineChart = ({ data, width = 700, height = 200 }) => {
   const ticks = Array.from({ length: yTicks + 1 }, (_, i) =>
     Math.round((max / yTicks) * i),
   );
-
+  const fmtAxis =
+    formatAxis || ((t) => (t >= 1000 ? `${Math.round(t / 1000)}k` : t));
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -741,7 +998,7 @@ const LineChart = ({ data, width = 700, height = 200 }) => {
         <g className="chart-axis">
           {ticks.map((t, i) => (
             <text key={i} x="-8" y={yAt(t) + 3} textAnchor="end">
-              {t >= 1000 ? `${Math.round(t / 1000)}k` : t}
+              {fmtAxis(t)}
             </text>
           ))}
           {data.map((d, i) => (
@@ -802,7 +1059,6 @@ const PipelineChart = ({ counts, width = 320, height = 180 }) => {
     valueW = 36;
   const barMaxW = width - labelW - valueW - 8;
   const maxV = Math.max(1, ...counts.map((x) => x.value));
-
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -859,7 +1115,7 @@ const PipelineChart = ({ counts, width = 320, height = 180 }) => {
   );
 };
 
-const DonutChart = ({ data, size = 140, thickness = 22 }) => {
+const DonutChart = ({ data, size = 140, thickness = 22, formatValue }) => {
   if (!data || data.length === 0) return null;
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
   const cx = size / 2,
@@ -876,6 +1132,7 @@ const DonutChart = ({ data, size = 140, thickness = 22 }) => {
     const large = end - start > 180 ? 1 : 0;
     return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 0 ${e.x} ${e.y}`;
   };
+  const fmt = formatValue || ((n) => fmtDZDCompact(n));
   return (
     <svg
       viewBox={`0 0 ${size} ${size}`}
@@ -913,7 +1170,7 @@ const DonutChart = ({ data, size = 140, thickness = 22 }) => {
         textAnchor="middle"
         style={{ fill: "var(--ink)", fontSize: 14, fontWeight: 700 }}
       >
-        {fmtDZDCompact(total)}
+        {fmt(total)}
       </text>
       <text
         x={cx}
@@ -1046,11 +1303,8 @@ const useToasts = () => {
 };
 
 /* ════════════════════════════════════════════════════════════════
-   COMPACT FORMS — payload shape copied from source pages,
-   but only the "util" fields shown in the popover
+   FORMS — kept identical to the original (used by desktop + mobile)
    ════════════════════════════════════════════════════════════════ */
-
-/* New Order — payload shape from c772f4f7 (order page) */
 const NewOrderForm = ({ onSubmit, onCancel, existingWorkers = [] }) => {
   const [client, setClient] = useState("");
   const [project, setProject] = useState("");
@@ -1148,7 +1402,6 @@ const NewOrderForm = ({ onSubmit, onCancel, existingWorkers = [] }) => {
   );
 };
 
-/* New Material — payload shape from d9978c6e (materials page), only util fields */
 const NewMaterialForm = ({ onSubmit, onCancel, suppliers = [] }) => {
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("sheet");
@@ -1255,7 +1508,6 @@ const NewMaterialForm = ({ onSubmit, onCancel, suppliers = [] }) => {
   );
 };
 
-/* New Supplier — payload shape from 221517d7 (supplier page), only util fields */
 const NewSupplierForm = ({ onSubmit, onCancel }) => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -1314,7 +1566,6 @@ const NewSupplierForm = ({ onSubmit, onCancel }) => {
   );
 };
 
-/* New Ledger Entry — payload shape from b05ed057 (ledger page), only util fields */
 const NewLedgerForm = ({ onSubmit, onCancel, workers = [] }) => {
   const [type, setType] = useState("OTHER_EXPENSE");
   const [date, setDate] = useState(todayISO());
@@ -1418,8 +1669,6 @@ const NewLedgerForm = ({ onSubmit, onCancel, workers = [] }) => {
   );
 };
 
-/* Add Worker — no public create endpoint; this creates a placeholder
-   that you can finish from the workers page (matches the worker page fields) */
 const NewWorkerForm = ({ onSubmit, onCancel }) => {
   const [name, setName] = useState("");
   const [role, setRole] = useState("Carpenter");
@@ -1473,7 +1722,6 @@ const NewWorkerForm = ({ onSubmit, onCancel }) => {
   );
 };
 
-/* Reorder — adjustStock via API (uses adjustStockClient from materials) */
 const ReorderForm = ({ material, onSubmit, onCancel }) => {
   const [qty, setQty] = useState(
     material ? Math.max(1, material.maxStock - material.stock) : 1,
@@ -1550,15 +1798,25 @@ const ReorderForm = ({ material, onSubmit, onCancel }) => {
    MAIN COMPONENT
    ════════════════════════════════════════════════════════════════ */
 export default function HomeDashboard() {
+  /* ─────── navigation ─────── */
+  const router = useRouter();
+  const openOrder = useCallback(
+    (orderId) => {
+      if (!orderId) return;
+      router.push(`/orders?order=${encodeURIComponent(orderId)}`);
+    },
+    [router],
+  );
+
   /* ─────── data state ─────── */
-  const [workers, setWorkers] = useState([]); // from fetchWorkers
-  const [attendance, setAttendance] = useState({}); // {workerId: status}
-  const [orders, setOrders] = useState([]); // from fetchOrders
-  const [materials, setMaterials] = useState([]); // from getAllMaterialsClient
-  const [suppliers, setSuppliers] = useState([]); // from getSuppliers
-  const [ledger, setLedger] = useState([]); // from fetchLedgerEntries
+  const [workers, setWorkers] = useState([]);
+  const [attendance, setAttendance] = useState({});
+  const [orders, setOrders] = useState([]);
+  const [materials, setMaterials] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [ledger, setLedger] = useState([]);
   const [ledgerRefs, setLedgerRefs] = useState({ workers: [], suppliers: [] });
-  const [recentPO, setRecentPO] = useState(null); // last PO across all suppliers
+  const [recentPO, setRecentPO] = useState(null);
   const [tasks, setTasks] = useState([
     {
       id: 1,
@@ -1578,6 +1836,15 @@ export default function HomeDashboard() {
       dueDate: todayISO(),
       assignee: null,
     },
+    {
+      id: 3,
+      text: "Confirm supplier payment",
+      done: false,
+      priority: "MEDIUM",
+      category: "Admin",
+      dueDate: todayISO(),
+      assignee: null,
+    },
   ]);
 
   /* ─────── ui state ─────── */
@@ -1589,6 +1856,45 @@ export default function HomeDashboard() {
   const [busy, setBusy] = useState(false);
   const [loadingAll, setLoadingAll] = useState(true);
   const { toasts, push, dismiss } = useToasts();
+
+  /* ─────── money-mask state ─────── */
+  const [moneyUnlocked, setMoneyUnlocked] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  const toggleMoneyLock = () => {
+    if (moneyUnlocked) {
+      setMoneyUnlocked(false);
+      push("Amounts hidden", "info");
+    } else {
+      setPasswordInput("");
+      setPasswordError("");
+      setModal({ type: "PASSWORD" });
+    }
+  };
+  const submitPassword = () => {
+    if (passwordInput === MONEY_PASSWORD) {
+      setMoneyUnlocked(true);
+      setPasswordInput("");
+      setPasswordError("");
+      setModal(null);
+      push("Amounts visible", "success");
+    } else {
+      setPasswordError("Wrong password");
+      setPasswordInput("");
+    }
+  };
+
+  /* ─────── mobile / pwa tab state ─────── */
+  const [isMobile, setIsMobile] = useState(false);
+  const [pwaTab, setPwaTab] = useState("home");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   /* ─────── data loaders ─────── */
   const loadAll = useCallback(async () => {
@@ -1604,7 +1910,6 @@ export default function HomeDashboard() {
         fetchLedgerEntries({ pageSize: 500 }),
         fetchLedgerReferenceData(),
       ]);
-
       if (w.status === "fulfilled") setWorkers(safe(w.value?.data ?? w.value));
       if (o.status === "fulfilled")
         setOrders(safe(o.value?.data ?? o.value).map(normalizeOrderLite));
@@ -1627,14 +1932,6 @@ export default function HomeDashboard() {
       if (l.status === "rejected")
         console.error("fetchLedgerEntries failed:", l.reason);
 
-      // NOTE: fetchWorkers() does not return today's attendance/time-entry data
-      // (the real DB worker row is just id/full_name/phone/hire_date/payment_type),
-      // so we can't pre-populate today's status here. Workers start as "Not Set"
-      // and marking them calls the same batchUpdateAttendance write the workers
-      // page uses — it persists for real, but this dashboard can't read last
-      // session's marks back until an attendance-read endpoint is wired in too.
-
-      // Aggregate last PO across all suppliers for the current month
       if (s.status === "fulfilled") {
         const supList = safe(s.value);
         const results = await Promise.allSettled(
@@ -1701,7 +1998,6 @@ export default function HomeDashboard() {
   const monthProfit = monthIncome - monthExpenses;
   const monthMargin = monthIncome > 0 ? (monthProfit / monthIncome) * 100 : 0;
 
-  /* 6-month series for the line chart */
   const ledgerSeries = useMemo(() => {
     const out = [];
     const now = new Date();
@@ -1734,10 +2030,7 @@ export default function HomeDashboard() {
         totals[k] = (totals[k] || 0) + Number(e.amount || 0);
       });
     return LEDGER_TYPES.filter((t) => t.value !== "INCOME")
-      .map((t) => ({
-        ...t,
-        value: totals[t.value] || 0,
-      }))
+      .map((t) => ({ ...t, value: totals[t.value] || 0 }))
       .filter((t) => t.value > 0);
   }, [ledgerThisMonth]);
 
@@ -1815,15 +2108,12 @@ export default function HomeDashboard() {
   const pendingAttendanceChanges = useRef([]);
   const setWorkerStatus = (workerId, status) => {
     const prevStatus = attendance[workerId];
-    // 1. Instant UI feedback
     setAttendance((prev) => {
       const next = { ...prev };
       if (status === undefined) delete next[workerId];
       else next[workerId] = status;
       return next;
     });
-
-    // 2. Queue + debounce the real DB write (same call the workers page uses)
     pendingAttendanceChanges.current.push({
       workerId,
       date: todayISO(),
@@ -1839,7 +2129,6 @@ export default function HomeDashboard() {
           throw new Error(result.error || "save failed");
         push(`Attendance saved (${changes.length})`, "success");
       } catch (e) {
-        // roll back the optimistic update for this worker
         setAttendance((prev) => ({ ...prev, [workerId]: prevStatus }));
         console.error("batchUpdateAttendance failed:", e);
         push("Failed to save attendance", "error");
@@ -1849,7 +2138,7 @@ export default function HomeDashboard() {
 
   const setOrderStage = async (orderId, stage) => {
     const prevOrders = orders;
-    setOrders((p) => p.map((o) => (o.id === orderId ? { ...o, stage } : o))); // optimistic
+    setOrders((p) => p.map((o) => (o.id === orderId ? { ...o, stage } : o)));
     setActivePop(null);
     try {
       const res = await patchOrderClient(orderId, { stage });
@@ -1859,8 +2148,6 @@ export default function HomeDashboard() {
       const confirmed = normalizeOrderLite(raw);
       setOrders((p) => p.map((o) => (o.id === orderId ? confirmed : o)));
       if (confirmed.stage !== stage) {
-        // Server accepted the request but didn't actually change the stage —
-        // surface this instead of silently showing the wrong thing.
         push(
           `Server kept order ${orderId} at ${STAGE_MAP[confirmed.stage]?.label || confirmed.stage}`,
           "error",
@@ -1928,22 +2215,29 @@ export default function HomeDashboard() {
     }
   };
 
-  /* ── create handlers — call the real API + refresh the slice ── */
   const createOrder = async (data) => {
     setBusy(true);
     try {
       const payload = {
         client: data.client,
+        phone: data.phone || null,
+        address: data.address || null,
         project: data.project,
-        amount: data.amount,
-        dueDate: data.dueDate,
-        stage: "APPOINTMENT",
-        worker: data.worker,
-        // items / payments / technical are added from the order page
-        items: [],
+        amount: Number(data.amount) || 0,
+        dueDate: data.dueDate || null,
+        stage: (data.stage || "APPOINTMENT").toUpperCase(),
+        worker: data.worker || null,
+        items: (data.items || []).map((i) => ({
+          name: i.name,
+          qty: Number(i.qty) || 1,
+          unit: i.unit || "pcs",
+          l: i.l === "" || i.l == null ? 0 : Number(i.l),
+          w: i.w === "" || i.w == null ? 0 : Number(i.w),
+          h: i.h === "" || i.h == null ? 0 : Number(i.h),
+        })),
         payments: [],
         missingItems: [],
-        technical: { truckDistance: "", floor: "", fee: "" },
+        technical: data.technical || { truckDistance: "", floor: "", fee: "" },
       };
       const res = await createOrderClient(payload);
       const created = normalizeOrderLite(res?.data ?? res);
@@ -2002,8 +2296,6 @@ export default function HomeDashboard() {
   const reorder = async (material, qty) => {
     setBusy(true);
     try {
-      // We bump stock directly via adjustStockClient from the materials helper —
-      // matches the source page's "restock" action.
       await adjustStockClient(material.id, qty, "add");
       setMaterials((prev) =>
         prev.map((m) =>
@@ -2020,7 +2312,6 @@ export default function HomeDashboard() {
   };
 
   const addWorker = (data) => {
-    // No public create endpoint in the API; mark as pending and toast
     push(
       `Worker "${data.name}" will appear after activation in workers page`,
       "info",
@@ -2028,7 +2319,7 @@ export default function HomeDashboard() {
     setModal(null);
   };
 
-  /* ─────── UI bits ─────── */
+  /* ─────── shared UI bits ─────── */
   const SectionHead = ({ icon, title, action }) => (
     <div
       className="flex items-center justify-between px-5 py-4"
@@ -2046,11 +2337,888 @@ export default function HomeDashboard() {
     <div className="skeleton" style={{ width: w, height: h }} />
   );
 
-  /* ════════════════ RENDER ════════════════ */
-  return (
-    <div className="p-6">
-      <GlobalStyles />
+  /* ════════════════════════════════════════════════════════════
+     PWA / MOBILE — collapsible panel + show-3-then-expand list
+     (only used inside the .pwa-shell wrapper)
+     ════════════════════════════════════════════════════════════ */
+  const PwaPanel = ({ title, icon, count, defaultOpen = true, children }) => {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+      <div className={`panel ${open ? "" : "collapsed"}`}>
+        <button
+          className="panel-head"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+        >
+          <span className="ph-icon">{icon}</span>
+          <span className="ph-title">{title}</span>
+          {count != null && <span className="ph-count">{count}</span>}
+          <span className="ph-chev">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+        </button>
+        {open && <div className="panel-body">{children}</div>}
+      </div>
+    );
+  };
 
+  const PwaList = ({ items, render, empty, initial = 3, keyExtractor }) => {
+    const [expanded, setExpanded] = useState(false);
+    if (!items || items.length === 0) {
+      return <div className="list-empty">{empty || "Nothing here yet"}</div>;
+    }
+    const visible = expanded ? items : items.slice(0, initial);
+    return (
+      <>
+        {visible.map((item, i) => {
+          const k = keyExtractor ? keyExtractor(item, i) : (item?.id ?? i);
+          return <Fragment key={k}>{render(item, i)}</Fragment>;
+        })}
+        {items.length > initial && (
+          <button className="list-more" onClick={() => setExpanded((e) => !e)}>
+            {expanded ? "Show less" : `Show all (${items.length})`}
+          </button>
+        )}
+      </>
+    );
+  };
+
+  const PwaPipelineMini = ({ counts }) => {
+    const total = counts.reduce((s, c) => s + c.value, 0) || 0;
+    return (
+      <div className="list-item" style={{ padding: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            height: 8,
+            borderRadius: 4,
+            overflow: "hidden",
+            background: "var(--surface-2)",
+          }}
+        >
+          {counts.map((c) =>
+            c.value > 0 ? (
+              <div
+                key={c.key}
+                style={{
+                  width: `${(c.value / Math.max(1, total)) * 100}%`,
+                  background: c.color,
+                }}
+              />
+            ) : null,
+          )}
+        </div>
+        <div
+          style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}
+        >
+          {counts.map((c) => (
+            <div key={c.key} className="row" style={{ fontSize: 11 }}>
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 2,
+                  background: c.color,
+                  display: "inline-block",
+                }}
+              />
+              <span className="muted">{c.label}</span>
+              <span style={{ fontWeight: 600 }}>{c.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  /* ════════════════════════════════════════════════════════════
+     PWA TABS
+     ════════════════════════════════════════════════════════════ */
+
+  const PwaHomeTab = () => {
+    const greeting = (() => {
+      const h = new Date().getHours();
+      if (h < 12) return "Good morning";
+      if (h < 18) return "Good afternoon";
+      return "Good evening";
+    })();
+    return (
+      <div className="tab-pane">
+        {/* Greeting + date */}
+        <div style={{ padding: "4px 4px 12px" }}>
+          <div className="muted" style={{ fontSize: 11, fontWeight: 500 }}>
+            {todayLabel()}
+          </div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, margin: "2px 0 0" }}>
+            {greeting}, Amine 👋
+          </h2>
+          <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+            {completedTasks}/{tasks.length} tasks · {workersPresent}/
+            {workersTotal} on floor
+          </p>
+        </div>
+
+        {/* New Order CTA — most important action */}
+        <button
+          className="pwa-cta"
+          onClick={() => setModal({ type: "NEW_ORDER" })}
+        >
+          <Icons.plus /> New Order
+        </button>
+
+        {/* Task manager (full) */}
+        <div style={{ marginTop: 12 }}>
+          <PwaPanel
+            title="Task Manager"
+            icon={<Icons.check size={14} />}
+            count={`${completedTasks}/${tasks.length}`}
+            defaultOpen
+          >
+            <div className="chip-row">
+              {TASK_FILTERS.map((f) => (
+                <button
+                  key={f}
+                  className={`chip ${taskFilter === f ? "active" : ""}`}
+                  onClick={() => setTaskFilter(f)}
+                >
+                  {f === "ALL"
+                    ? "All"
+                    : f === "ACTIVE"
+                      ? "Active"
+                      : f === "DONE"
+                        ? "Done"
+                        : "Overdue"}
+                </button>
+              ))}
+            </div>
+            <PwaList
+              items={visibleTasks}
+              empty="No tasks match this filter"
+              initial={3}
+              render={(t) => {
+                const prio =
+                  TASK_PRIORITIES.find((p) => p.value === t.priority) ||
+                  TASK_PRIORITIES[1];
+                return (
+                  <div
+                    className="list-item row"
+                    onClick={() => toggleTask(t.id)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleTask(t.id);
+                      }}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 4,
+                        flexShrink: 0,
+                        border: "1.5px solid",
+                        cursor: "pointer",
+                        borderColor: t.done ? "var(--accent)" : "var(--border)",
+                        background: t.done ? "var(--accent)" : "transparent",
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {t.done && <Icons.check />}
+                    </div>
+                    <span
+                      className="grow"
+                      style={{
+                        fontSize: 13,
+                        textDecoration: t.done ? "line-through" : "none",
+                        color: t.done ? "var(--ink-muted)" : "var(--ink)",
+                      }}
+                    >
+                      {t.text}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        padding: "2px 6px",
+                        borderRadius: 4,
+                        background: `${prio.color}15`,
+                        color: prio.color,
+                      }}
+                    >
+                      {prio.label}
+                    </span>
+                  </div>
+                );
+              }}
+            />
+            <div
+              className="list-more"
+              onClick={() => setModal({ type: "NEW_TASK" })}
+              style={{ borderTop: "1px solid var(--border)" }}
+            >
+              + Add Task
+            </div>
+          </PwaPanel>
+        </div>
+      </div>
+    );
+  };
+
+  const PwaMoneyTab = () => (
+    <div className="tab-pane">
+      <div style={{ padding: "4px 4px 12px" }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Money</h2>
+        <p className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+          Income, expenses, and net profit
+        </p>
+      </div>
+
+      <PwaPanel title="Net this month" icon={<Icons.money />} defaultOpen>
+        <div className="list-item">
+          <div className="row" style={{ marginBottom: 12 }}>
+            <div className="grow">
+              <div
+                className="muted"
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: ".04em",
+                }}
+              >
+                Profit
+              </div>
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 700,
+                  marginTop: 4,
+                  color:
+                    monthProfit >= 0
+                      ? "var(--stage-completed)"
+                      : "var(--stage-contract)",
+                }}
+              >
+                {displayMoneyCompact(moneyUnlocked, monthProfit)}{" "}
+                <span style={{ fontSize: 12, fontWeight: 500 }}>DZD</span>
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div className="muted" style={{ fontSize: 11 }}>
+                margin
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>
+                {monthIncome > 0 ? `${monthMargin.toFixed(0)}%` : "—"}
+              </div>
+            </div>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div className="row" style={{ fontSize: 11, marginBottom: 4 }}>
+              <span className="grow muted">Income</span>
+              <span style={{ fontWeight: 600 }}>
+                {displayMoneyCompact(moneyUnlocked, monthIncome)} DZD
+              </span>
+            </div>
+            <div
+              style={{
+                height: 6,
+                borderRadius: 3,
+                background: "var(--surface-2)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  background: "var(--stage-completed)",
+                }}
+              />
+            </div>
+          </div>
+          <div>
+            <div className="row" style={{ fontSize: 11, marginBottom: 4 }}>
+              <span className="grow muted">Expenses</span>
+              <span style={{ fontWeight: 600 }}>
+                {displayMoneyCompact(moneyUnlocked, monthExpenses)} DZD
+              </span>
+            </div>
+            <div
+              style={{
+                height: 6,
+                borderRadius: 3,
+                background: "var(--surface-2)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width:
+                    monthIncome > 0
+                      ? `${Math.min(100, (monthExpenses / monthIncome) * 100)}%`
+                      : "0%",
+                  height: "100%",
+                  background: "var(--stage-contract)",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </PwaPanel>
+
+      <PwaPanel title="Revenue vs expenses" icon={<Icons.trend />} defaultOpen>
+        <div
+          className="list-item"
+          style={{ paddingTop: 12, paddingBottom: 12 }}
+        >
+          <div
+            className="chart-legend"
+            style={{ marginBottom: 6, justifyContent: "flex-end" }}
+          >
+            <span>
+              <span
+                className="chart-legend-dot"
+                style={{ background: "#22c55e" }}
+              />
+              Income
+            </span>
+            <span>
+              <span
+                className="chart-legend-dot"
+                style={{ background: "#f59e0b" }}
+              />
+              Expenses
+            </span>
+          </div>
+          <LineChart
+            data={ledgerSeries}
+            width={360}
+            height={180}
+            formatAxis={(t) => maskChartValue(moneyUnlocked, t)}
+          />
+        </div>
+      </PwaPanel>
+
+      {expenseBreakdown.length > 0 && (
+        <PwaPanel
+          title="Expense breakdown"
+          icon={<Icons.cog />}
+          defaultOpen={false}
+        >
+          <div className="list-item row" style={{ flexWrap: "wrap", gap: 16 }}>
+            <DonutChart
+              data={expenseBreakdown}
+              size={120}
+              thickness={18}
+              formatValue={(n) => displayMoneyCompact(moneyUnlocked, n)}
+            />
+            <div className="grow">
+              {expenseBreakdown.map((t) => (
+                <div
+                  key={t.label}
+                  className="row"
+                  style={{ fontSize: 12, marginBottom: 6 }}
+                >
+                  <span
+                    className="chart-legend-dot"
+                    style={{ background: t.color }}
+                  />
+                  <span className="grow muted">{t.label}</span>
+                  <span style={{ fontWeight: 600 }}>
+                    {displayMoneyCompact(moneyUnlocked, t.value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </PwaPanel>
+      )}
+
+      <PwaPanel title="KPI overview" icon={<Icons.chart />} defaultOpen={false}>
+        <div className="kpi-grid" style={{ margin: 10 }}>
+          <div className="kpi-card">
+            <div className="k-label">Revenue</div>
+            <div className="k-value">
+              {displayMoneyCompact(moneyUnlocked, monthIncome)}
+            </div>
+            <div className="k-sub">DZD this month</div>
+          </div>
+          <div className="kpi-card">
+            <div className="k-label">Expenses</div>
+            <div className="k-value">
+              {displayMoneyCompact(moneyUnlocked, monthExpenses)}
+            </div>
+            <div className="k-sub">{expenseBreakdown.length} categories</div>
+          </div>
+          <div className="kpi-card">
+            <div className="k-label">Net profit</div>
+            <div
+              className="k-value"
+              style={{
+                color:
+                  monthProfit >= 0
+                    ? "var(--stage-completed)"
+                    : "var(--stage-contract)",
+              }}
+            >
+              {displayMoneyCompact(moneyUnlocked, monthProfit)}
+            </div>
+            <div className="k-sub">
+              {monthIncome > 0 ? `${monthMargin.toFixed(0)}% margin` : "—"}
+            </div>
+          </div>
+          <div className="kpi-card">
+            <div className="k-label">Orders · month</div>
+            <div className="k-value">{ordersThisMonth.length}</div>
+            <div className="k-sub">
+              {
+                ordersThisMonth.filter((o) => o.stage === "IN_PRODUCTION")
+                  .length
+              }{" "}
+              in production
+            </div>
+          </div>
+        </div>
+      </PwaPanel>
+    </div>
+  );
+
+  const PwaWorkshopTab = () => (
+    <div className="tab-pane">
+      <div style={{ padding: "4px 4px 12px" }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Workshop</h2>
+        <p className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+          Workers, stock, and recent purchases
+        </p>
+      </div>
+
+      <PwaPanel
+        title="Workers"
+        icon={<Icons.workers />}
+        count={workers.length}
+        defaultOpen
+      >
+        <PwaList
+          items={workers}
+          empty="No workers yet"
+          initial={3}
+          render={(w) => {
+            const status = attendance[w.id];
+            const name = w.full_name || w.shortName || w.name || "Worker";
+            const isPresent = status === "PRESENT";
+            const isAbsent = status === "ABSENT";
+            return (
+              <div className="list-item row">
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    background: "var(--surface-2)",
+                    color: "var(--accent)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    position: "relative",
+                    flexShrink: 0,
+                  }}
+                >
+                  {initials(name)}
+                  {isPresent && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        bottom: -1,
+                        right: -1,
+                        width: 10,
+                        height: 10,
+                        borderRadius: 5,
+                        background: "var(--stage-completed)",
+                        border: "2px solid var(--surface)",
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="grow" style={{ minWidth: 0 }}>
+                  <div className="truncate" style={{ fontWeight: 500 }}>
+                    {name}
+                  </div>
+                  <div className="muted truncate" style={{ fontSize: 11 }}>
+                    {w.role || "—"}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setWorkerStatus(w.id, cycleAttendance(status))}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 6,
+                    border: "none",
+                    cursor: "pointer",
+                    background: isPresent
+                      ? "var(--stage-completed)"
+                      : isAbsent
+                        ? "var(--stage-contract)"
+                        : "var(--surface-2)",
+                    color: status ? "#fff" : "var(--ink-muted)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    fontFamily: "inherit",
+                    minHeight: 32,
+                    minWidth: 72,
+                  }}
+                >
+                  {isPresent ? "Present" : isAbsent ? "Absent" : "Mark"}
+                </button>
+              </div>
+            );
+          }}
+        />
+      </PwaPanel>
+
+      <PwaPanel
+        title="Low stock"
+        icon={<Icons.alert />}
+        count={lowStockMaterials.length}
+        defaultOpen
+      >
+        <PwaList
+          items={lowStockMaterials}
+          empty="All stock healthy"
+          initial={3}
+          render={(m) => {
+            const ratio = Math.min(
+              Number(m.stock) / Math.max(1, Number(m.maxStock)),
+              1,
+            );
+            const critical = Number(m.stock) <= 0;
+            return (
+              <div className="list-item">
+                <div className="row" style={{ marginBottom: 6 }}>
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <div className="truncate" style={{ fontWeight: 500 }}>
+                      {m.name}
+                    </div>
+                    <div className="muted" style={{ fontSize: 11 }}>
+                      {m.supplier || "No supplier"}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: critical
+                          ? "var(--stage-contract)"
+                          : "var(--accent)",
+                      }}
+                    >
+                      {m.stock}
+                      <span
+                        className="muted"
+                        style={{ fontSize: 11, fontWeight: 400 }}
+                      >
+                        {" "}
+                        / {m.maxStock} {m.unit}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    height: 4,
+                    borderRadius: 2,
+                    background: "var(--surface-2)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${ratio * 100}%`,
+                      height: "100%",
+                      background: critical
+                        ? "var(--stage-contract)"
+                        : "var(--accent)",
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          }}
+        />
+      </PwaPanel>
+
+      <PwaPanel
+        title="Stock overview"
+        icon={<Icons.package />}
+        count={materials.length}
+        defaultOpen={false}
+      >
+        <div className="list-item row">
+          <span className="grow muted">Total materials</span>
+          <span style={{ fontWeight: 700 }}>{materials.length}</span>
+        </div>
+        <div className="list-item row">
+          <span className="grow muted">Low stock</span>
+          <span style={{ fontWeight: 700, color: "var(--stage-contract)" }}>
+            {lowStockMaterials.length}
+          </span>
+        </div>
+        <div className="list-item row">
+          <span className="grow muted">Critical (empty)</span>
+          <span style={{ fontWeight: 700, color: "var(--stage-contract)" }}>
+            {lowStockMaterials.filter((m) => Number(m.stock) <= 0).length}
+          </span>
+        </div>
+      </PwaPanel>
+
+      <PwaPanel
+        title="Recent purchase"
+        icon={<Icons.truck />}
+        defaultOpen={false}
+      >
+        {!recentPO ? (
+          <div className="list-empty">No PO this month</div>
+        ) : (
+          <div className="list-item">
+            <div className="row" style={{ marginBottom: 8 }}>
+              <div className="grow">
+                <div style={{ fontWeight: 600 }}>PO #{recentPO.id}</div>
+                <div className="muted" style={{ fontSize: 11 }}>
+                  {recentPO.supplier}
+                </div>
+                <div className="muted" style={{ fontSize: 11 }}>
+                  {recentPO.date
+                    ? new Date(recentPO.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "—"}
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div
+                  className="muted"
+                  style={{
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: ".04em",
+                  }}
+                >
+                  Total
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>
+                  {displayMoneyCompact(moneyUnlocked, recentPO.total)}
+                </div>
+              </div>
+            </div>
+            <PwaList
+              items={safe(recentPO.items)}
+              empty="No items"
+              initial={3}
+              render={(it) => (
+                <div className="row" style={{ padding: "6px 0", fontSize: 12 }}>
+                  <span className="grow truncate">
+                    {it.material_name || it.name}
+                  </span>
+                  <span
+                    className="muted"
+                    style={{ fontSize: 11, marginRight: 8 }}
+                  >
+                    {it.quantity} {it.unit}
+                  </span>
+                  <span style={{ fontWeight: 600 }}>
+                    {displayMoneyCompact(
+                      moneyUnlocked,
+                      Number(it.quantity || 0) *
+                        Number(it.unit_price || it.price || 0),
+                    )}
+                  </span>
+                </div>
+              )}
+            />
+          </div>
+        )}
+      </PwaPanel>
+    </div>
+  );
+
+  const PwaOrdersTab = () => (
+    <div className="tab-pane">
+      <div style={{ padding: "4px 4px 12px" }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Orders</h2>
+        <p className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+          Pipeline and order list
+        </p>
+      </div>
+
+      <PwaPanel
+        title="Pipeline"
+        icon={<Icons.orders />}
+        count={ordersThisMonth.length}
+        defaultOpen
+      >
+        <PwaPipelineMini counts={pipelineCounts} />
+      </PwaPanel>
+
+      <PwaPanel
+        title="Orders"
+        icon={<Icons.orders />}
+        count={ordersFiltered.length}
+        defaultOpen
+      >
+        <div className="chip-row">
+          {[
+            "ALL",
+            "APPOINTMENT",
+            "CONTRACT",
+            "IN_PRODUCTION",
+            "READY_TO_DELIVER",
+            "COMPLETED",
+          ].map((f) => (
+            <button
+              key={f}
+              className={`chip ${filter === f ? "active" : ""}`}
+              onClick={() => setFilter(f)}
+            >
+              {f === "ALL" ? "All" : STAGE_MAP[f].label}
+            </button>
+          ))}
+        </div>
+        <PwaList
+          items={ordersFiltered}
+          empty="No orders in this view"
+          initial={3}
+          render={(o) => {
+            const isOver =
+              o.dueDate &&
+              new Date(o.dueDate) < new Date(todayISO()) &&
+              o.stage !== "COMPLETED";
+            return (
+              <div
+                className="list-item"
+                role="button"
+                tabIndex={0}
+                onClick={() => openOrder(o.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openOrder(o.id);
+                  }
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <div className="row" style={{ marginBottom: 6 }}>
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <div className="truncate" style={{ fontWeight: 600 }}>
+                      {o.client}
+                    </div>
+                    <div className="muted truncate" style={{ fontSize: 11 }}>
+                      Order #{o.id}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>
+                      {displayMoneyCompact(moneyUnlocked, o.amount)}
+                    </div>
+                    <div className="muted" style={{ fontSize: 11 }}>
+                      DZD
+                    </div>
+                  </div>
+                </div>
+                <div className="row">
+                  <div
+                    style={{ position: "relative" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <StageBadge
+                      stage={o.stage}
+                      onClick={() =>
+                        setActivePop(activePop === o.id ? null : o.id)
+                      }
+                    />
+                    <Popover
+                      open={activePop === o.id}
+                      onClose={() => setActivePop(null)}
+                    >
+                      <div
+                        style={{
+                          padding: "6px 12px 4px",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          letterSpacing: ".04em",
+                          color: "var(--ink-muted)",
+                        }}
+                      >
+                        Move to
+                      </div>
+                      {STAGE_ORDER.map((s) => (
+                        <div
+                          key={s}
+                          className={`popover-item ${o.stage === s ? "selected" : ""}`}
+                          onClick={() => setOrderStage(o.id, s)}
+                        >
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: 2,
+                              background: STAGE_MAP[s].color,
+                              display: "inline-block",
+                            }}
+                          />
+                          {STAGE_MAP[s].label}
+                        </div>
+                      ))}
+                    </Popover>
+                  </div>
+                  <div className="grow" />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: isOver
+                        ? "var(--stage-contract)"
+                        : "var(--ink-muted)",
+                      fontWeight: isOver ? 600 : 400,
+                    }}
+                  >
+                    {o.dueDate
+                      ? new Date(o.dueDate).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : "—"}
+                  </span>
+                </div>
+              </div>
+            );
+          }}
+        />
+      </PwaPanel>
+    </div>
+  );
+
+  /* ════════════════════════════════════════════════════════════
+     DESKTOP RENDER — restored 1:1 from the original
+     ════════════════════════════════════════════════════════════ */
+  const DesktopRender = () => (
+    <div className="p-6">
       {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
         <div>
@@ -2068,6 +3236,15 @@ export default function HomeDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            className="btn-ghost text-xs flex items-center gap-1"
+            onClick={toggleMoneyLock}
+            title={moneyUnlocked ? "Hide amounts" : "Show amounts"}
+            style={moneyUnlocked ? { color: "var(--accent)" } : undefined}
+          >
+            {moneyUnlocked ? <Icons.eyeOff /> : <Icons.eye />}
+            {moneyUnlocked ? "Hide" : "Show"}
+          </button>
           <button
             className="btn-ghost text-xs flex items-center gap-1"
             onClick={loadAll}
@@ -2089,19 +3266,19 @@ export default function HomeDashboard() {
         {[
           {
             label: "Revenue (MTD)",
-            value: fmtDZDCompact(monthIncome),
+            value: displayMoneyCompact(moneyUnlocked, monthIncome),
             color: "var(--stage-completed)",
             icon: <Icons.trend />,
           },
           {
             label: "Expenses (MTD)",
-            value: fmtDZDCompact(monthExpenses),
+            value: displayMoneyCompact(moneyUnlocked, monthExpenses),
             color: "var(--stage-contract)",
             icon: <Icons.money />,
           },
           {
             label: "Net Profit",
-            value: fmtDZDCompact(monthProfit),
+            value: displayMoneyCompact(moneyUnlocked, monthProfit),
             color: "var(--accent)",
             icon: <Icons.ledger />,
           },
@@ -2195,7 +3372,12 @@ export default function HomeDashboard() {
             ledgerSeries.every((d) => !d.income && !d.expenses) ? (
               <Skeleton h={200} />
             ) : (
-              <LineChart data={ledgerSeries} width={700} height={220} />
+              <LineChart
+                data={ledgerSeries}
+                width={700}
+                height={220}
+                formatAxis={(t) => maskChartValue(moneyUnlocked, t)}
+              />
             )}
           </div>
         </div>
@@ -2211,7 +3393,12 @@ export default function HomeDashboard() {
               </div>
             ) : (
               <>
-                <DonutChart data={expenseBreakdown} size={140} thickness={22} />
+                <DonutChart
+                  data={expenseBreakdown}
+                  size={140}
+                  thickness={22}
+                  formatValue={(n) => displayMoneyCompact(moneyUnlocked, n)}
+                />
                 <div className="w-full mt-4 space-y-1.5">
                   {expenseBreakdown.map((t) => (
                     <div
@@ -2226,7 +3413,7 @@ export default function HomeDashboard() {
                         {t.label}
                       </span>
                       <span className="font-semibold">
-                        {fmtDZDCompact(t.value)}
+                        {displayMoneyCompact(moneyUnlocked, t.value)}
                       </span>
                     </div>
                   ))}
@@ -2237,7 +3424,7 @@ export default function HomeDashboard() {
         </div>
       </div>
 
-      {/* TASK MANAGER — first, full-width, feature-rich */}
+      {/* TASK MANAGER */}
       <div className="panel mb-6">
         <SectionHead
           icon={<Icons.check />}
@@ -2275,7 +3462,6 @@ export default function HomeDashboard() {
             </div>
           }
         />
-
         <div className="px-4 pt-4 flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <span
@@ -2319,7 +3505,6 @@ export default function HomeDashboard() {
             ))}
           </div>
         </div>
-
         <div className="p-3 space-y-1">
           {loadingAll && tasks.length === 0 ? (
             <div className="p-2 space-y-2">
@@ -2358,7 +3543,6 @@ export default function HomeDashboard() {
                   >
                     {t.done && <Icons.check />}
                   </div>
-
                   <div
                     className="flex-1 min-w-0 cursor-pointer"
                     onClick={() => toggleTask(t.id)}
@@ -2418,7 +3602,6 @@ export default function HomeDashboard() {
                       )}
                     </div>
                   </div>
-
                   <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() =>
@@ -2444,7 +3627,6 @@ export default function HomeDashboard() {
             })
           )}
         </div>
-
         <div
           className="h-1.5 rounded-full overflow-hidden mx-4 mb-4"
           style={{ background: "var(--surface-2)" }}
@@ -2458,7 +3640,7 @@ export default function HomeDashboard() {
 
       {/* MAIN GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ═══ LEFT (2/3) ═══ */}
+        {/* LEFT (2/3) */}
         <div className="lg:col-span-2 space-y-6">
           {/* Workers */}
           <div className="panel">
@@ -2490,7 +3672,7 @@ export default function HomeDashboard() {
                 </div>
               ) : (
                 workers.map((w) => {
-                  const status = attendance[w.id]; // undefined = Not Set
+                  const status = attendance[w.id];
                   const name = w.full_name || w.shortName || w.name || "Worker";
                   return (
                     <div
@@ -2657,12 +3839,26 @@ export default function HomeDashboard() {
                         <tr
                           key={o.id}
                           className="panel-hover transition-colors"
-                          style={{ borderTop: "1px solid var(--border)" }}
+                          style={{
+                            borderTop: "1px solid var(--border)",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => openOrder(o.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openOrder(o.id);
+                            }
+                          }}
+                          tabIndex={0}
                         >
                           <td className="px-5 py-3 font-medium">{o.id}</td>
                           <td className="px-5 py-3">{o.client}</td>
                           <td className="px-5 py-3">
-                            <div className="relative inline-block">
+                            <div
+                              className="relative inline-block"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <StageBadge
                                 stage={o.stage}
                                 onClick={() =>
@@ -2700,7 +3896,7 @@ export default function HomeDashboard() {
                             </div>
                           </td>
                           <td className="px-5 py-3 text-right font-medium">
-                            {fmtDZD(o.amount)}
+                            {displayMoney(moneyUnlocked, o.amount)}
                           </td>
                           <td className="px-5 py-3">
                             <span
@@ -2741,7 +3937,8 @@ export default function HomeDashboard() {
               >
                 Showing {ordersFiltered.length} of {ordersThisMonth.length} ·
                 Total{" "}
-                {fmtDZD(
+                {displayMoney(
+                  moneyUnlocked,
                   ordersFiltered.reduce((s, o) => s + Number(o.amount || 0), 0),
                 )}
               </div>
@@ -2804,7 +4001,7 @@ export default function HomeDashboard() {
                           className="text-lg font-bold mt-0.5"
                           style={{ color: "var(--accent)" }}
                         >
-                          {fmtDZD(recentPO.total)}
+                          {displayMoney(moneyUnlocked, recentPO.total)}
                         </div>
                       </div>
                     </div>
@@ -2830,11 +4027,15 @@ export default function HomeDashboard() {
                               style={{ color: "var(--ink-muted)" }}
                             >
                               {it.quantity} {it.unit} ×{" "}
-                              {fmtDZD(it.unit_price || it.price)}
+                              {displayMoney(
+                                moneyUnlocked,
+                                it.unit_price || it.price,
+                              )}
                             </div>
                           </div>
                           <div className="text-xs font-semibold shrink-0">
-                            {fmtDZD(
+                            {displayMoney(
+                              moneyUnlocked,
                               Number(it.quantity || 0) *
                                 Number(it.unit_price || it.price || 0),
                             )}
@@ -2846,103 +4047,10 @@ export default function HomeDashboard() {
                 )}
               </div>
             </div>
-
-            {/* <div className="panel">
-              <SectionHead
-                icon={<Icons.money />}
-                title={`Pending Payments (${pendingPayments.length})`}
-                action={
-                  <button
-                    className="btn-ghost text-xs flex items-center gap-1"
-                    onClick={() => setModal({ type: "NEW_LEDGER" })}
-                  >
-                    <Icons.plus /> Add
-                  </button>
-                }
-              />
-              <div className="p-2">
-                {pendingPayments.length === 0 ? (
-                  <div
-                    className="p-6 text-center text-sm"
-                    style={{ color: "var(--stage-completed)" }}
-                  >
-                    ✓ All payments are up to date
-                  </div>
-                ) : (
-                  pendingPayments.map((p) => {
-                    const daysFromToday = p.due
-                      ? Math.round(
-                          (new Date(p.due) - new Date(todayISO())) / 86400000,
-                        )
-                      : 0;
-                    const dueLabel =
-                      daysFromToday < 0
-                        ? `Overdue ${-daysFromToday}d`
-                        : daysFromToday === 0
-                          ? "Today"
-                          : `In ${daysFromToday}d`;
-                    return (
-                      <div
-                        key={p.id}
-                        className="flex items-center gap-3 p-3 rounded-lg panel-hover"
-                      >
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
-                          style={{
-                            background: p.overdue
-                              ? "rgba(239,68,68,0.12)"
-                              : "var(--surface-2)",
-                            color: p.overdue
-                              ? "var(--stage-contract)"
-                              : "var(--accent)",
-                          }}
-                        >
-                          {initials(p.client)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            {p.client}
-                          </div>
-                          <div
-                            className="text-[11px] flex items-center gap-1.5"
-                            style={{ color: "var(--ink-muted)" }}
-                          >
-                            <span>{p.order}</span>
-                            <span>·</span>
-                            <span
-                              style={{
-                                color: p.overdue
-                                  ? "var(--stage-contract)"
-                                  : "var(--ink-muted)",
-                                fontWeight: p.overdue ? 600 : 400,
-                              }}
-                            >
-                              {dueLabel}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="text-sm font-semibold">
-                            {fmtDZDCompact(p.amount)}
-                          </div>
-                          <button
-                            onClick={() => recordPayment(p.id)}
-                            className="text-[10px] mt-0.5"
-                            style={{ color: "var(--stage-completed)" }}
-                          >
-                            <Icons.check /> Mark paid
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div> */}
           </div>
         </div>
 
-        {/* ═══ RIGHT (1/3) ═══ */}
+        {/* RIGHT (1/3) */}
         <div className="space-y-6">
           {/* Net this month */}
           <div className="panel">
@@ -2960,7 +4068,7 @@ export default function HomeDashboard() {
                     className="text-2xl font-bold mt-1"
                     style={{ color: "var(--accent)" }}
                   >
-                    {fmtDZDCompact(monthProfit)}
+                    {displayMoneyCompact(moneyUnlocked, monthProfit)}
                   </div>
                 </div>
                 <div className="text-right">
@@ -2978,7 +4086,9 @@ export default function HomeDashboard() {
                     <span style={{ color: "var(--stage-completed)" }}>
                       Income
                     </span>
-                    <span className="font-semibold">{fmtDZD(monthIncome)}</span>
+                    <span className="font-semibold">
+                      {displayMoney(moneyUnlocked, monthIncome)}
+                    </span>
                   </div>
                   <div
                     className="h-2 rounded-full overflow-hidden"
@@ -2999,7 +4109,7 @@ export default function HomeDashboard() {
                       Expenses
                     </span>
                     <span className="font-semibold">
-                      {fmtDZD(monthExpenses)}
+                      {displayMoney(moneyUnlocked, monthExpenses)}
                     </span>
                   </div>
                   <div
@@ -3106,7 +4216,7 @@ export default function HomeDashboard() {
             </div>
           </div>
 
-          {/* Quick Actions — all wired to real modals */}
+          {/* Quick Actions */}
           <div className="panel p-4">
             <h3 className="text-sm font-semibold mb-3">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-2">
@@ -3155,19 +4265,120 @@ export default function HomeDashboard() {
           </div>
         </div>
       </div>
+    </div>
+  );
 
-      {/* ═══ MODALS ═══ */}
-      <Modal
-        open={modal?.type === "NEW_ORDER"}
+  /* ════════════════════════════════════════════════════════════
+     PWA SHELL — 4 tabs: Home / Money / Workshop / Orders
+     ════════════════════════════════════════════════════════════ */
+  const PWA_TABS = [
+    { id: "home", label: "Home", icon: Icons.home },
+    { id: "money", label: "Money", icon: Icons.money },
+    { id: "workshop", label: "Workshop", icon: Icons.workshop },
+    { id: "orders", label: "Orders", icon: Icons.orders },
+  ];
+
+  const PwaShell = () => (
+    <div className="pwa-shell">
+      <header className="pwa-header">
+        <div className="pwa-header-row">
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="muted" style={{ fontSize: 11, fontWeight: 500 }}>
+              {todayLabel()}
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, margin: "2px 0 0" }}>
+              {PWA_TABS.find((t) => t.id === pwaTab)?.label || "Home"}
+            </div>
+          </div>
+          <button
+            onClick={toggleMoneyLock}
+            className="row"
+            title={moneyUnlocked ? "Hide amounts" : "Show amounts"}
+            style={{
+              padding: "8px 10px",
+              borderRadius: 10,
+              border: "1px solid var(--border)",
+              background: moneyUnlocked
+                ? "var(--accent-soft)"
+                : "var(--surface-2)",
+              color: moneyUnlocked ? "var(--accent)" : "var(--ink)",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: 12,
+              fontWeight: 500,
+              minHeight: 36,
+            }}
+          >
+            {moneyUnlocked ? <Icons.eyeOff /> : <Icons.eye />}
+          </button>
+          <button
+            onClick={loadAll}
+            disabled={loadingAll}
+            className="row"
+            style={{
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "1px solid var(--border)",
+              background: "var(--surface-2)",
+              color: "var(--ink)",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: 12,
+              fontWeight: 500,
+              minHeight: 36,
+            }}
+          >
+            <Icons.refresh />
+            <span style={{ marginLeft: 4 }}>
+              {loadingAll ? "Loading…" : "Refresh"}
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <main className="pwa-main">
+        {pwaTab === "home" && <PwaHomeTab />}
+        {pwaTab === "money" && <PwaMoneyTab />}
+        {pwaTab === "workshop" && <PwaWorkshopTab />}
+        {pwaTab === "orders" && <PwaOrdersTab />}
+      </main>
+
+      <nav className="pwa-tabbar" role="tablist" aria-label="Main navigation">
+        {PWA_TABS.map((t) => {
+          const IconComp = t.icon;
+          return (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={pwaTab === t.id}
+              className={`tab-btn ${pwaTab === t.id ? "active" : ""}`}
+              onClick={() => setPwaTab(t.id)}
+            >
+              <IconComp size={22} />
+              <span>{t.label}</span>
+              <span className="tab-dot" />
+            </button>
+          );
+        })}
+      </nav>
+    </div>
+  );
+
+  /* ════════════════════════════════════════════════════════════
+     TOP-LEVEL RETURN — pick layout by viewport
+     ════════════════════════════════════════════════════════════ */
+  return (
+    <>
+      <GlobalStyles />
+      {isMobile ? <PwaShell /> : <DesktopRender />}
+
+      {/* MODALS (shared by both layouts) */}
+      <OrderFormModal
+        isOpen={modal?.type === "NEW_ORDER"}
         onClose={() => setModal(null)}
-        title="New Order"
-      >
-        <NewOrderForm
-          onSubmit={createOrder}
-          onCancel={() => setModal(null)}
-          existingWorkers={workers}
-        />
-      </Modal>
+        onSave={createOrder}
+        workers={workers}
+      />
       <Modal
         open={modal?.type === "NEW_MATERIAL"}
         onClose={() => setModal(null)}
@@ -3216,11 +4427,9 @@ export default function HomeDashboard() {
           initialData={modal?.type === "EDIT_TASK" ? modal.payload : null}
           workers={workers}
           onSubmit={(data) => {
-            if (modal?.type === "EDIT_TASK") {
+            if (modal?.type === "EDIT_TASK")
               updateTaskDetails(modal.payload.id, data);
-            } else {
-              addTask(data);
-            }
+            else addTask(data);
             setModal(null);
           }}
           onCancel={() => setModal(null)}
@@ -3238,13 +4447,97 @@ export default function HomeDashboard() {
         />
       </Modal>
 
-      {/* TOASTS */}
+      {/* PASSWORD PROMPT — unlock money amounts */}
+      <Modal
+        open={modal?.type === "PASSWORD"}
+        onClose={() => {
+          setModal(null);
+          setPasswordError("");
+          setPasswordInput("");
+        }}
+        title="Unlock amounts"
+      >
+        <div style={{ textAlign: "center", padding: "4px 0 8px" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              background: "var(--accent-soft)",
+              color: "var(--accent)",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 12,
+            }}
+          >
+            <Icons.lock />
+          </div>
+          <p
+            style={{
+              fontSize: 13,
+              color: "var(--ink-muted)",
+              margin: "0 0 16px",
+            }}
+          >
+            Enter the password to reveal all money amounts on this dashboard.
+          </p>
+          <input
+            type="password"
+            className="f-input"
+            autoFocus
+            placeholder="Password"
+            value={passwordInput}
+            onChange={(e) => {
+              setPasswordInput(e.target.value);
+              setPasswordError("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitPassword();
+            }}
+            style={{
+              textAlign: "center",
+              fontSize: 16,
+              letterSpacing: "0.3em",
+            }}
+          />
+          {passwordError && (
+            <div
+              className="f-err"
+              style={{ textAlign: "center", marginTop: 8 }}
+            >
+              {passwordError}
+            </div>
+          )}
+          <div className="flex gap-2 justify-end pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setModal(null);
+                setPasswordError("");
+                setPasswordInput("");
+              }}
+              className="btn-ghost text-xs"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submitPassword}
+              className="btn-primary text-xs"
+            >
+              <Icons.unlock size={14} /> Unlock
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <ToastStack toasts={toasts} onDismiss={dismiss} />
-    </div>
+    </>
   );
 }
 
-/* Task form — full-featured: priority, category, due date, assignee */
+/* Task form — full-featured */
 const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
   const [text, setText] = useState(initialData?.text || "");
   const [priority, setPriority] = useState(initialData?.priority || "MEDIUM");
