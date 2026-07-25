@@ -937,6 +937,79 @@ const initials = (name) =>
     .toUpperCase();
 const safe = (v, fb = []) => (Array.isArray(v) ? v : fb);
 
+/* Pulls today's attendance status off of a raw worker record, trying
+   every shape we've seen APIs use for this. This exists because the
+   dashboard was writing attendance (batchUpdateAttendance) but never
+   reading it back on load — so `attendance` state always started
+   empty and every worker looked "not set" until you clicked one.
+   If none of these match your API's shape, check the console.log
+   below (fires once) to see the real field name and add it here. */
+const ATTENDANCE_STATUS_SET = new Set(["PRESENT", "ABSENT"]);
+const normalizeAttendanceStatus = (raw) => {
+  if (!raw) return undefined;
+  const v = String(raw).toUpperCase();
+  if (ATTENDANCE_STATUS_SET.has(v)) return v;
+  if (["PRESENT", "IN", "YES", "TRUE", "1"].includes(v)) return "PRESENT";
+  if (["ABSENT", "OUT", "NO", "FALSE", "0"].includes(v)) return "ABSENT";
+  return undefined;
+};
+const deriveWorkerAttendanceToday = (w) => {
+  if (!w) return undefined;
+  const today = todayISO();
+
+  // Flat status fields directly on the worker record.
+  const flatCandidates = [
+    w.attendance_today,
+    w.attendanceToday,
+    w.today_status,
+    w.todayStatus,
+    w.status_today,
+    w.attendance_status,
+    w.attendanceStatus,
+    // Only trust a bare `status`/`present` field if it actually looks
+    // like an attendance value — workers can have unrelated `status`
+    // fields (e.g. employment status) that would false-positive here.
+    normalizeAttendanceStatus(w.status) ? w.status : undefined,
+  ];
+  for (const c of flatCandidates) {
+    const n = normalizeAttendanceStatus(c);
+    if (n) return n;
+  }
+  if (typeof w.present === "boolean") return w.present ? "PRESENT" : "ABSENT";
+  if (typeof w.is_present === "boolean")
+    return w.is_present ? "PRESENT" : "ABSENT";
+
+  // A single nested "today" record: w.today_attendance / w.attendance (object)
+  const nestedToday =
+    w.today_attendance || w.todayAttendance || w.attendance_record;
+  if (nestedToday && typeof nestedToday === "object") {
+    const n = normalizeAttendanceStatus(nestedToday.status);
+    if (n) return n;
+  }
+  if (
+    w.attendance &&
+    typeof w.attendance === "object" &&
+    !Array.isArray(w.attendance)
+  ) {
+    const n = normalizeAttendanceStatus(w.attendance[today]?.status ?? w.attendance[today]);
+    if (n) return n;
+  }
+
+  // An array of attendance records: w.attendances / w.attendance_records
+  const list = w.attendances || w.attendance_records || w.attendanceRecords;
+  if (Array.isArray(list)) {
+    const rec = list.find(
+      (r) => (r.date || r.attendance_date || "").slice(0, 10) === today,
+    );
+    if (rec) {
+      const n = normalizeAttendanceStatus(rec.status);
+      if (n) return n;
+    }
+  }
+
+  return undefined;
+};
+
 const DB_STATE_TO_STAGE = {
   appointment: "APPOINTMENT",
   contract: "CONTRACT",
@@ -1936,7 +2009,41 @@ export default function HomeDashboard() {
         fetchLedgerEntries({ pageSize: 500 }),
         fetchLedgerReferenceData(),
       ]);
-      if (w.status === "fulfilled") setWorkers(safe(w.value?.data ?? w.value));
+      if (w.status === "fulfilled") {
+        const workerList = safe(w.value?.data ?? w.value);
+        setWorkers(workerList);
+        // One-time debug aid: log the raw shape of the first worker so
+        // it's obvious in devtools which field actually carries today's
+        // attendance, in case deriveWorkerAttendanceToday needs a new
+        // field name added to it.
+        if (workerList[0]) {
+          console.log(
+            "[attendance debug] sample worker record from fetchWorkers():",
+            workerList[0],
+          );
+        }
+        setAttendance((prev) => {
+          const next = { ...prev };
+          let foundAny = false;
+          workerList.forEach((wk) => {
+            // Don't clobber a status the user already set locally
+            // this session (e.g. an optimistic update mid-save).
+            if (next[wk.id] !== undefined) return;
+            const derived = deriveWorkerAttendanceToday(wk);
+            if (derived) {
+              next[wk.id] = derived;
+              foundAny = true;
+            }
+          });
+          if (!foundAny && workerList.length > 0) {
+            console.warn(
+              "[attendance debug] Could not find today's attendance on any worker record. " +
+                "Check the logged sample above for the real field name and add it to deriveWorkerAttendanceToday().",
+            );
+          }
+          return next;
+        });
+      }
       if (o.status === "fulfilled")
         setOrders(safe(o.value?.data ?? o.value).map(normalizeOrderLite));
       if (m.status === "fulfilled") setMaterials(safe(m.value));
