@@ -962,7 +962,7 @@ const normalizeOrder = (updated) => {
   };
   return {
     id: updated.id,
-    client: updated.clients?.full_name ?? "",
+    client: updated.clients?.name ?? "",
     phone: updated.clients?.phone ?? "",
     address: updated.address ?? dn.address ?? "",
     project: updated.project_name ?? "",
@@ -2598,6 +2598,7 @@ const OrderFormModal = ({
     } else {
       // Orders page format (default)
       data = {
+        id: initialData?.id,  // ADD THIS LINE
         client: formData.client,
         phone: formData.phone,
         address: formData.address,
@@ -2620,7 +2621,6 @@ const OrderFormModal = ({
       };
     }
 
-    console.log('data: ', data);
     onSave(data);
     onClose();
   };
@@ -3593,7 +3593,7 @@ export default function OrdersClient() {
 
       const normalized = {
         id: updated.id,
-        client: updated.clients?.full_name ?? "",
+        client: updated.clients?.name ?? "",
         phone: updated.clients?.phone ?? "",
         address: updated.address ?? dn.address ?? "",
         project: updated.project_name ?? "",

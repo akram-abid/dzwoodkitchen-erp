@@ -17,9 +17,7 @@ export async function PUT(req, { params }) {
     const { id } = await params; // ← unwrap the Promise
 
     const body = await req.json();
-
     const data = updateOrderSchema.parse(body);
-
     const updated = await updateOrder(id, data);
 
     return NextResponse.json({ success: true, data: updated });

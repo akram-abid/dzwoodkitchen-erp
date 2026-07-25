@@ -94,7 +94,7 @@ export async function updateOrder(id, data) {
     // 1) Find or create the client
     let clientId;
     const existingClient = await tx.clients.findFirst({
-      where: { full_name: client },
+      where: { name: client },
     });
 
     if (existingClient) {

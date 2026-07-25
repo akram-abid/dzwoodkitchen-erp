@@ -33,20 +33,10 @@ export async function fetchOrders(filters = {}) {
 export async function updateOrderClient(id, data) {
   const res = await fetch(`/api/orders/${id}`, {
     method: "PUT",
-
     headers: { "Content-Type": "application/json" },
-
-    credentials: "include",
-
     body: JSON.stringify(data),
   });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-
-    throw new Error(`Failed to update order: ${res.status} ${body}`);
-  }
-
+  if (!res.ok) throw new Error("Failed to update order");
   return res.json();
 }
 
