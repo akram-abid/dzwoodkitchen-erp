@@ -137,16 +137,27 @@ model payments {
 }
 
 model vehicle_trips {
-  id         Int      @id @default(autoincrement())
+  id         Int          @id @default(autoincrement())
   vehicle_id Int
-  order_id   Int
-  trip_date  DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
-  kilometers Decimal  @default(0) @db.Decimal(10, 2)
-  orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  vehicles   vehicles @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  date       DateTime     @db.Date
+  start_km   Decimal      @default(0) @db.Decimal(10, 2)
+  end_km     Decimal      @default(0) @db.Decimal(10, 2)
+  purpose    trip_purpose
+  cost       Decimal      @default(0) @db.Decimal(10, 2)
+  order_id   Int?
+  notes      String?
+  created_at DateTime     @default(now()) @db.Timestamp(6)
 
-  @@index([order_id], map: "idx_vehicle_trips_order_id")
-  @@index([vehicle_id], map: "idx_vehicle_trips_vehicle_id")
+  vehicle vehicles @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  order   orders?  @relation(fields: [order_id], references: [id], onDelete: SetNull)
+}
+
+enum trip_purpose {
+  DELIVERY
+  PICKUP
+  TRANSFER
+  MAINTENANCE
+  PERSONAL
 }
 
 // model vehicles {

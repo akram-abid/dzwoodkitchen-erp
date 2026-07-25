@@ -210,7 +210,7 @@ const OrderPicker = ({ value, onChange, orders }) => {
 export default function FleetClient({ initialVehicles = [] }) {
   const [assets, setAssets] = useState(() => initialVehicles.map(mapVehicle));
   const [maintenance, setMaintenance] = useState([]);
-  const [trips, setTrips] = useState(SEED_TRIPS);
+  const [trips, setTrips] = useState([]);
   const [orders] = useState(SEED_ORDERS);
 
   const [tab, setTab] = useState("TRUCK");
@@ -241,6 +241,23 @@ export default function FleetClient({ initialVehicles = [] }) {
   const [selectedTruckId, setSelectedTruckId] = useState(null);
   const trucks = useMemo(() => assets.filter((a) => a.type === "TRUCK"), [assets]);
   const truck = useMemo(() => trucks.find((t) => t.id === selectedTruckId) || trucks[0], [trucks, selectedTruckId]); const monthTrips = useMemo(() => trips.filter((t) => inMonth(t.date, cm, cy)), [trips, cm, cy]);
+  useEffect(() => {
+    if (truck) {
+      fetch(`/api/vehicles_trips?vehicleId=${truck.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.data) {
+            // ✅ Add truckId to each trip
+            const mapped = data.data.map(t => ({
+              ...t,
+              truckId: truck.id
+            }));
+            setTrips(mapped);
+          }
+        })
+        .catch(err => console.error("Failed to load trips:", err));
+    }
+  }, [truck]);
   const truckStats = useMemo(() => {
     const monthMaint = maintenance.filter((m) => m.assetId === truck?.id && inMonth(m.date, cm, cy)).reduce((s, m) => s + m.cost, 0);
     const tripCost = monthTrips.reduce((s, t) => s + (t.cost || 0), 0);
@@ -373,21 +390,78 @@ export default function FleetClient({ initialVehicles = [] }) {
     setTripError(""); setShowTripModal(true);
   };
   const openEditTrip = (t) => { setEditingTripId(t.id); setTripForm({ ...t, startKm: String(t.startKm), endKm: String(t.endKm), cost: String(t.cost) }); setTripError(""); setShowTripModal(true); };
-  const saveTrip = () => {
+  const saveTrip = async () => {
     if (!tripForm.date) return setTripError("Date is required");
-    const start = Number(tripForm.startKm), end = Number(tripForm.endKm);
+    const start = Number(tripForm.startKm);
+    const end = Number(tripForm.endKm);
     if (isNaN(start)) return setTripError("Start km required");
     if (isNaN(end)) return setTripError("End km required");
     if (end < start) return setTripError("End km must be ≥ start km");
     const cost = parseFloat(tripForm.cost);
     if (isNaN(cost) || cost < 0) return setTripError("Cost must be ≥ 0");
-    const entry = { truckId: truck.id, date: tripForm.date, startKm: start, endKm: end, purpose: tripForm.purpose, cost, orderId: tripForm.orderId || null, notes: tripForm.notes?.trim() || null };
-    if (editingTripId) setTrips((prev) => prev.map((t) => (t.id === editingTripId ? { ...t, ...entry } : t)));
-    else {
-      setTrips((prev) => [{ id: `TRP-${String(prev.length + 1).padStart(3, "0")}`, ...entry }, ...prev]);
-      if (end > (truck.currentKm || 0)) setAssets((prev) => prev.map((a) => a.id === truck.id ? { ...a, currentKm: end } : a));
+
+    const entry = {
+      vehicleId: truck.id,
+      date: tripForm.date,
+      startKm: start,
+      endKm: end,
+      purpose: tripForm.purpose,
+      cost: cost,
+      orderId: tripForm.orderId || null,
+      notes: tripForm.notes?.trim() || null,
+    };
+
+    setTripError("");
+
+    try {
+      let result;
+      let url = "/api/vehicles_trips";
+      let method = "POST";
+
+      if (editingTripId) {
+        // Update later
+      }
+
+      const res = await fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      });
+
+      result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to save trip");
+
+      const mapped = {
+        id: result.data.id,
+        truckId: truck.id,
+        date: result.data.date,
+        startKm: result.data.startKm,
+        endKm: result.data.endKm,
+        purpose: result.data.purpose,
+        cost: result.data.cost,
+        orderId: result.data.orderId,
+        notes: result.data.notes,
+      };
+
+      if (editingTripId) {
+        setTrips((prev) => prev.map((t) => (t.id === mapped.id ? mapped : t)));
+      } else {
+        setTrips((prev) => [mapped, ...prev]);
+      }
+
+      // Update vehicle current km
+      if (end > (truck.currentKm || 0)) {
+        setAssets((prev) =>
+          prev.map((a) =>
+            a.id === truck.id ? { ...a, currentKm: end } : a
+          )
+        );
+      }
+
+      setShowTripModal(false);
+    } catch (error) {
+      setTripError(error.message);
     }
-    setShowTripModal(false);
   };
   const deleteTrip = (id) => { if (!confirm("Delete this trip?")) return; setTrips((prev) => prev.filter((t) => t.id !== id)); };
 
