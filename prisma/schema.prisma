@@ -178,7 +178,19 @@ model vehicles {
   created_at     DateTime  @default(now()) @db.Timestamp(6)
   updated_at     DateTime  @default(now()) @db.Timestamp(6)
 
-  vehicle_trips vehicle_trips[]
+  vehicle_trips       vehicle_trips[]
+  vehicleMaintenances vehicle_maintenance[]
+}
+
+model vehicle_maintenance {
+  id          Int      @id @default(autoincrement())
+  vehicle_id  Int
+  date        DateTime @db.Date
+  description String
+  cost        Decimal  @db.Decimal(10, 2)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+
+  vehicle vehicles @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
 }
 
 // =============================================================

@@ -208,3 +208,36 @@ export async function deleteTrip(id) {
     });
     return { success: true };
 }
+
+
+export async function createMaintenance(data) {
+    const maint = await prisma.vehicle_maintenance.create({
+        data: {
+            vehicle_id: parseInt(data.vehicleId),
+            date: new Date(data.date),
+            description: data.description,
+            cost: data.cost,
+        },
+    });
+
+    return {
+        id: maint.id,
+        date: maint.date.toISOString().split("T")[0],
+        description: maint.description,
+        cost: Number(maint.cost),
+    };
+}
+
+export async function getMaintenanceByVehicle(vehicleId) {
+    const maintenance = await prisma.vehicle_maintenance.findMany({
+        where: { vehicle_id: parseInt(vehicleId) },
+        orderBy: { date: "desc" },
+    });
+
+    return maintenance.map(m => ({
+        id: m.id,
+        date: m.date.toISOString().split("T")[0],
+        description: m.description,
+        cost: Number(m.cost),
+    }));
+}

@@ -373,13 +373,34 @@ export default function FleetClient({ initialVehicles = [] }) {
   };
 
   const openAddMaint = (assetId) => { setMaintAssetId(assetId); setMaintForm({ date: today(), description: "", cost: "" }); setMaintError(""); setShowMaintModal(true); };
-  const saveMaint = () => {
+  const saveMaint = async () => {
     if (!maintForm.date) return setMaintError("Date is required");
     if (!maintForm.description?.trim()) return setMaintError("Description is required");
     const cost = parseFloat(maintForm.cost);
     if (isNaN(cost) || cost < 0) return setMaintError("Cost must be ≥ 0");
-    setMaintenance((prev) => [{ id: `MNT-${String(prev.length + 1).padStart(3, "0")}`, assetId: maintAssetId, date: maintForm.date, description: maintForm.description.trim(), cost }, ...prev]);
-    setShowMaintModal(false);
+
+    const entry = {
+      vehicleId: maintAssetId,
+      date: maintForm.date,
+      description: maintForm.description.trim(),
+      cost: cost,
+    };
+
+    try {
+      const res = await fetch("/api/vehicle-maintenance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to save maintenance");
+
+      setMaintenance((prev) => [result.data, ...prev]);
+      setShowMaintModal(false);
+    } catch (error) {
+      setMaintError(error.message);
+    }
   };
   const deleteMaint = (id) => { if (!confirm("Delete this maintenance entry?")) return; setMaintenance((prev) => prev.filter((m) => m.id !== id)); };
 
