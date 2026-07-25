@@ -256,11 +256,26 @@ export default function FleetClient({ initialVehicles = [] }) {
           }
         })
         .catch(err => console.error("Failed to load trips:", err));
+
+      fetch(`/api/vehicle-maintenance?vehicleId=${truck.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.data) {
+            // ✅ Map vehicle_id to assetId for frontend
+            const mapped = data.data.map(m => ({
+              ...m,
+              assetId: truck.id
+            }));
+            setMaintenance(mapped);
+          }
+        })
+        .catch(err => console.error("Failed to load maintenance:", err));
     }
   }, [truck]);
   const truckStats = useMemo(() => {
-    const monthMaint = maintenance.filter((m) => m.assetId === truck?.id && inMonth(m.date, cm, cy)).reduce((s, m) => s + m.cost, 0);
-    const tripCost = monthTrips.reduce((s, t) => s + (t.cost || 0), 0);
+    const monthMaint = maintenance
+      .filter((m) => m.assetId === truck?.id && inMonth(m.date, cm, cy))  // ✅ Uses assetId
+      .reduce((s, m) => s + m.cost, 0); const tripCost = monthTrips.reduce((s, t) => s + (t.cost || 0), 0);
     const tripKm = monthTrips.reduce((s, t) => s + distance(t), 0);
     const monthlyDeprec = (truck?.dailyCost || 0) * 30;
     return { tripCost, tripKm, count: monthTrips.length, monthMaint, monthlyDeprec, monthlyTotal: tripCost + monthMaint + monthlyDeprec };
@@ -372,7 +387,12 @@ export default function FleetClient({ initialVehicles = [] }) {
     }
   };
 
-  const openAddMaint = (assetId) => { setMaintAssetId(assetId); setMaintForm({ date: today(), description: "", cost: "" }); setMaintError(""); setShowMaintModal(true); };
+  const openAddMaint = (assetId) => {
+    setMaintAssetId(assetId);
+    setMaintForm({ date: today(), description: "", cost: "" });
+    setMaintError("");
+    setShowMaintModal(true);
+  };
   const saveMaint = async () => {
     if (!maintForm.date) return setMaintError("Date is required");
     if (!maintForm.description?.trim()) return setMaintError("Description is required");
@@ -396,7 +416,14 @@ export default function FleetClient({ initialVehicles = [] }) {
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Failed to save maintenance");
 
-      setMaintenance((prev) => [result.data, ...prev]);
+      // Add assetId to the new maintenance
+      const newMaint = {
+        ...result.data,
+        assetId: maintAssetId
+      };
+
+
+      setMaintenance((prev) => [newMaint, ...prev]);
       setShowMaintModal(false);
     } catch (error) {
       setMaintError(error.message);
@@ -561,11 +588,19 @@ export default function FleetClient({ initialVehicles = [] }) {
                     <div><div className="text-[10px] uppercase" style={{ color: "var(--ink-muted)" }}>Odometer</div><div className="text-sm font-bold tabular-nums">{(truck.currentKm || 0).toLocaleString()} km</div></div>
                     <div><div className="text-[10px] uppercase" style={{ color: "var(--ink-muted)" }}>Purchased</div><div className="text-sm font-bold tabular-nums">{truck.purchaseDate}</div></div>
                   </div>
+
                   <div className="flex gap-2 mt-3">
-                    <button onClick={() => openEditAsset(truck)} className="text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1" style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}><Icons.edit /> Edit</button>
-                    <button onClick={() => openAddMaint(truck.id)} className="text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1" style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}><Icons.wrench /> Maintenance</button>
-                    <button onClick={() => deleteAsset(truck.id)} className="text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1" style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--stage-contract)" }}><Icons.trash /> Delete</button>
+                    <button onClick={() => openEditAsset(truck)} className="text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1" style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}>
+                      <Icons.edit /> Edit
+                    </button>
+                    <button onClick={() => setShowMaintHistory(truck.id)} className="text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1" style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}>
+                      <Icons.wrench /> Maintenance History
+                    </button>
+                    <button onClick={() => deleteAsset(truck.id)} className="text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1" style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--stage-contract)" }}>
+                      <Icons.trash /> Delete
+                    </button>
                   </div>
+
                 </div>
                 <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-2">
                   <StatCard label="Trips this month" value={String(truckStats.count)} sub={`${truckStats.tripKm.toLocaleString()} km`} color="#3b82f6" icon={Icons.road} />
@@ -743,25 +778,57 @@ export default function FleetClient({ initialVehicles = [] }) {
       {/* ═══ Maintenance History Modal ═══ */}
       {showMaintHistory && (() => {
         const a = assets.find((x) => x.id === showMaintHistory);
-        const events = maintenance.filter((m) => m.assetId === showMaintHistory).sort((x, y) => y.date.localeCompare(x.date));
-        const totalAll = events.reduce((s, e) => s + e.cost, 0);
+        const events = maintenance
+          .filter((m) => m.assetId === showMaintHistory)
+          .sort((x, y) => y.date.localeCompare(x.date)); const totalAll = events.reduce((s, e) => s + e.cost, 0);
         const meta = a ? ASSET_META[a.type] : null;
         return (
-          <Modal title={`${a?.name || "Asset"} — Maintenance History`} onClose={() => setShowMaintHistory(null)} maxWidth={620}>
+          <Modal
+            title={`${a?.name || "Asset"} — Maintenance History`}
+            onClose={() => setShowMaintHistory(null)}
+            maxWidth={620}
+            footer={
+              <>
+                <button
+                  onClick={() => {
+                    setShowMaintHistory(null);
+                    openAddMaint(showMaintHistory);
+                  }}
+                  className="btn-primary px-4 text-sm"
+                >
+                  <Icons.plus /> Log Maintenance
+                </button>
+                <button onClick={() => setShowMaintHistory(null)} className="btn-ghost px-4 text-sm">Close</button>
+              </>
+            }
+          >
             <div className="p-5 space-y-3">
-              {meta && <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-md text-xs font-medium" style={{ background: `${meta.color}10`, color: meta.color, border: `1px solid ${meta.color}30` }}>
-                <span>Monthly budget: {formatDZD(a.monthlyMaintEstimate)}</span><span>Spent to date: {formatDZD(totalAll)}</span>
-              </div>}
+              {meta && (
+                <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-md text-xs font-medium" style={{ background: `${meta.color}10`, color: meta.color, border: `1px solid ${meta.color}30` }}>
+                  <span>Monthly budget: {formatDZD(a.monthlyMaintEstimate)}</span>
+                  <span>Spent to date: {formatDZD(totalAll)}</span>
+                </div>
+              )}
               {events.length === 0 ? (
                 <div className="py-12 text-center text-sm" style={{ color: "var(--ink-muted)" }}>No maintenance events logged yet.</div>
               ) : (
                 <div className="space-y-2">
                   {events.map((e) => (
                     <div key={e.id} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
-                      <div className="text-xs shrink-0 w-24 flex items-center gap-1" style={{ color: "var(--ink-muted)" }}><Icons.cal /> {e.date}</div>
+                      <div className="text-xs shrink-0 w-24 flex items-center gap-1" style={{ color: "var(--ink-muted)" }}>
+                        <Icons.cal /> {e.date}
+                      </div>
                       <div className="flex-1 text-sm">{e.description}</div>
-                      <div className="text-sm font-bold tabular-nums" style={{ color: "var(--stage-contract)" }}>{formatDZD(e.cost)}</div>
-                      <button onClick={() => deleteMaint(e.id)} className="btn-ghost p-1 hover:text-[var(--stage-contract)]" title="Delete"><Icons.trash /></button>
+                      <div className="text-sm font-bold tabular-nums" style={{ color: "var(--stage-contract)" }}>
+                        {formatDZD(e.cost)}
+                      </div>
+                      <button
+                        onClick={() => deleteMaint(e.id)}
+                        className="btn-ghost p-1 hover:text-[var(--stage-contract)]"
+                        title="Delete"
+                      >
+                        <Icons.trash />
+                      </button>
                     </div>
                   ))}
                 </div>
