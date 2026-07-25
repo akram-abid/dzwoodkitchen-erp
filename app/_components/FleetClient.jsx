@@ -429,8 +429,24 @@ export default function FleetClient({ initialVehicles = [] }) {
       setMaintError(error.message);
     }
   };
-  const deleteMaint = (id) => { if (!confirm("Delete this maintenance entry?")) return; setMaintenance((prev) => prev.filter((m) => m.id !== id)); };
+  const deleteMaint = async (id) => {
+    if (!confirm("Delete this maintenance entry?")) return;
 
+    try {
+      const res = await fetch(`/api/vehicle-maintenance/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const result = await res.json();
+        throw new Error(result.error || "Failed to delete maintenance");
+      }
+
+      setMaintenance((prev) => prev.filter((m) => m.id !== id));
+    } catch (error) {
+      alert(error.message);
+    }
+  };
   const openNewTrip = () => {
     const lastTrip = [...trips].sort((a, b) => b.date.localeCompare(a.date))[0];
     setEditingTripId(null);

@@ -241,3 +241,10 @@ export async function getMaintenanceByVehicle(vehicleId) {
         cost: Number(m.cost),
     }));
 }
+
+export async function deleteMaintenance(id) {
+    await prisma.vehicle_maintenance.delete({
+        where: { id: parseInt(id) },
+    });
+    return { success: true };
+}
