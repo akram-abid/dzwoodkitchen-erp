@@ -95,6 +95,10 @@ const GlobalStyles = () => (
       color: var(--ink); font-size: 13px; font-family: inherit;
       transition: border-color .15s ease;
     }
+    /* Native <select> popups render using the OS/browser's own theme,
+       ignoring our CSS vars — this forces the dropdown list itself
+       (not just the closed control) to render dark instead of white. */
+    select.f-select, select { color-scheme: dark; }
     .f-input:focus, .f-select:focus, .f-textarea:focus { outline: none; border-color: var(--accent); }
     .f-label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-muted); margin-bottom: 6px; }
     .f-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -345,19 +349,26 @@ const LEDGER_TYPES = [
   },
 ];
 const TASK_PRIORITIES = [
-  { value: "LOW", label: "Low", color: "var(--ink-muted)" },
-  { value: "MEDIUM", label: "Medium", color: "var(--stage-appointment)" },
-  { value: "HIGH", label: "High", color: "#f59e0b" },
-  { value: "URGENT", label: "Urgent", color: "var(--stage-contract)" },
+  { value: "LOW", label: "Low", color: "#22c55e" },
+  { value: "MEDIUM", label: "Medium", color: "#eab308" },
+  { value: "HIGH", label: "High", color: "#f97316" },
+  { value: "URGENT", label: "Urgent", color: "#f43f5e" },
 ];
-const TASK_CATEGORIES = [
-  "Production",
-  "Delivery",
-  "Admin",
-  "Supplier",
-  "Workshop",
-];
+/* Blue palette for the Tasks feature. The high-priority badge above
+   already swapped to #3b82f6, and the rest of the task UI leans on
+   these tokens for date nav + time pills + progress bar. */
+const TASK_BLUE = "#3b82f6";
+const TASK_BLUE_SOFT = "rgba(59,130,246,0.12)";
+/* Task priority drives the entire color system in the task manager:
+   the priority chip, the left rail of each row, and the checkbox
+   border all share the same color so the eye can sort by urgency
+   without reading a single word. */
+const TASK_PRIORITY_RANK = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 const TASK_FILTERS = ["ALL", "ACTIVE", "DONE", "OVERDUE"];
+/* Priority filter chip row — "ALL" plus the four priority levels.
+   "URGENT" is shown first so the most urgent quick-filter is closest
+   to the search box. */
+const TASK_PRIORITY_FILTERS = ["ALL", "URGENT", "HIGH", "MEDIUM", "LOW"];
 const WORKER_ROLES = [
   "Carpenter",
   "Finisher",
@@ -898,6 +909,16 @@ const todayLabel = () =>
     day: "numeric",
   });
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const shiftDateISO = (iso, days) => {
+  if (!iso) return todayISO();
+  const d = new Date(iso + "T00:00:00");
+  if (isNaN(d.getTime())) return iso;
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
 const currentYM = () => {
   const d = new Date();
   return { month: d.getMonth(), year: d.getFullYear() };
@@ -1823,27 +1844,30 @@ export default function HomeDashboard() {
       text: "Morning toolbox check",
       done: true,
       priority: "LOW",
-      category: "Workshop",
       dueDate: todayISO(),
+      dueTime: null,
       assignee: null,
+      notified: false,
     },
     {
       id: 2,
       text: "Review this week deliveries",
       done: false,
       priority: "HIGH",
-      category: "Delivery",
       dueDate: todayISO(),
+      dueTime: "14:30",
       assignee: null,
+      notified: false,
     },
     {
       id: 3,
       text: "Confirm supplier payment",
       done: false,
       priority: "MEDIUM",
-      category: "Admin",
-      dueDate: todayISO(),
+      dueDate: shiftDateISO(todayISO(), 1),
+      dueTime: "10:00",
       assignee: null,
+      notified: false,
     },
   ]);
 
@@ -1851,6 +1875,8 @@ export default function HomeDashboard() {
   const [filter, setFilter] = useState("ALL");
   const [taskFilter, setTaskFilter] = useState("ALL");
   const [taskSearch, setTaskSearch] = useState("");
+  const [taskDay, setTaskDay] = useState(todayISO()); // selected day in task manager
+  const [notifPermission, setNotifPermission] = useState("default"); // "default" | "granted" | "denied" | "unsupported"
   const [activePop, setActivePop] = useState(null);
   const [modal, setModal] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -2076,11 +2102,11 @@ export default function HomeDashboard() {
   const dueTodayTasks = tasks.filter(
     (t) => !t.done && t.dueDate === todayISO(),
   ).length;
-  const priorityRank = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
   const visibleTasks = useMemo(() => {
     const q = taskSearch.trim().toLowerCase();
     return tasks
       .filter((t) => {
+        if (taskDay && t.dueDate && t.dueDate !== taskDay) return false;
         if (taskFilter === "ACTIVE" && t.done) return false;
         if (taskFilter === "DONE" && !t.done) return false;
         if (taskFilter === "OVERDUE" && !isTaskOverdue(t)) return false;
@@ -2090,11 +2116,14 @@ export default function HomeDashboard() {
       .sort((a, b) => {
         if (a.done !== b.done) return a.done ? 1 : -1;
         const pr =
-          (priorityRank[a.priority] ?? 9) - (priorityRank[b.priority] ?? 9);
+          (TASK_PRIORITY_RANK[a.priority] ?? 9) -
+          (TASK_PRIORITY_RANK[b.priority] ?? 9);
         if (pr !== 0) return pr;
-        return (a.dueDate || "").localeCompare(b.dueDate || "");
+        const aKey = `${a.dueDate || ""}T${a.dueTime || "99:99"}`;
+        const bKey = `${b.dueDate || ""}T${b.dueTime || "99:99"}`;
+        return aKey.localeCompare(bKey);
       });
-  }, [tasks, taskFilter, taskSearch]);
+  }, [tasks, taskFilter, taskSearch, taskDay]);
 
   const pipelineCounts = STAGE_ORDER.map((key) => ({
     key,
@@ -2176,21 +2205,141 @@ export default function HomeDashboard() {
         text,
         done: false,
         priority: data.priority || "MEDIUM",
-        category: data.category || TASK_CATEGORIES[0],
         dueDate: data.dueDate || "",
+        dueTime: data.dueTime || null,
         assignee: data.assignee || null,
+        notified: false,
       },
     ]);
     push("Task added", "success");
   };
   const updateTaskDetails = (id, data) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        // Reset notified flag if the time/date changed so the new
+        // schedule can re-trigger an alert.
+        const dueChanged =
+          (data.dueTime ?? t.dueTime) !== t.dueTime ||
+          (data.dueDate ?? t.dueDate) !== t.dueDate;
+        return {
+          ...t,
+          ...data,
+          notified: dueChanged ? false : t.notified,
+        };
+      }),
+    );
     push("Task updated", "success");
   };
   const deleteTask = (id) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     push("Task removed", "info");
   };
+
+  /* ─────── browser notifications for tasks ─────── */
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotifPermission("unsupported");
+      return;
+    }
+    setNotifPermission(Notification.permission);
+  }, []);
+  const requestNotifPermission = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotifPermission("unsupported");
+      push("Notifications aren't supported here", "error");
+      return;
+    }
+    try {
+      const res = await Notification.requestPermission();
+      setNotifPermission(res);
+      if (res === "granted") {
+        push("Notifications enabled", "success");
+        new Notification("Notifications enabled", {
+          body: "You'll be alerted when a task is due.",
+        });
+      } else if (res === "denied") {
+        push("Notifications blocked in browser settings", "info");
+      }
+    } catch (e) {
+      console.error("Notification.requestPermission failed", e);
+    }
+  };
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Track which tasks we've already alerted on this session, so
+    // we never fire the same notification twice (also covers React
+    // StrictMode double-invokes of the effect).
+    const firedRef = new Set();
+    const fireTaskNotification = (t, when) => {
+      const title = `Task: ${t.text}`;
+      const body = `${when}${t.assignee ? " · " + t.assignee : ""}`;
+      const key = `${t.id}::${when}`;
+      if (firedRef.has(key)) return;
+      firedRef.add(key);
+      try {
+        if (
+          typeof window !== "undefined" &&
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
+          new Notification(title, { body, tag: `task-${t.id}` });
+        }
+      } catch (e) {
+        console.error("Notification failed", e);
+      }
+      push(`${when} — ${t.text}`, "info");
+    };
+    const tick = () => {
+      const now = new Date();
+      const today = todayISO();
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const cur = `${hh}:${mm}`;
+      const toMarkNotified = [];
+      tasks.forEach((t) => {
+        if (t.done || t.notified) return;
+        // Whole-day task: notify at 9:00 the day of.
+        if (t.dueDate && !t.dueTime) {
+          if (t.dueDate === today && cur === "09:00") {
+            fireTaskNotification(t, "Due today");
+            toMarkNotified.push(t.id);
+          }
+          return;
+        }
+        // Timed task: notify when the clock hits the time on the due day,
+        // and ping the day before at 20:00 as a heads-up.
+        if (t.dueDate && t.dueTime) {
+          if (t.dueDate === today && cur >= t.dueTime) {
+            fireTaskNotification(t, `Due now (${t.dueTime})`);
+            toMarkNotified.push(t.id);
+            return;
+          }
+          const tomorrow = shiftDateISO(today, 1);
+          if (t.dueDate === tomorrow && cur === "20:00") {
+            fireTaskNotification(t, "Due tomorrow");
+            toMarkNotified.push(t.id);
+            return;
+          }
+          const yest = shiftDateISO(today, -1);
+          if (t.dueDate === yest && cur === "09:00") {
+            fireTaskNotification(t, "Overdue (was due yesterday)");
+            toMarkNotified.push(t.id);
+          }
+        }
+      });
+      if (toMarkNotified.length > 0) {
+        setTasks((prev) =>
+          prev.map((t) =>
+            toMarkNotified.includes(t.id) ? { ...t, notified: true } : t,
+          ),
+        );
+      }
+    };
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, [tasks, push]);
 
   const recordPayment = async (orderId) => {
     const order = orders.find((o) => o.id === orderId);
@@ -2502,19 +2651,42 @@ export default function HomeDashboard() {
                 </button>
               ))}
             </div>
+            <TaskDayNav
+              taskDay={taskDay}
+              onChange={setTaskDay}
+              notifPermission={notifPermission}
+              onRequestNotif={requestNotifPermission}
+            />
             <PwaList
               items={visibleTasks}
-              empty="No tasks match this filter"
+              empty={
+                taskDay === todayISO()
+                  ? "No tasks for today"
+                  : taskDay === shiftDateISO(todayISO(), 1)
+                    ? "No tasks for tomorrow"
+                    : "No tasks for this day"
+              }
               initial={3}
               render={(t) => {
                 const prio =
                   TASK_PRIORITIES.find((p) => p.value === t.priority) ||
                   TASK_PRIORITIES[1];
+                const overdue = isTaskOverdue(t);
                 return (
                   <div
                     className="list-item row"
                     onClick={() => toggleTask(t.id)}
-                    style={{ cursor: "pointer" }}
+                    style={{
+                      cursor: "pointer",
+                      gap: 10,
+                      // Priority color rail + subtle tint when not done.
+                      borderLeft: `3px solid ${prio.color}`,
+                      paddingLeft: 13,
+                      paddingRight: 12,
+                      paddingTop: 12,
+                      paddingBottom: 12,
+                      background: t.done ? "transparent" : `${prio.color}0A`,
+                    }}
                   >
                     <div
                       onClick={(e) => {
@@ -2528,8 +2700,10 @@ export default function HomeDashboard() {
                         flexShrink: 0,
                         border: "1.5px solid",
                         cursor: "pointer",
-                        borderColor: t.done ? "var(--accent)" : "var(--border)",
-                        background: t.done ? "var(--accent)" : "transparent",
+                        // Checkbox border matches the priority color
+                        // so unchecked tasks already hint at urgency.
+                        borderColor: t.done ? prio.color : prio.color + "55",
+                        background: t.done ? prio.color : "transparent",
                         color: "#fff",
                         display: "flex",
                         alignItems: "center",
@@ -2538,28 +2712,62 @@ export default function HomeDashboard() {
                     >
                       {t.done && <Icons.check />}
                     </div>
-                    <span
-                      className="grow"
-                      style={{
-                        fontSize: 13,
-                        textDecoration: t.done ? "line-through" : "none",
-                        color: t.done ? "var(--ink-muted)" : "var(--ink)",
-                      }}
-                    >
-                      {t.text}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        background: `${prio.color}15`,
-                        color: prio.color,
-                      }}
-                    >
-                      {prio.label}
-                    </span>
+                    <div className="grow" style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          textDecoration: t.done ? "line-through" : "none",
+                          color: t.done ? "var(--ink-muted)" : "var(--ink)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {t.text}
+                      </div>
+                      <div
+                        className="row"
+                        style={{
+                          gap: 6,
+                          marginTop: 5,
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                        }}
+                      >
+                        <PriorityChip priority={t.priority} dense />
+                        {t.dueTime && (
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 600,
+                              padding: "1px 5px",
+                              borderRadius: 4,
+                              background: TASK_BLUE_SOFT,
+                              color: TASK_BLUE,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                            }}
+                          >
+                            <Icons.clock /> {t.dueTime}
+                          </span>
+                        )}
+                        {t.dueDate && overdue && (
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 600,
+                              padding: "1px 5px",
+                              borderRadius: 4,
+                              background: "rgba(239,68,68,0.12)",
+                              color: "var(--stage-contract)",
+                            }}
+                          >
+                            Overdue
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               }}
@@ -3505,7 +3713,14 @@ export default function HomeDashboard() {
             ))}
           </div>
         </div>
-        <div className="p-3 space-y-1">
+
+        <TaskDayNav
+          taskDay={taskDay}
+          onChange={setTaskDay}
+          notifPermission={notifPermission}
+          onRequestNotif={requestNotifPermission}
+        />
+        <div className="p-3 space-y-2">
           {loadingAll && tasks.length === 0 ? (
             <div className="p-2 space-y-2">
               {[1, 2, 3].map((i) => (
@@ -3531,14 +3746,20 @@ export default function HomeDashboard() {
               return (
                 <div
                   key={t.id}
-                  className="check-row group flex items-center gap-3 p-2.5 rounded-lg transition-colors"
+                  className="check-row group flex items-center gap-3 rounded-lg transition-colors"
+                  style={{
+                    // Priority color rail + subtle tint when not done.
+                    borderLeft: `3px solid ${prio.color}`,
+                    background: t.done ? "transparent" : `${prio.color}0A`,
+                    padding: "12px 14px 12px 13px",
+                  }}
                 >
                   <div
                     onClick={() => toggleTask(t.id)}
                     className="w-4 h-4 rounded border flex items-center justify-center shrink-0 cursor-pointer transition-colors"
                     style={{
-                      borderColor: t.done ? "var(--accent)" : "var(--border)",
-                      background: t.done ? "var(--accent)" : "transparent",
+                      borderColor: t.done ? prio.color : prio.color + "55",
+                      background: t.done ? prio.color : "transparent",
                     }}
                   >
                     {t.done && <Icons.check />}
@@ -3557,27 +3778,21 @@ export default function HomeDashboard() {
                       >
                         {t.text}
                       </span>
-                      <span
-                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                        style={{
-                          background: `${prio.color}15`,
-                          color: prio.color,
-                        }}
-                      >
-                        {prio.label}
-                      </span>
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded"
-                        style={{
-                          background: "var(--surface-2)",
-                          color: "var(--ink-muted)",
-                        }}
-                      >
-                        {t.category || "General"}
-                      </span>
+                      <PriorityChip priority={t.priority} />
+                      {t.dueTime && (
+                        <span
+                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded inline-flex items-center gap-1"
+                          style={{
+                            background: TASK_BLUE_SOFT,
+                            color: TASK_BLUE,
+                          }}
+                        >
+                          <Icons.clock /> {t.dueTime}
+                        </span>
+                      )}
                     </div>
                     <div
-                      className="flex items-center gap-2 mt-0.5 text-[11px]"
+                      className="flex items-center gap-2 mt-1.5 text-[11px]"
                       style={{ color: "var(--ink-muted)" }}
                     >
                       {t.assignee && <span>{t.assignee}</span>}
@@ -3588,7 +3803,7 @@ export default function HomeDashboard() {
                             color: overdue
                               ? "var(--stage-contract)"
                               : isToday
-                                ? "var(--accent)"
+                                ? TASK_BLUE
                                 : "var(--ink-muted)",
                             fontWeight: overdue || isToday ? 600 : 400,
                           }}
@@ -3633,7 +3848,7 @@ export default function HomeDashboard() {
         >
           <div
             className="h-full bar-fill"
-            style={{ width: `${taskProgress}%`, background: "var(--accent)" }}
+            style={{ width: `${taskProgress}%`, background: TASK_BLUE }}
           />
         </div>
       </div>
@@ -4537,14 +4752,54 @@ export default function HomeDashboard() {
   );
 }
 
-/* Task form — full-featured */
+/* ─── Task UI helper ───
+   A small colored priority pill. The same color is also used as
+   the left rail and the checkbox border on each task row so the
+   urgency is scannable without reading the label. */
+const PriorityChip = ({ priority, dense = false }) => {
+  const p =
+    TASK_PRIORITIES.find((x) => x.value === priority) || TASK_PRIORITIES[1];
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        fontSize: dense ? 9 : 10,
+        fontWeight: 700,
+        letterSpacing: ".02em",
+        textTransform: "uppercase",
+        padding: dense ? "1px 5px" : "2px 7px",
+        borderRadius: 999,
+        background: `${p.color}1F`,
+        color: p.color,
+        lineHeight: 1.4,
+        whiteSpace: "nowrap",
+        border: `1px solid ${p.color}33`,
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          width: 5,
+          height: 5,
+          borderRadius: 999,
+          background: p.color,
+        }}
+      />
+      {p.label}
+    </span>
+  );
+};
+
+/* Task form — original tight layout, only the fields that earn
+   their space: text, priority, due date, assignee, optional time. */
 const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
   const [text, setText] = useState(initialData?.text || "");
   const [priority, setPriority] = useState(initialData?.priority || "MEDIUM");
-  const [category, setCategory] = useState(
-    initialData?.category || TASK_CATEGORIES[0],
-  );
   const [dueDate, setDueDate] = useState(initialData?.dueDate || todayISO());
+  const [dueTime, setDueTime] = useState(initialData?.dueTime || "");
+  const [hasTime, setHasTime] = useState(Boolean(initialData?.dueTime));
   const [assignee, setAssignee] = useState(initialData?.assignee || "");
 
   const submit = () => {
@@ -4552,8 +4807,8 @@ const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
     onSubmit({
       text: text.trim(),
       priority,
-      category,
       dueDate,
+      dueTime: hasTime && dueTime ? dueTime : null,
       assignee: assignee || null,
     });
   };
@@ -4564,7 +4819,7 @@ const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
         e.preventDefault();
         submit();
       }}
-      className="space-y-3"
+      className="space-y-2.5"
     >
       <div>
         <label className="f-label">Task</label>
@@ -4579,34 +4834,62 @@ const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
       <div className="f-row">
         <div>
           <label className="f-label">Priority</label>
-          <select
+          <div
             className="f-select"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
+            style={{
+              padding: 0,
+              overflow: "hidden",
+              position: "relative",
+            }}
           >
-            {TASK_PRIORITIES.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
+            {/* Priority color dot — same color drives the row rail
+               and the checkbox in the list, so the preview dot here
+               tells the user exactly how the task will look. */}
+            <span
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: 10,
+                height: 10,
+                borderRadius: 999,
+                background:
+                  (TASK_PRIORITIES.find((p) => p.value === priority) ||
+                    TASK_PRIORITIES[1]).color,
+                pointerEvents: "none",
+                boxShadow: `0 0 0 2px ${
+                  (TASK_PRIORITIES.find((p) => p.value === priority) ||
+                    TASK_PRIORITIES[1]).color
+                }22`,
+              }}
+            />
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              style={{
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                color: "var(--ink)",
+                fontSize: 13,
+                fontFamily: "inherit",
+                padding: "9px 12px 9px 28px",
+                appearance: "none",
+                WebkitAppearance: "none",
+                MozAppearance: "none",
+                cursor: "pointer",
+              }}
+            >
+              {TASK_PRIORITIES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div>
-          <label className="f-label">Category</label>
-          <select
-            className="f-select"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            {TASK_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="f-row">
         <div>
           <label className="f-label">Due date</label>
           <input
@@ -4616,6 +4899,8 @@ const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
             onChange={(e) => setDueDate(e.target.value)}
           />
         </div>
+      </div>
+      <div className="f-row">
         <div>
           <label className="f-label">Assign to</label>
           <select
@@ -4634,8 +4919,56 @@ const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
             })}
           </select>
         </div>
+        <div>
+          <label className="f-label">Time</label>
+          {hasTime ? (
+            <div className="row" style={{ gap: 6 }}>
+              <input
+                type="time"
+                className="f-input"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value)}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setHasTime(false);
+                  setDueTime("");
+                }}
+                className="btn-ghost"
+                style={{ padding: "6px 8px", color: "var(--ink-muted)" }}
+                aria-label="Clear time"
+                title="Clear time"
+              >
+                <Icons.x />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setHasTime(true)}
+              className="f-input"
+              style={{
+                textAlign: "left",
+                color: "var(--ink-muted)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <Icons.clock /> Set a specific time
+            </button>
+          )}
+        </div>
       </div>
-      <div className="flex gap-2 justify-end pt-2">
+      {hasTime && (
+        <div className="f-hint" style={{ marginTop: 0 }}>
+          You'll get a notification at this time on the chosen day.
+        </div>
+      )}
+      <div className="flex gap-2 justify-end pt-1">
         <button type="button" onClick={onCancel} className="btn-ghost text-xs">
           Cancel
         </button>
@@ -4648,5 +4981,116 @@ const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
         </button>
       </div>
     </form>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════
+   TASK DAY NAVIGATOR + NOTIFICATION TOGGLE
+   ════════════════════════════════════════════════════════════════ */
+const TaskDayNav = ({ taskDay, onChange, notifPermission, onRequestNotif }) => {
+  const today = todayISO();
+  const tomorrow = shiftDateISO(today, 1);
+  const yesterday = shiftDateISO(today, -1);
+  const isToday = taskDay === today;
+  const isTomorrow = taskDay === tomorrow;
+  const isYesterday = taskDay === yesterday;
+  const labelDate = new Date(taskDay + "T00:00:00");
+  const human = isToday
+    ? "Today"
+    : isTomorrow
+      ? "Tomorrow"
+      : isYesterday
+        ? "Yesterday"
+        : labelDate.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          });
+  const showBell =
+    notifPermission === "default" || notifPermission === "denied";
+  return (
+    <div
+      className="row"
+      style={{
+        padding: "10px 14px",
+        borderTop: "1px solid var(--border)",
+        gap: 6,
+        background: "var(--surface-2)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onChange(shiftDateISO(taskDay, -1))}
+        className="btn-ghost"
+        style={{ padding: "6px 8px", borderRadius: 8 }}
+        aria-label="Previous day"
+      >
+        ‹
+      </button>
+      <div
+        className="grow row"
+        style={{
+          gap: 4,
+          justifyContent: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => onChange(today)}
+          className="text-[11px] font-semibold px-2.5 py-1 rounded-md"
+          style={{
+            background: isToday ? TASK_BLUE : "transparent",
+            color: isToday ? "#fff" : "var(--ink-muted)",
+          }}
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(tomorrow)}
+          className="text-[11px] font-semibold px-2.5 py-1 rounded-md"
+          style={{
+            background: isTomorrow ? TASK_BLUE : "transparent",
+            color: isTomorrow ? "#fff" : "var(--ink-muted)",
+          }}
+        >
+          Tomorrow
+        </button>
+        <span
+          className="text-[11px] truncate"
+          style={{ color: "var(--ink-muted)", marginLeft: 4 }}
+        >
+          {human}
+          {human === "Today" || human === "Tomorrow" || human === "Yesterday"
+            ? ""
+            : ` · ${labelDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(shiftDateISO(taskDay, 1))}
+        className="btn-ghost"
+        style={{ padding: "6px 8px", borderRadius: 8 }}
+        aria-label="Next day"
+      >
+        ›
+      </button>
+      {showBell && (
+        <button
+          type="button"
+          onClick={onRequestNotif}
+          className="text-[10px] font-semibold px-2 py-1 rounded-md"
+          style={{
+            background: TASK_BLUE_SOFT,
+            color: TASK_BLUE,
+            whiteSpace: "nowrap",
+          }}
+          title="Enable browser notifications"
+        >
+          🔔 Notify
+        </button>
+      )}
+    </div>
   );
 };
