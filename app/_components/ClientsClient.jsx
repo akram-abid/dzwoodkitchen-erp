@@ -963,6 +963,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
           ] : []
         }
         workersList={workersData.map(w => w.full_name)}
+        dataFormat="clients"
       />
 
     </div>

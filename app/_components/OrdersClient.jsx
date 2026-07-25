@@ -2474,6 +2474,7 @@ const OrderFormModal = ({
   initialData = null,
   existingClients = [],
   workersList = [],
+  dataFormat = "orders",
 }) => {
   const [formData, setFormData] = useState({
     client: "",
@@ -2573,43 +2574,56 @@ const OrderFormModal = ({
     console.log("🟢 handleSubmit fired, formData:", formData);
     e.preventDefault();
 
-    // const data = {
-    //   ...formData,
-    //   amount: Number(formData.amount),
-    //   items: formData.items.filter((i) => i.name),
-    //   created: initialData
-    //     ? initialData.created
-    //     : new Date().toISOString().split("T")[0],
-    //   id: initialData
-    //     ? initialData.id
-    //     : `#${Math.floor(Math.random() * 9000) + 1000}`,
-    //   missingItems: formData.missingItems || [],
-    //   completedAt: initialData?.completedAt || null,
-    // };
+    let data;
 
-    const data = {
-      client_id: parseInt(existingClients[0]?.id) || null,
-      // worker_id: formData.worker !== "Unassigned" ? parseInt(formData.worker) : null,
-      worker: formData.worker !== "Unassigned" ? formData.worker : null,
-      project_name: formData.project,
-      total_amount: Number(formData.amount),
-      due_date: formData.dueDate ? new Date(formData.dueDate) : null,
-      state: formData.stage.toLowerCase(),
-      address: formData.address,
-      order_items: formData.items.filter((i) => i.name).map((item) => ({
-        name: item.name,
-        quantity: Number(item.qty) || 1,
-        unit: item.unit || "pcs",
-        length_cm: item.l ? parseFloat(item.l) : null,
-        width_cm: item.w ? parseFloat(item.w) : null,
-        height_cm: item.h ? parseFloat(item.h) : null,
-      })),
-    };
+    if (dataFormat === "clients") {
+      // Clients page format
+      data = {
+        client_id: parseInt(existingClients[0]?.id) || null,
+        worker: formData.worker !== "Unassigned" ? formData.worker : null,
+        project_name: formData.project,
+        total_amount: Number(formData.amount),
+        due_date: formData.dueDate ? new Date(formData.dueDate) : null,
+        state: formData.stage.toLowerCase(),
+        address: formData.address,
+        order_items: formData.items.filter((i) => i.name).map((item) => ({
+          name: item.name,
+          quantity: Number(item.qty) || 1,
+          unit: item.unit || "pcs",
+          length_cm: item.l ? parseFloat(item.l) : null,
+          width_cm: item.w ? parseFloat(item.w) : null,
+          height_cm: item.h ? parseFloat(item.h) : null,
+        })),
+      };
+    } else {
+      // Orders page format (default)
+      data = {
+        client: formData.client,
+        phone: formData.phone,
+        address: formData.address,
+        project: formData.project,
+        amount: Number(formData.amount),
+        dueDate: formData.dueDate,
+        stage: formData.stage,
+        worker: formData.worker !== "Unassigned" ? formData.worker : null,
+        items: formData.items.filter((i) => i.name).map((item) => ({
+          name: item.name,
+          qty: Number(item.qty) || 1,
+          unit: item.unit || "pcs",
+          l: item.l ? parseFloat(item.l) : 0,
+          w: item.w ? parseFloat(item.w) : 0,
+          h: item.h ? parseFloat(item.h) : 0,
+        })),
+        payments: [],
+        missingItems: [],
+        technical: {},
+      };
+    }
 
+    console.log('data: ', data);
     onSave(data);
     onClose();
   };
-
   return (
     <Modal
       isOpen={isOpen}
@@ -3307,6 +3321,9 @@ export default function OrdersClient() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [selectedId, setSelectedId] = useState(null);
+
+  const [allClients, setAllClients] = useState([]);
+
   // Order ID passed via the URL (e.g. /ordresclient?order=123) so that
   // a click from another page can deep-link straight into the right panel.
   // Consumed once on mount, then cleared so it doesn't override the
@@ -3333,6 +3350,25 @@ export default function OrdersClient() {
   // Read ?order=<id> from the URL exactly once on mount, then strip it
   // so the user navigating inside the page doesn't keep being snapped
   // back to the deep-linked order on every re-render.
+  useEffect(() => {
+    fetch("/api/clients")
+      .then(res => res.json())
+      .then(data => {
+        if (data.data) {
+          const formatted = data.data.map(c => ({
+            id: c.id,
+            client: c.name,
+            phone: c.phone,
+            address: c.address || "",
+            orderCount: 0,
+            totalSpent: 0,
+          }));
+          setAllClients(formatted);
+        }
+      })
+      .catch(err => console.error("Failed to load clients:", err));
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -4276,16 +4312,18 @@ export default function OrdersClient() {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onSave={handleCreateOrder}
-        existingClients={existingClients}
+        existingClients={allClients.length > 0 ? allClients : existingClients}
         workers={workers}
+        dataFormat="orders"
       />
       <OrderFormModal
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         onSave={handleUpdateOrder}
         initialData={selected}
-        existingClients={existingClients}
+        existingClients={allClients.length > 0 ? allClients : existingClients}
         workers={workers}
+        dataFormat="orders"
       />
       <AssignWorkerModal
         isOpen={isAssignOpen}
