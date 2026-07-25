@@ -158,6 +158,20 @@ const LEDGER_TYPES = [
     color: "var(--stage-contract)",
   },
 ];
+const TASK_PRIORITIES = [
+  { value: "LOW", label: "Low", color: "var(--ink-muted)" },
+  { value: "MEDIUM", label: "Medium", color: "var(--stage-appointment)" },
+  { value: "HIGH", label: "High", color: "#f59e0b" },
+  { value: "URGENT", label: "Urgent", color: "var(--stage-contract)" },
+];
+const TASK_CATEGORIES = [
+  "Production",
+  "Delivery",
+  "Admin",
+  "Supplier",
+  "Workshop",
+];
+const TASK_FILTERS = ["ALL", "ACTIVE", "DONE", "OVERDUE"];
 const WORKER_ROLES = [
   "Carpenter",
   "Finisher",
@@ -573,6 +587,35 @@ const Icons = {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" x2="9" y1="12" y2="12" />
+    </svg>
+  ),
+  search: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" x2="16.65" y1="21" y2="16.65" />
+    </svg>
+  ),
+  edit: () => (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
     </svg>
   ),
 };
@@ -1517,12 +1560,30 @@ export default function HomeDashboard() {
   const [ledgerRefs, setLedgerRefs] = useState({ workers: [], suppliers: [] });
   const [recentPO, setRecentPO] = useState(null); // last PO across all suppliers
   const [tasks, setTasks] = useState([
-    { id: 1, text: "Morning toolbox check", done: true, urgent: false },
-    { id: 2, text: "Review this week deliveries", done: false, urgent: false },
+    {
+      id: 1,
+      text: "Morning toolbox check",
+      done: true,
+      priority: "LOW",
+      category: "Workshop",
+      dueDate: todayISO(),
+      assignee: null,
+    },
+    {
+      id: 2,
+      text: "Review this week deliveries",
+      done: false,
+      priority: "HIGH",
+      category: "Delivery",
+      dueDate: todayISO(),
+      assignee: null,
+    },
   ]);
 
   /* ─────── ui state ─────── */
   const [filter, setFilter] = useState("ALL");
+  const [taskFilter, setTaskFilter] = useState("ALL");
+  const [taskSearch, setTaskSearch] = useState("");
   const [activePop, setActivePop] = useState(null);
   const [modal, setModal] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -1630,9 +1691,10 @@ export default function HomeDashboard() {
     const mk = thisMonthKey();
     return ledger.filter((e) => (e.date || "").startsWith(mk));
   }, [ledger]);
-  const monthIncome = ledgerThisMonth
-    .filter((e) => e.type === "INCOME")
-    .reduce((s, e) => s + Number(e.amount || 0), 0);
+  const monthIncome = ordersThisMonth.reduce(
+    (s, o) => s + Number(o.amount || 0),
+    0,
+  );
   const monthExpenses = ledgerThisMonth
     .filter((e) => e.type !== "INCOME")
     .reduce((s, e) => s + Number(e.amount || 0), 0);
@@ -1647,18 +1709,21 @@ export default function HomeDashboard() {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const entries = ledger.filter((e) => (e.date || "").startsWith(k));
+      const monthOrders = orders.filter(
+        (o) =>
+          (o.dueDate || o.deliveryDate || "").startsWith(k) ||
+          (o.createdAt || "").startsWith(k),
+      );
       out.push({
         label: d.toLocaleDateString("en-US", { month: "short" }),
-        income: entries
-          .filter((e) => e.type === "INCOME")
-          .reduce((s, e) => s + Number(e.amount || 0), 0),
+        income: monthOrders.reduce((s, o) => s + Number(o.amount || 0), 0),
         expenses: entries
           .filter((e) => e.type !== "INCOME")
           .reduce((s, e) => s + Number(e.amount || 0), 0),
       });
     }
     return out;
-  }, [ledger]);
+  }, [ledger, orders]);
 
   const expenseBreakdown = useMemo(() => {
     const totals = {};
@@ -1680,19 +1745,6 @@ export default function HomeDashboard() {
     () => materials.filter((m) => Number(m.stock) <= Number(m.minStock)),
     [materials],
   );
-
-  const upcomingDeliveries = useMemo(() => {
-    const today = new Date(todayISO());
-    const in7 = new Date(today);
-    in7.setDate(in7.getDate() + 7);
-    return orders
-      .filter((o) => o.dueDate && o.stage !== "COMPLETED")
-      .filter((o) => {
-        const d = new Date(o.dueDate);
-        return d <= in7; // include overdue too, so nothing due gets missed
-      })
-      .sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""));
-  }, [orders]);
 
   const pendingPayments = useMemo(() => {
     const out = [];
@@ -1723,6 +1775,33 @@ export default function HomeDashboard() {
   const completedTasks = tasks.filter((t) => t.done).length;
   const taskProgress =
     tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
+  const isTaskOverdue = (t) => !t.done && !!t.dueDate && t.dueDate < todayISO();
+  const overdueTasks = tasks.filter(isTaskOverdue).length;
+  const urgentTasks = tasks.filter(
+    (t) => !t.done && t.priority === "URGENT",
+  ).length;
+  const dueTodayTasks = tasks.filter(
+    (t) => !t.done && t.dueDate === todayISO(),
+  ).length;
+  const priorityRank = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  const visibleTasks = useMemo(() => {
+    const q = taskSearch.trim().toLowerCase();
+    return tasks
+      .filter((t) => {
+        if (taskFilter === "ACTIVE" && t.done) return false;
+        if (taskFilter === "DONE" && !t.done) return false;
+        if (taskFilter === "OVERDUE" && !isTaskOverdue(t)) return false;
+        if (q && !t.text.toLowerCase().includes(q)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        if (a.done !== b.done) return a.done ? 1 : -1;
+        const pr =
+          (priorityRank[a.priority] ?? 9) - (priorityRank[b.priority] ?? 9);
+        if (pr !== 0) return pr;
+        return (a.dueDate || "").localeCompare(b.dueDate || "");
+      });
+  }, [tasks, taskFilter, taskSearch]);
 
   const pipelineCounts = STAGE_ORDER.map((key) => ({
     key,
@@ -1800,13 +1879,26 @@ export default function HomeDashboard() {
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
     );
-  const addTask = (text, urgent) => {
-    if (!text.trim()) return;
+  const addTask = (data) => {
+    const text = (data.text || "").trim();
+    if (!text) return;
     setTasks((prev) => [
       ...prev,
-      { id: Date.now(), text: text.trim(), done: false, urgent },
+      {
+        id: Date.now(),
+        text,
+        done: false,
+        priority: data.priority || "MEDIUM",
+        category: data.category || TASK_CATEGORIES[0],
+        dueDate: data.dueDate || "",
+        assignee: data.assignee || null,
+      },
     ]);
     push("Task added", "success");
+  };
+  const updateTaskDetails = (id, data) => {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
+    push("Task updated", "success");
   };
   const deleteTask = (id) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
@@ -2073,187 +2165,389 @@ export default function HomeDashboard() {
         ))}
       </div>
 
+      {/* CHARTS ROW */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="lg:col-span-2 panel">
+          <SectionHead
+            icon={<Icons.chart />}
+            title="Revenue vs Expenses (6 mo.)"
+            action={
+              <div className="chart-legend">
+                <span>
+                  <span
+                    className="chart-legend-dot"
+                    style={{ background: "#22c55e" }}
+                  />
+                  Income
+                </span>
+                <span>
+                  <span
+                    className="chart-legend-dot"
+                    style={{ background: "#f59e0b" }}
+                  />
+                  Expenses
+                </span>
+              </div>
+            }
+          />
+          <div className="p-4">
+            {loadingAll &&
+            ledgerSeries.every((d) => !d.income && !d.expenses) ? (
+              <Skeleton h={200} />
+            ) : (
+              <LineChart data={ledgerSeries} width={700} height={220} />
+            )}
+          </div>
+        </div>
+        <div className="panel">
+          <SectionHead icon={<Icons.ledger />} title="Expense Breakdown" />
+          <div className="p-4 flex flex-col items-center">
+            {expenseBreakdown.length === 0 ? (
+              <div
+                className="p-6 text-center text-sm"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                No expenses logged this month
+              </div>
+            ) : (
+              <>
+                <DonutChart data={expenseBreakdown} size={140} thickness={22} />
+                <div className="w-full mt-4 space-y-1.5">
+                  {expenseBreakdown.map((t) => (
+                    <div
+                      key={t.label}
+                      className="flex items-center justify-between text-[11px]"
+                    >
+                      <span style={{ color: "var(--ink-muted)" }}>
+                        <span
+                          className="chart-legend-dot"
+                          style={{ background: t.color }}
+                        />
+                        {t.label}
+                      </span>
+                      <span className="font-semibold">
+                        {fmtDZDCompact(t.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* TASK MANAGER — first, full-width, feature-rich */}
+      <div className="panel mb-6">
+        <SectionHead
+          icon={<Icons.check />}
+          title={`Task Manager (${completedTasks}/${tasks.length})`}
+          action={
+            <div className="flex items-center gap-3">
+              {urgentTasks > 0 && (
+                <span
+                  className="text-[11px] font-semibold px-2 py-1 rounded-md"
+                  style={{
+                    background: "rgba(239,68,68,0.12)",
+                    color: "var(--stage-contract)",
+                  }}
+                >
+                  {urgentTasks} urgent
+                </span>
+              )}
+              {overdueTasks > 0 && (
+                <span
+                  className="text-[11px] font-semibold px-2 py-1 rounded-md"
+                  style={{
+                    background: "var(--surface-2)",
+                    color: "var(--stage-contract)",
+                  }}
+                >
+                  {overdueTasks} overdue
+                </span>
+              )}
+              <button
+                className="btn-primary text-xs flex items-center gap-1"
+                onClick={() => setModal({ type: "NEW_TASK" })}
+              >
+                <Icons.plus /> Add Task
+              </button>
+            </div>
+          }
+        />
+
+        <div className="px-4 pt-4 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <span
+              className="absolute left-3 top-1/2 -translate-y-1/2"
+              style={{ color: "var(--ink-muted)" }}
+            >
+              <Icons.search />
+            </span>
+            <input
+              className="f-input"
+              style={{ paddingLeft: 32 }}
+              placeholder="Search tasks…"
+              value={taskSearch}
+              onChange={(e) => setTaskSearch(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-1">
+            {TASK_FILTERS.map((f) => (
+              <button
+                key={f}
+                onClick={() => setTaskFilter(f)}
+                className="text-[11px] px-2.5 py-1.5 rounded-md transition-colors"
+                style={{
+                  background:
+                    taskFilter === f
+                      ? "var(--accent-soft)"
+                      : "var(--surface-2)",
+                  color:
+                    taskFilter === f ? "var(--accent)" : "var(--ink-muted)",
+                  fontWeight: taskFilter === f ? 600 : 400,
+                }}
+              >
+                {f === "ALL"
+                  ? "All"
+                  : f === "ACTIVE"
+                    ? "Active"
+                    : f === "DONE"
+                      ? "Done"
+                      : "Overdue"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-3 space-y-1">
+          {loadingAll && tasks.length === 0 ? (
+            <div className="p-2 space-y-2">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} h={44} />
+              ))}
+            </div>
+          ) : visibleTasks.length === 0 ? (
+            <div
+              className="p-6 text-center text-sm"
+              style={{ color: "var(--ink-muted)" }}
+            >
+              {tasks.length === 0
+                ? "No tasks yet — add one to get started"
+                : "No tasks match this filter"}
+            </div>
+          ) : (
+            visibleTasks.map((t) => {
+              const prio =
+                TASK_PRIORITIES.find((p) => p.value === t.priority) ||
+                TASK_PRIORITIES[1];
+              const overdue = isTaskOverdue(t);
+              const isToday = !t.done && t.dueDate === todayISO();
+              return (
+                <div
+                  key={t.id}
+                  className="check-row group flex items-center gap-3 p-2.5 rounded-lg transition-colors"
+                >
+                  <div
+                    onClick={() => toggleTask(t.id)}
+                    className="w-4 h-4 rounded border flex items-center justify-center shrink-0 cursor-pointer transition-colors"
+                    style={{
+                      borderColor: t.done ? "var(--accent)" : "var(--border)",
+                      background: t.done ? "var(--accent)" : "transparent",
+                    }}
+                  >
+                    {t.done && <Icons.check />}
+                  </div>
+
+                  <div
+                    className="flex-1 min-w-0 cursor-pointer"
+                    onClick={() => toggleTask(t.id)}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className="text-sm"
+                        style={{
+                          color: t.done ? "var(--ink-muted)" : "var(--ink)",
+                          textDecoration: t.done ? "line-through" : "none",
+                        }}
+                      >
+                        {t.text}
+                      </span>
+                      <span
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                        style={{
+                          background: `${prio.color}15`,
+                          color: prio.color,
+                        }}
+                      >
+                        {prio.label}
+                      </span>
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded"
+                        style={{
+                          background: "var(--surface-2)",
+                          color: "var(--ink-muted)",
+                        }}
+                      >
+                        {t.category || "General"}
+                      </span>
+                    </div>
+                    <div
+                      className="flex items-center gap-2 mt-0.5 text-[11px]"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      {t.assignee && <span>{t.assignee}</span>}
+                      {t.assignee && t.dueDate && <span>·</span>}
+                      {t.dueDate && (
+                        <span
+                          style={{
+                            color: overdue
+                              ? "var(--stage-contract)"
+                              : isToday
+                                ? "var(--accent)"
+                                : "var(--ink-muted)",
+                            fontWeight: overdue || isToday ? 600 : 400,
+                          }}
+                        >
+                          {overdue
+                            ? "Overdue"
+                            : isToday
+                              ? "Due today"
+                              : `Due ${new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() =>
+                        setModal({ type: "EDIT_TASK", payload: t })
+                      }
+                      className="p-1.5 rounded"
+                      style={{ color: "var(--ink-muted)" }}
+                      aria-label="Edit task"
+                    >
+                      <Icons.edit />
+                    </button>
+                    <button
+                      onClick={() => deleteTask(t.id)}
+                      className="p-1.5 rounded"
+                      style={{ color: "var(--ink-muted)" }}
+                      aria-label="Delete task"
+                    >
+                      <Icons.trash />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div
+          className="h-1.5 rounded-full overflow-hidden mx-4 mb-4"
+          style={{ background: "var(--surface-2)" }}
+        >
+          <div
+            className="h-full bar-fill"
+            style={{ width: `${taskProgress}%`, background: "var(--accent)" }}
+          />
+        </div>
+      </div>
+
       {/* MAIN GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ═══ LEFT (2/3) ═══ */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Workers + Upcoming Deliveries */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Workers */}
-            <div className="panel">
-              <SectionHead
-                icon={<Icons.workers />}
-                title={`Workers Today (${workersTotal})`}
-                action={
-                  <button
-                    className="btn-ghost text-xs flex items-center gap-1"
-                    onClick={() => setModal({ type: "NEW_WORKER" })}
-                  >
-                    <Icons.plus /> Add
-                  </button>
-                }
-              />
-              <div className="p-2">
-                {loadingAll && workers.length === 0 ? (
-                  <div className="p-3 space-y-2">
-                    {[1, 2, 3, 4].map((i) => (
-                      <Skeleton key={i} h={56} />
-                    ))}
-                  </div>
-                ) : workers.length === 0 ? (
-                  <div
-                    className="p-6 text-center text-sm"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    No workers yet
-                  </div>
-                ) : (
-                  workers.map((w) => {
-                    const status = attendance[w.id]; // undefined = Not Set
-                    const name =
-                      w.full_name || w.shortName || w.name || "Worker";
-                    return (
-                      <div
-                        key={w.id}
-                        className="relative flex items-center gap-3 p-3 rounded-lg panel-hover"
-                      >
-                        <div className="relative shrink-0">
-                          <div
-                            className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold"
-                            style={{
-                              background: "var(--surface-2)",
-                              color: "var(--accent)",
-                            }}
-                          >
-                            {initials(name)}
-                          </div>
-                          {status === "PRESENT" && (
-                            <span
-                              className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-pulse"
-                              style={{
-                                background: "var(--stage-completed)",
-                                color: "var(--stage-completed)",
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-sm font-medium truncate">
-                              {name}
-                            </span>
-                            <span
-                              className="text-[11px]"
-                              style={{ color: "var(--ink-muted)" }}
-                            >
-                              · {w.role || "—"}
-                            </span>
-                          </div>
-                          <div
-                            className="text-[11px] truncate"
-                            style={{ color: "var(--ink-muted)" }}
-                          >
-                            {w.hire_date
-                              ? `Joined ${new Date(w.hire_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
-                              : "No join date"}
-                          </div>
-                        </div>
-                        <AttendanceBadge
-                          status={status}
-                          onCycle={() =>
-                            setWorkerStatus(w.id, cycleAttendance(status))
-                          }
-                        />
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Upcoming Deliveries */}
-            <div className="panel">
-              <SectionHead
-                icon={<Icons.calendar />}
-                title={`Upcoming Deliveries (${upcomingDeliveries.length})`}
-                action={
-                  <span
-                    className="text-[11px]"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    next 7 days
-                  </span>
-                }
-              />
-              <div className="p-2">
-                {loadingAll && orders.length === 0 ? (
-                  <div className="p-3 space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} h={56} />
-                    ))}
-                  </div>
-                ) : upcomingDeliveries.length === 0 ? (
-                  <div
-                    className="p-6 text-center text-sm"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    Nothing due this week
-                  </div>
-                ) : (
-                  upcomingDeliveries.map((o) => {
-                    const isToday = o.dueDate === todayISO();
-                    const isOver =
-                      o.dueDate && new Date(o.dueDate) < new Date(todayISO());
-                    return (
-                      <div
-                        key={o.id}
-                        className="flex items-center gap-3 p-3 rounded-lg panel-hover"
-                      >
+          {/* Workers */}
+          <div className="panel">
+            <SectionHead
+              icon={<Icons.workers />}
+              title={`Workers Today (${workersTotal})`}
+              action={
+                <button
+                  className="btn-ghost text-xs flex items-center gap-1"
+                  onClick={() => setModal({ type: "NEW_WORKER" })}
+                >
+                  <Icons.plus /> Add
+                </button>
+              }
+            />
+            <div className="p-2">
+              {loadingAll && workers.length === 0 ? (
+                <div className="p-3 space-y-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} h={56} />
+                  ))}
+                </div>
+              ) : workers.length === 0 ? (
+                <div
+                  className="p-6 text-center text-sm"
+                  style={{ color: "var(--ink-muted)" }}
+                >
+                  No workers yet
+                </div>
+              ) : (
+                workers.map((w) => {
+                  const status = attendance[w.id]; // undefined = Not Set
+                  const name = w.full_name || w.shortName || w.name || "Worker";
+                  return (
+                    <div
+                      key={w.id}
+                      className="relative flex items-center gap-3 p-3 rounded-lg panel-hover"
+                    >
+                      <div className="relative shrink-0">
                         <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold"
                           style={{
                             background: "var(--surface-2)",
                             color: "var(--accent)",
                           }}
                         >
-                          {initials(o.client)}
+                          {initials(name)}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            {o.client || `Order ${o.id}`}
-                          </div>
-                          <div
+                        {status === "PRESENT" && (
+                          <span
+                            className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-pulse"
+                            style={{
+                              background: "var(--stage-completed)",
+                              color: "var(--stage-completed)",
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm font-medium truncate">
+                            {name}
+                          </span>
+                          <span
                             className="text-[11px]"
                             style={{ color: "var(--ink-muted)" }}
                           >
-                            Order {o.id} · <StageBadge stage={o.stage} />
-                          </div>
+                            · {w.role || "—"}
+                          </span>
                         </div>
-                        <span
-                          className="text-xs shrink-0"
-                          style={{
-                            color: isOver
-                              ? "var(--stage-contract)"
-                              : isToday
-                                ? "var(--accent)"
-                                : "var(--ink-muted)",
-                            fontWeight: isToday || isOver ? 600 : 400,
-                          }}
+                        <div
+                          className="text-[11px] truncate"
+                          style={{ color: "var(--ink-muted)" }}
                         >
-                          {isToday
-                            ? "Today"
-                            : isOver
-                              ? "Overdue"
-                              : new Date(o.dueDate).toLocaleDateString(
-                                  "en-US",
-                                  { month: "short", day: "numeric" },
-                                )}
-                        </span>
+                          {w.hire_date
+                            ? `Joined ${new Date(w.hire_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+                            : "No join date"}
+                        </div>
                       </div>
-                    );
-                  })
-                )}
-              </div>
+                      <AttendanceBadge
+                        status={status}
+                        onCycle={() =>
+                          setWorkerStatus(w.id, cycleAttendance(status))
+                        }
+                      />
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -2449,117 +2743,6 @@ export default function HomeDashboard() {
                 Total{" "}
                 {fmtDZD(
                   ordersFiltered.reduce((s, o) => s + Number(o.amount || 0), 0),
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Charts row */}
-          <div className="panel">
-            <SectionHead
-              icon={<Icons.chart />}
-              title="Revenue vs Expenses · 6 months"
-              action={
-                <div className="chart-legend">
-                  <span>
-                    <span
-                      className="chart-legend-dot"
-                      style={{ background: "#22c55e" }}
-                    />{" "}
-                    Income
-                  </span>
-                  <span>
-                    <span
-                      className="chart-legend-dot"
-                      style={{ background: "#f59e0b" }}
-                    />{" "}
-                    Expenses
-                  </span>
-                </div>
-              }
-            />
-            <div className="p-3">
-              {loadingAll && ledger.length === 0 ? (
-                <Skeleton h={200} />
-              ) : (
-                <LineChart data={ledgerSeries} width={700} height={200} />
-              )}
-            </div>
-          </div>
-
-          {/* Pipeline + Donut */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="panel">
-              <SectionHead
-                icon={<Icons.orders />}
-                title="Pipeline"
-                action={
-                  <span
-                    className="text-[11px]"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    this month
-                  </span>
-                }
-              />
-              <div className="p-3">
-                <PipelineChart
-                  counts={pipelineCounts}
-                  width={320}
-                  height={180}
-                />
-              </div>
-            </div>
-            <div className="panel">
-              <SectionHead icon={<Icons.ledger />} title="Expense Breakdown" />
-              <div className="p-4 flex items-center gap-4">
-                {expenseBreakdown.length > 0 ? (
-                  <>
-                    <DonutChart
-                      data={expenseBreakdown.map((c) => ({
-                        value: c.value,
-                        color: c.color,
-                      }))}
-                      size={140}
-                      thickness={22}
-                    />
-                    <div className="flex-1 space-y-2">
-                      {expenseBreakdown.map((c, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-2 text-[11px]"
-                        >
-                          <span
-                            className="chart-legend-dot"
-                            style={{ background: c.color }}
-                          />
-                          <span
-                            className="flex-1"
-                            style={{ color: "var(--ink)" }}
-                          >
-                            {c.label}
-                          </span>
-                          <span style={{ color: "var(--ink-muted)" }}>
-                            {(
-                              (c.value / Math.max(1, monthExpenses)) *
-                              100
-                            ).toFixed(0)}
-                            %
-                          </span>
-                          <span className="font-semibold w-16 text-right">
-                            {fmtDZDCompact(c.value)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <div
-                    className="flex-1 text-center text-sm py-6"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    No expenses recorded this month
-                  </div>
                 )}
               </div>
             </div>
@@ -2923,86 +3106,6 @@ export default function HomeDashboard() {
             </div>
           </div>
 
-          {/* Tasks */}
-          <div className="panel">
-            <SectionHead
-              icon={<Icons.check />}
-              title="Daily Tasks"
-              action={
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-[11px]"
-                    style={{ color: "var(--ink-muted)" }}
-                  >
-                    {completedTasks}/{tasks.length}
-                  </span>
-                  <button
-                    className="btn-ghost text-xs"
-                    onClick={() => setModal({ type: "NEW_TASK" })}
-                  >
-                    <Icons.plus />
-                  </button>
-                </div>
-              }
-            />
-            <div className="p-3 space-y-1">
-              {tasks.map((t) => (
-                <div
-                  key={t.id}
-                  className="check-row group flex items-start gap-3 p-2.5 rounded-lg cursor-pointer transition-colors"
-                >
-                  <div
-                    onClick={() => toggleTask(t.id)}
-                    className="w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors"
-                    style={{
-                      borderColor: t.done ? "var(--accent)" : "var(--border)",
-                      background: t.done ? "var(--accent)" : "transparent",
-                    }}
-                  >
-                    {t.done && <Icons.check />}
-                  </div>
-                  <div className="flex-1" onClick={() => toggleTask(t.id)}>
-                    <div
-                      className="text-xs"
-                      style={{
-                        color: t.done ? "var(--ink-muted)" : "var(--ink)",
-                        textDecoration: t.done ? "line-through" : "none",
-                      }}
-                    >
-                      {t.text}
-                    </div>
-                    {t.urgent && !t.done && (
-                      <div
-                        className="text-[10px] mt-0.5 font-semibold"
-                        style={{ color: "var(--accent)" }}
-                      >
-                        Urgent
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => deleteTask(t.id)}
-                    className="opacity-0 group-hover:opacity-100 text-[var(--ink-muted)] hover:text-[var(--stage-contract)] transition-opacity"
-                  >
-                    <Icons.trash />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div
-              className="h-1 rounded-full overflow-hidden mx-3 mb-3"
-              style={{ background: "var(--surface-2)" }}
-            >
-              <div
-                className="h-full bar-fill"
-                style={{
-                  width: `${taskProgress}%`,
-                  background: "var(--accent)",
-                }}
-              />
-            </div>
-          </div>
-
           {/* Quick Actions — all wired to real modals */}
           <div className="panel p-4">
             <h3 className="text-sm font-semibold mb-3">Quick Actions</h3>
@@ -3105,11 +3208,23 @@ export default function HomeDashboard() {
         <NewWorkerForm onSubmit={addWorker} onCancel={() => setModal(null)} />
       </Modal>
       <Modal
-        open={modal?.type === "NEW_TASK"}
+        open={modal?.type === "NEW_TASK" || modal?.type === "EDIT_TASK"}
         onClose={() => setModal(null)}
-        title="New Task"
+        title={modal?.type === "EDIT_TASK" ? "Edit Task" : "New Task"}
       >
-        <TaskForm onSubmit={addTask} onCancel={() => setModal(null)} />
+        <TaskForm
+          initialData={modal?.type === "EDIT_TASK" ? modal.payload : null}
+          workers={workers}
+          onSubmit={(data) => {
+            if (modal?.type === "EDIT_TASK") {
+              updateTaskDetails(modal.payload.id, data);
+            } else {
+              addTask(data);
+            }
+            setModal(null);
+          }}
+          onCancel={() => setModal(null)}
+        />
       </Modal>
       <Modal
         open={modal?.type === "REORDER"}
@@ -3129,15 +3244,32 @@ export default function HomeDashboard() {
   );
 }
 
-/* Task form (inline since it's tiny) */
-const TaskForm = ({ onSubmit, onCancel }) => {
-  const [text, setText] = useState("");
-  const [urgent, setUrgent] = useState(false);
+/* Task form — full-featured: priority, category, due date, assignee */
+const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
+  const [text, setText] = useState(initialData?.text || "");
+  const [priority, setPriority] = useState(initialData?.priority || "MEDIUM");
+  const [category, setCategory] = useState(
+    initialData?.category || TASK_CATEGORIES[0],
+  );
+  const [dueDate, setDueDate] = useState(initialData?.dueDate || todayISO());
+  const [assignee, setAssignee] = useState(initialData?.assignee || "");
+
+  const submit = () => {
+    if (!text.trim()) return;
+    onSubmit({
+      text: text.trim(),
+      priority,
+      category,
+      dueDate,
+      assignee: assignee || null,
+    });
+  };
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (text.trim()) onSubmit(text, urgent);
+        submit();
       }}
       className="space-y-3"
     >
@@ -3149,19 +3281,67 @@ const TaskForm = ({ onSubmit, onCancel }) => {
           placeholder="What needs to be done?"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) =>
-            e.key === "Enter" && text.trim() && onSubmit(text, urgent)
-          }
         />
       </div>
-      <label className="flex items-center gap-2 text-xs cursor-pointer">
-        <input
-          type="checkbox"
-          checked={urgent}
-          onChange={(e) => setUrgent(e.target.checked)}
-        />
-        Mark as urgent
-      </label>
+      <div className="f-row">
+        <div>
+          <label className="f-label">Priority</label>
+          <select
+            className="f-select"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+          >
+            {TASK_PRIORITIES.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="f-label">Category</label>
+          <select
+            className="f-select"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {TASK_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="f-row">
+        <div>
+          <label className="f-label">Due date</label>
+          <input
+            type="date"
+            className="f-input"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="f-label">Assign to</label>
+          <select
+            className="f-select"
+            value={assignee}
+            onChange={(e) => setAssignee(e.target.value)}
+          >
+            <option value="">Unassigned</option>
+            {workers.map((w) => {
+              const wName = w.full_name || w.shortName || w.name || "Worker";
+              return (
+                <option key={w.id} value={wName}>
+                  {wName}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      </div>
       <div className="flex gap-2 justify-end pt-2">
         <button type="button" onClick={onCancel} className="btn-ghost text-xs">
           Cancel
@@ -3171,7 +3351,7 @@ const TaskForm = ({ onSubmit, onCancel }) => {
           disabled={!text.trim()}
           className="btn-primary text-xs disabled:opacity-50"
         >
-          <Icons.check /> Add Task
+          <Icons.check /> {initialData ? "Save Changes" : "Add Task"}
         </button>
       </div>
     </form>
