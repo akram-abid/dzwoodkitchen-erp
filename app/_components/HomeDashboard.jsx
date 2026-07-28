@@ -1042,7 +1042,9 @@ const deriveWorkerAttendanceToday = (w) => {
     typeof w.attendance === "object" &&
     !Array.isArray(w.attendance)
   ) {
-    const n = normalizeAttendanceStatus(w.attendance[today]?.status ?? w.attendance[today]);
+    const n = normalizeAttendanceStatus(
+      w.attendance[today]?.status ?? w.attendance[today],
+    );
     if (n) return n;
   }
 
@@ -1963,6 +1965,13 @@ export default function HomeDashboard() {
   const [ledgerRefs, setLedgerRefs] = useState({ workers: [], suppliers: [] });
   const [recentPOs, setRecentPOs] = useState([]);
   const [tasks, setTasks] = useState([]);
+  /* ── Fleet / trips ──
+     The fleet page owns the full trip CRUD UI; the dashboard just shows
+     a glance of the 5 most recent ones so the home view can answer
+     "what's the truck been up to lately?" without a full route change. */
+  const [vehicles, setVehicles] = useState([]);
+  const [recentTrips, setRecentTrips] = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(false);
 
   /* ─────── ui state ─────── */
   const [filter, setFilter] = useState("ALL");
@@ -2112,6 +2121,59 @@ export default function HomeDashboard() {
         });
         allPOs.sort((a, b) => new Date(b.date) - new Date(a.date));
         setRecentPOs(allPOs.slice(0, 5));
+      }
+
+      /* ── Recent trips across all vehicles ──
+         The fleet page already calls /api/vehicles_trips?vehicleId=… to
+         load a single truck's log, so we mirror that pattern here. We
+         first pull the vehicle list, then fan out one trip fetch per
+         vehicle, flatten, sort by date desc, and keep the top 5. The
+         whole block is wrapped in its own try/catch so a flaky trip
+         endpoint never breaks the rest of the dashboard load. */
+      try {
+        setTripsLoading(true);
+        const vRes = await fetch("/api/vehicles");
+        if (vRes.ok) {
+          const vJson = await vRes.json();
+          const vList = safe(vJson?.data ?? vJson?.vehicles ?? vJson ?? []).map(
+            (v) => ({
+              id: String(v.id),
+              name: v.name || v.plate_number || `Vehicle #${v.id}`,
+              plate: v.plate_number || v.identifier || "",
+            }),
+          );
+          setVehicles(vList);
+
+          if (vList.length > 0) {
+            const tripResults = await Promise.allSettled(
+              vList.map((v) =>
+                fetch(`/api/vehicles_trips?vehicleId=${v.id}`)
+                  .then((r) => (r.ok ? r.json() : null))
+                  .then((d) => {
+                    const list = safe(d?.data ?? d ?? []);
+                    return list.map((t) => ({ ...t, truckId: v.id }));
+                  })
+                  .catch(() => []),
+              ),
+            );
+            const merged = [];
+            tripResults.forEach((r) => {
+              if (r.status === "fulfilled" && Array.isArray(r.value)) {
+                merged.push(...r.value);
+              }
+            });
+            merged.sort((a, b) =>
+              String(b.date || "").localeCompare(String(a.date || "")),
+            );
+            setRecentTrips(merged.slice(0, 5));
+          } else {
+            setRecentTrips([]);
+          }
+        }
+      } catch (tripsErr) {
+        console.error("loadRecentTrips failed:", tripsErr);
+      } finally {
+        setTripsLoading(false);
       }
     } catch (e) {
       push("Failed to load some data", "error");
@@ -2370,9 +2432,7 @@ export default function HomeDashboard() {
         assignee: data.assignee || null,
       });
       const confirmed = normalizeTask(res?.data ?? res);
-      setTasks((prev) =>
-        prev.map((t) => (t.id === tempId ? confirmed : t)),
-      );
+      setTasks((prev) => prev.map((t) => (t.id === tempId ? confirmed : t)));
       push("Task added", "success");
     } catch (e) {
       setTasks((prev) => prev.filter((t) => t.id !== tempId));
@@ -2391,9 +2451,7 @@ export default function HomeDashboard() {
       (data.dueTime ?? current.dueTime) !== current.dueTime ||
       (data.dueDate ?? current.dueDate) !== current.dueDate;
     const patch = { ...data, notified: dueChanged ? false : current.notified };
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-    );
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
     try {
       const res = await patchTaskClient(id, patch);
       const confirmed = normalizeTask(res?.data ?? res);
@@ -2677,6 +2735,70 @@ export default function HomeDashboard() {
     <div className="skeleton" style={{ width: w, height: h }} />
   );
 
+  /* Desktop counterpart to PwaPanel: a `.panel` whose SectionHead
+     doubles as a toggle button, with a chevron that rotates and the
+     body hidden when closed. Used to make Recent Trips / Last 5
+     Purchase Orders foldable on desktop the same way the mobile
+     panels already are. */
+  const DesktopCollapsiblePanel = ({
+    icon,
+    title,
+    action,
+    defaultOpen = true,
+    children,
+  }) => {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+      <div className="panel">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex items-center justify-between px-5 py-4 w-full"
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            textAlign: "left",
+            fontFamily: "inherit",
+            borderBottom: open ? "1px solid var(--border)" : "none",
+          }}
+        >
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            {icon}
+            {title}
+          </h3>
+          <span className="flex items-center gap-2">
+            {action}
+            <span
+              style={{
+                display: "inline-flex",
+                color: "var(--ink-muted)",
+                transition: "transform .15s ease",
+                transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+                flexShrink: 0,
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
+          </span>
+        </button>
+        {open && children}
+      </div>
+    );
+  };
+
   /* ════════════════════════════════════════════════════════════
      PWA / MOBILE — collapsible panel + show-3-then-expand list
      (only used inside the .pwa-shell wrapper)
@@ -2819,6 +2941,190 @@ export default function HomeDashboard() {
       </div>
     );
   };
+
+  /* ════════════════════════════════════════════════════════════
+     RECENT TRIPS — last 5 across all vehicles
+     The fleet page owns the full CRUD UI; the dashboard just shows
+     a glance of the 5 most recent trips so the home view can answer
+     "what's the truck been up to lately?" without route-hopping.
+     `compact` flips between the desktop (panel-hover rows, full date
+     + distance + cost) and the PWA (denser rows, less chrome) look.
+     ════════════════════════════════════════════════════════════ */
+  const TRIP_PURPOSE_META = {
+    DELIVERY: { label: "Delivery", color: "#22c55e" },
+    PICKUP: { label: "Pickup", color: "#3b82f6" },
+    TRANSFER: { label: "Transfer", color: "#a855f7" },
+    MAINTENANCE: { label: "Maintenance", color: "#f59e0b" },
+    PERSONAL: { label: "Personal", color: "#94a3b8" },
+  };
+  const tripPurposeMeta = (p) =>
+    TRIP_PURPOSE_META[p] || { label: p || "—", color: "var(--ink-muted)" };
+  const tripDistance = (t) =>
+    Math.max(0, (Number(t.endKm) || 0) - (Number(t.startKm) || 0));
+
+  const RecentTripsList = ({ compact = false }) => {
+    if (tripsLoading && recentTrips.length === 0) {
+      return (
+        <div className={compact ? "p-2 space-y-2" : "p-3 space-y-2"}>
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} h={compact ? 44 : 52} />
+          ))}
+        </div>
+      );
+    }
+    if (recentTrips.length === 0) {
+      return (
+        <div
+          className="p-6 text-center text-sm"
+          style={{ color: "var(--ink-muted)" }}
+        >
+          No trips logged yet
+        </div>
+      );
+    }
+    return (
+      <div>
+        {recentTrips.map((t) => {
+          const meta = tripPurposeMeta(t.purpose);
+          const dist = tripDistance(t);
+          const order = orders.find((o) => o.id === t.orderId);
+          const vehicle = vehicles.find((v) => v.id === t.truckId);
+          const secondary = order ? order.name : vehicle ? vehicle.name : "—";
+          return (
+            <div
+              key={t.id}
+              className={compact ? "list-item" : "panel-hover"}
+              style={
+                compact
+                  ? undefined
+                  : {
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 12px",
+                      borderTop: "1px solid var(--border)",
+                    }
+              }
+            >
+              {/* Purpose chip — color is the same dot used in the
+                 fleet page so the eye can scan the row without
+                 reading the label. */}
+              <div
+                className="shrink-0 rounded-md flex items-center justify-center"
+                style={{
+                  width: compact ? 32 : 36,
+                  height: compact ? 32 : 36,
+                  background: `${meta.color}1a`,
+                  color: meta.color,
+                }}
+              >
+                <Icons.truck />
+              </div>
+              <div className="grow" style={{ minWidth: 0 }}>
+                <div
+                  className="row"
+                  style={{ gap: 6, marginBottom: compact ? 2 : 3 }}
+                >
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: ".04em",
+                      textTransform: "uppercase",
+                      color: meta.color,
+                    }}
+                  >
+                    {meta.label}
+                  </span>
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    ·
+                  </span>
+                  <span
+                    className="truncate"
+                    style={{
+                      fontSize: compact ? 12 : 13,
+                      fontWeight: 500,
+                      color: "var(--ink)",
+                    }}
+                  >
+                    {secondary}
+                  </span>
+                </div>
+                <div className="row muted" style={{ fontSize: 11, gap: 6 }}>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <Icons.calendar /> {t.date}
+                  </span>
+                  <span>·</span>
+                  <span className="tabular-nums">{dist} km</span>
+                  {!compact && t.notes ? (
+                    <>
+                      <span>·</span>
+                      <span className="truncate">{t.notes}</span>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+              <div className="shrink-0" style={{ textAlign: "right" }}>
+                <div
+                  className="font-bold tabular-nums"
+                  style={{
+                    fontSize: compact ? 13 : 14,
+                    color: "var(--stage-contract)",
+                  }}
+                >
+                  {displayMoneyCompact(moneyUnlocked, t.cost)}
+                </div>
+                <div
+                  className="muted"
+                  style={{ fontSize: 10, letterSpacing: ".04em" }}
+                >
+                  DZD
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  /* Desktop shell: now a foldable DesktopCollapsiblePanel instead of a
+     static SectionHead + panel, so it can be collapsed/expanded. */
+  const RecentTripsPanelDesktop = () => (
+    <DesktopCollapsiblePanel
+      icon={<Icons.truck />}
+      title={`Recent Trips (${recentTrips.length})`}
+      defaultOpen
+      action={
+        <span
+          className="text-[11px] font-semibold"
+          style={{ color: "var(--ink-muted)" }}
+        >
+          Last 5 across fleet
+        </span>
+      }
+    >
+      <RecentTripsList />
+    </DesktopCollapsiblePanel>
+  );
+
+  /* PWA shell: collapsible PwaPanel with chevron + count badge. */
+  const RecentTripsPanelPwa = () => (
+    <PwaPanel
+      title="Recent Trips"
+      icon={<Icons.truck />}
+      count={recentTrips.length}
+      defaultOpen
+    >
+      <RecentTripsList compact />
+    </PwaPanel>
+  );
 
   /* ════════════════════════════════════════════════════════════
      PWA TABS
@@ -3019,16 +3325,18 @@ export default function HomeDashboard() {
                       borderRadius: 999,
                       fontSize: 11,
                       fontWeight: 500,
-                      background: isActive && meta
-                        ? `${meta.color}1F`
-                        : isActive
-                          ? "var(--accent-soft)"
-                          : "var(--surface-2)",
-                      color: isActive && meta
-                        ? meta.color
-                        : isActive
-                          ? "var(--accent)"
-                          : "var(--ink-muted)",
+                      background:
+                        isActive && meta
+                          ? `${meta.color}1F`
+                          : isActive
+                            ? "var(--accent-soft)"
+                            : "var(--surface-2)",
+                      color:
+                        isActive && meta
+                          ? meta.color
+                          : isActive
+                            ? "var(--accent)"
+                            : "var(--ink-muted)",
                       border: `1px solid ${
                         isActive && meta
                           ? `${meta.color}55`
@@ -3428,7 +3736,7 @@ export default function HomeDashboard() {
       <div style={{ padding: "4px 4px 12px" }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Workshop</h2>
         <p className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-          Workers, stock, and recent purchases
+          Workers, stock, purchases, and trips
         </p>
       </div>
 
@@ -3693,6 +4001,10 @@ export default function HomeDashboard() {
           />
         )}
       </PwaPanel>
+
+      {/* Recent Trips — same data as the desktop panel, but
+          compact row layout to fit the narrow PWA column. */}
+      <RecentTripsPanelPwa />
     </div>
   );
 
@@ -4612,13 +4924,14 @@ export default function HomeDashboard() {
             </div>
           </div>
 
-          {/* Last PO + Pending payments */}
+          {/* Last 5 Purchase Orders + Recent Trips, side by side —
+             both foldable now. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="panel">
-              <SectionHead
-                icon={<Icons.package />}
-                title="Last 5 Purchase Orders"
-              />
+            <DesktopCollapsiblePanel
+              icon={<Icons.package />}
+              title="Last 5 Purchase Orders"
+              defaultOpen
+            >
               <div className="p-5">
                 {recentPOs.length === 0 ? (
                   <div
@@ -4727,7 +5040,11 @@ export default function HomeDashboard() {
                   </div>
                 )}
               </div>
-            </div>
+            </DesktopCollapsiblePanel>
+
+            {/* Recent Trips — last 5 across the whole fleet, now
+               beside Last 5 Purchase Orders instead of the right rail */}
+            <RecentTripsPanelDesktop />
           </div>
         </div>
 
@@ -5325,13 +5642,16 @@ const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
                 width: 10,
                 height: 10,
                 borderRadius: 999,
-                background:
-                  (TASK_PRIORITIES.find((p) => p.value === priority) ||
-                    TASK_PRIORITIES[1]).color,
+                background: (
+                  TASK_PRIORITIES.find((p) => p.value === priority) ||
+                  TASK_PRIORITIES[1]
+                ).color,
                 pointerEvents: "none",
                 boxShadow: `0 0 0 2px ${
-                  (TASK_PRIORITIES.find((p) => p.value === priority) ||
-                    TASK_PRIORITIES[1]).color
+                  (
+                    TASK_PRIORITIES.find((p) => p.value === priority) ||
+                    TASK_PRIORITIES[1]
+                  ).color
                 }22`,
               }}
             />
@@ -5480,7 +5800,10 @@ const TaskDayNav = ({
         : labelDate.toLocaleDateString("en-US", { weekday: "long" });
   const mainLabel =
     isToday || isTomorrow || isYesterday
-      ? labelDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      ? labelDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })
       : labelDate.toLocaleDateString("en-US", {
           weekday: "short",
           month: "short",
@@ -5490,7 +5813,8 @@ const TaskDayNav = ({
   // AND the user explicitly chose to look at it (i.e. not the default
   // Today view) — otherwise the red treatment is just noise.
   const isOverdueView = !isToday && taskDay < today;
-  const showBell = notifPermission === "default" || notifPermission === "denied";
+  const showBell =
+    notifPermission === "default" || notifPermission === "denied";
   // Counts for the three quick-jump pills. Computed from the full
   // task list (not the visible one) so the badges reflect "what
   // would I see if I tapped this", regardless of the active
