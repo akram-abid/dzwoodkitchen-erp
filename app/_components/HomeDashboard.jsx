@@ -34,6 +34,13 @@ import {
   createLedgerEntry,
   fetchLedgerReferenceData,
 } from "../../lib/api_helpers/ledger";
+import {
+  fetchTasks,
+  createTaskClient,
+  patchTaskClient,
+  deleteTaskClient,
+  normalizeTask,
+} from "../../lib/api_helpers/tasks";
 import { OrderFormModal } from "../../lib/components/Orderformmodal";
 
 /* ════════════════════════════════════════════════════════════════
@@ -249,6 +256,21 @@ const GlobalStyles = () => (
       border-top: 1px solid var(--border);
     }
     .pwa-shell .list-more:active { background: var(--surface-2); }
+
+    /* Desktop "show more" control — used by panels that only render
+       a handful of rows up front (tasks, workers, orders, low stock,
+       etc.) and reveal the rest on click. */
+    .show-more-btn {
+      width: 100%; padding: 10px;
+      background: none; border: none; cursor: pointer;
+      color: var(--accent);
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+      transition: background .15s ease;
+    }
+    .show-more-btn:hover { background: var(--surface-2); }
 
     .pwa-shell .tab-pane { animation: tabIn .18s ease-out; }
     @keyframes tabIn {
@@ -596,6 +618,35 @@ const Icons = {
       <line x1="16" x2="16" y1="2" y2="6" />
       <line x1="8" x2="8" y1="2" y2="6" />
       <line x1="3" x2="21" y1="10" y2="10" />
+    </svg>
+  ),
+  bell: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </svg>
+  ),
+  filter: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
     </svg>
   ),
   plus: () => (
@@ -1910,43 +1961,13 @@ export default function HomeDashboard() {
   const [suppliers, setSuppliers] = useState([]);
   const [ledger, setLedger] = useState([]);
   const [ledgerRefs, setLedgerRefs] = useState({ workers: [], suppliers: [] });
-  const [recentPO, setRecentPO] = useState(null);
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      text: "Morning toolbox check",
-      done: true,
-      priority: "LOW",
-      dueDate: todayISO(),
-      dueTime: null,
-      assignee: null,
-      notified: false,
-    },
-    {
-      id: 2,
-      text: "Review this week deliveries",
-      done: false,
-      priority: "HIGH",
-      dueDate: todayISO(),
-      dueTime: "14:30",
-      assignee: null,
-      notified: false,
-    },
-    {
-      id: 3,
-      text: "Confirm supplier payment",
-      done: false,
-      priority: "MEDIUM",
-      dueDate: shiftDateISO(todayISO(), 1),
-      dueTime: "10:00",
-      assignee: null,
-      notified: false,
-    },
-  ]);
+  const [recentPOs, setRecentPOs] = useState([]);
+  const [tasks, setTasks] = useState([]);
 
   /* ─────── ui state ─────── */
   const [filter, setFilter] = useState("ALL");
   const [taskFilter, setTaskFilter] = useState("ALL");
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState("ALL"); // ALL | URGENT | HIGH | MEDIUM | LOW
   const [taskSearch, setTaskSearch] = useState("");
   const [taskDay, setTaskDay] = useState(todayISO()); // selected day in task manager
   const [notifPermission, setNotifPermission] = useState("default"); // "default" | "granted" | "denied" | "unsupported"
@@ -2001,13 +2022,14 @@ export default function HomeDashboard() {
     try {
       const ym = currentYM();
       const monthKey = thisMonthKey();
-      const [w, o, m, s, l, refs] = await Promise.allSettled([
+      const [w, o, m, s, l, refs, tk] = await Promise.allSettled([
         fetchWorkers(),
         fetchOrders({ page: 1, pageSize: 100 }),
         getAllMaterialsClient(),
         getSuppliers(),
         fetchLedgerEntries({ pageSize: 500 }),
         fetchLedgerReferenceData(),
+        fetchTasks(),
       ]);
       if (w.status === "fulfilled") {
         const workerList = safe(w.value?.data ?? w.value);
@@ -2054,6 +2076,8 @@ export default function HomeDashboard() {
       }
       if (refs.status === "fulfilled")
         setLedgerRefs(refs.value || { workers: [], suppliers: [] });
+      if (tk.status === "fulfilled")
+        setTasks(safe(tk.value?.data ?? tk.value).map(normalizeTask));
       if (w.status === "rejected")
         console.error("fetchWorkers failed:", w.reason);
       if (o.status === "rejected")
@@ -2064,6 +2088,8 @@ export default function HomeDashboard() {
         console.error("getSuppliers failed:", s.reason);
       if (l.status === "rejected")
         console.error("fetchLedgerEntries failed:", l.reason);
+      if (tk.status === "rejected")
+        console.error("fetchTasks failed:", tk.reason);
 
       if (s.status === "fulfilled") {
         const supList = safe(s.value);
@@ -2075,17 +2101,17 @@ export default function HomeDashboard() {
             }).catch(() => null),
           ),
         );
-        let latest = null;
+        const allPOs = [];
         results.forEach((r, i) => {
           if (r.status === "fulfilled" && r.value) {
             const list = safe(r.value?.operations);
             list.forEach((po) => {
-              if (!latest || new Date(po.date) > new Date(latest.date))
-                latest = { ...po, supplier: supList[i].name };
+              allPOs.push({ ...po, supplier: supList[i].name });
             });
           }
         });
-        setRecentPO(latest);
+        allPOs.sort((a, b) => new Date(b.date) - new Date(a.date));
+        setRecentPOs(allPOs.slice(0, 5));
       }
     } catch (e) {
       push("Failed to load some data", "error");
@@ -2122,7 +2148,7 @@ export default function HomeDashboard() {
     return ledger.filter((e) => (e.date || "").startsWith(mk));
   }, [ledger]);
   const monthIncome = ordersThisMonth.reduce(
-    (s, o) => s + Number(o.amount || 0),
+    (s, o) => s + Number(o.paid || 0),
     0,
   );
   const monthExpenses = ledgerThisMonth
@@ -2145,7 +2171,7 @@ export default function HomeDashboard() {
       );
       out.push({
         label: d.toLocaleDateString("en-US", { month: "short" }),
-        income: monthOrders.reduce((s, o) => s + Number(o.amount || 0), 0),
+        income: monthOrders.reduce((s, o) => s + Number(o.paid || 0), 0),
         expenses: entries
           .filter((e) => e.type !== "INCOME")
           .reduce((s, e) => s + Number(e.amount || 0), 0),
@@ -2217,6 +2243,8 @@ export default function HomeDashboard() {
         if (taskFilter === "ACTIVE" && t.done) return false;
         if (taskFilter === "DONE" && !t.done) return false;
         if (taskFilter === "OVERDUE" && !isTaskOverdue(t)) return false;
+        if (taskPriorityFilter !== "ALL" && t.priority !== taskPriorityFilter)
+          return false;
         if (q && !t.text.toLowerCase().includes(q)) return false;
         return true;
       })
@@ -2230,7 +2258,7 @@ export default function HomeDashboard() {
         const bKey = `${b.dueDate || ""}T${b.dueTime || "99:99"}`;
         return aKey.localeCompare(bKey);
       });
-  }, [tasks, taskFilter, taskSearch, taskDay]);
+  }, [tasks, taskFilter, taskPriorityFilter, taskSearch, taskDay]);
 
   const pipelineCounts = STAGE_ORDER.map((key) => ({
     key,
@@ -2298,49 +2326,97 @@ export default function HomeDashboard() {
     }
   };
 
-  const toggleTask = (id) =>
+  const toggleTask = async (id) => {
+    const prevTasks = tasks;
+    const target = tasks.find((t) => t.id === id);
+    if (!target) return;
+    const nextDone = !target.done;
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+      prev.map((t) => (t.id === id ? { ...t, done: nextDone } : t)),
     );
-  const addTask = (data) => {
+    try {
+      const res = await patchTaskClient(id, { done: nextDone });
+      const confirmed = normalizeTask(res?.data ?? res);
+      setTasks((prev) => prev.map((t) => (t.id === id ? confirmed : t)));
+    } catch (e) {
+      setTasks(prevTasks);
+      console.error("patchTaskClient (toggle) failed:", e);
+      push("Failed to update task — change was not saved", "error");
+    }
+  };
+
+  const addTask = async (data) => {
     const text = (data.text || "").trim();
     if (!text) return;
-    setTasks((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
+    // Optimistic placeholder while the server assigns a real id.
+    const tempId = `temp-${Date.now()}`;
+    const optimisticTask = {
+      id: tempId,
+      text,
+      done: false,
+      priority: data.priority || "MEDIUM",
+      dueDate: data.dueDate || "",
+      dueTime: data.dueTime || null,
+      assignee: data.assignee || null,
+      notified: false,
+    };
+    setTasks((prev) => [...prev, optimisticTask]);
+    try {
+      const res = await createTaskClient({
         text,
-        done: false,
         priority: data.priority || "MEDIUM",
-        dueDate: data.dueDate || "",
+        dueDate: data.dueDate || null,
         dueTime: data.dueTime || null,
         assignee: data.assignee || null,
-        notified: false,
-      },
-    ]);
-    push("Task added", "success");
+      });
+      const confirmed = normalizeTask(res?.data ?? res);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === tempId ? confirmed : t)),
+      );
+      push("Task added", "success");
+    } catch (e) {
+      setTasks((prev) => prev.filter((t) => t.id !== tempId));
+      console.error("createTaskClient failed:", e);
+      push("Failed to add task", "error");
+    }
   };
-  const updateTaskDetails = (id, data) => {
+
+  const updateTaskDetails = async (id, data) => {
+    const prevTasks = tasks;
+    const current = tasks.find((t) => t.id === id);
+    if (!current) return;
+    // Reset notified flag if the time/date changed so the new
+    // schedule can re-trigger an alert.
+    const dueChanged =
+      (data.dueTime ?? current.dueTime) !== current.dueTime ||
+      (data.dueDate ?? current.dueDate) !== current.dueDate;
+    const patch = { ...data, notified: dueChanged ? false : current.notified };
     setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
-        // Reset notified flag if the time/date changed so the new
-        // schedule can re-trigger an alert.
-        const dueChanged =
-          (data.dueTime ?? t.dueTime) !== t.dueTime ||
-          (data.dueDate ?? t.dueDate) !== t.dueDate;
-        return {
-          ...t,
-          ...data,
-          notified: dueChanged ? false : t.notified,
-        };
-      }),
+      prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
     );
-    push("Task updated", "success");
+    try {
+      const res = await patchTaskClient(id, patch);
+      const confirmed = normalizeTask(res?.data ?? res);
+      setTasks((prev) => prev.map((t) => (t.id === id ? confirmed : t)));
+      push("Task updated", "success");
+    } catch (e) {
+      setTasks(prevTasks);
+      console.error("patchTaskClient (update) failed:", e);
+      push("Failed to update task — change was not saved", "error");
+    }
   };
-  const deleteTask = (id) => {
+
+  const deleteTask = async (id) => {
+    const prevTasks = tasks;
     setTasks((prev) => prev.filter((t) => t.id !== id));
-    push("Task removed", "info");
+    try {
+      await deleteTaskClient(id);
+      push("Task removed", "info");
+    } catch (e) {
+      setTasks(prevTasks);
+      console.error("deleteTaskClient failed:", e);
+      push("Failed to remove task — change was not saved", "error");
+    }
   };
 
   /* ─────── browser notifications for tasks ─────── */
@@ -2441,6 +2517,14 @@ export default function HomeDashboard() {
             toMarkNotified.includes(t.id) ? { ...t, notified: true } : t,
           ),
         );
+        // Fire-and-forget: persist so the reminder doesn't re-fire after
+        // a reload. A failure here just means one extra notification
+        // later — not worth blocking or rolling back the UI over.
+        toMarkNotified.forEach((id) => {
+          patchTaskClient(id, { notified: true }).catch((e) =>
+            console.error("patchTaskClient (notified) failed:", e),
+          );
+        });
       }
     };
     tick();
@@ -2650,6 +2734,44 @@ export default function HomeDashboard() {
     );
   };
 
+  /* Desktop counterpart to PwaList: renders a `wrap`-supplied container
+     (space-y-2 stack, table <tbody>, grid, etc.) with only the first
+     `initial` items, plus a "Show more" button that reveals the rest.
+     Each of the desktop panels below (Task Manager, Workers Today,
+     Orders table, Low Stock) uses this instead of dumping every row
+     into the DOM at once. */
+  const ExpandableSection = ({
+    items,
+    renderItem,
+    initial = 5,
+    keyExtractor,
+    wrap,
+    buttonWrap,
+  }) => {
+    const [expanded, setExpanded] = useState(false);
+    const visible = expanded ? items : items.slice(0, initial);
+    const list = visible.map((item, i) => (
+      <Fragment key={keyExtractor ? keyExtractor(item, i) : (item?.id ?? i)}>
+        {renderItem(item, i)}
+      </Fragment>
+    ));
+    const button = items.length > initial && (
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        className="w-full text-xs font-semibold py-2 rounded-md transition-colors"
+        style={{ color: "var(--accent)", background: "var(--surface-2)" }}
+      >
+        {expanded ? "Show less" : `Show more (${items.length - initial})`}
+      </button>
+    );
+    return (
+      <>
+        {wrap ? wrap(list) : list}
+        {buttonWrap ? buttonWrap(button) : button}
+      </>
+    );
+  };
+
   const PwaPipelineMini = ({ counts }) => {
     const total = counts.reduce((s, c) => s + c.value, 0) || 0;
     return (
@@ -2733,7 +2855,8 @@ export default function HomeDashboard() {
           <Icons.plus /> New Order
         </button>
 
-        {/* Task manager (full) */}
+        {/* Task manager (full) — redesigned nav: search → day nav →
+           combined status + priority filter row → list. */}
         <div style={{ marginTop: 12 }}>
           <PwaPanel
             title="Task Manager"
@@ -2741,29 +2864,218 @@ export default function HomeDashboard() {
             count={`${completedTasks}/${tasks.length}`}
             defaultOpen
           >
-            <div className="chip-row">
-              {TASK_FILTERS.map((f) => (
+            {/* Search bar — full width, with a clear button that
+               only appears when there's text. Stays inside the
+               panel so it scrolls with the rest of the manager. */}
+            <div
+              style={{
+                position: "relative",
+                padding: "10px 12px 8px",
+                borderTop: "1px solid var(--border)",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  left: 22,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--ink-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                  pointerEvents: "none",
+                }}
+              >
+                <Icons.search />
+              </span>
+              <input
+                type="text"
+                placeholder="Search tasks…"
+                value={taskSearch}
+                onChange={(e) => setTaskSearch(e.target.value)}
+                aria-label="Search tasks"
+                style={{
+                  width: "100%",
+                  padding: "9px 32px 9px 32px",
+                  borderRadius: 8,
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  WebkitAppearance: "none",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) =>
+                  (e.currentTarget.style.borderColor = "var(--accent)")
+                }
+                onBlur={(e) =>
+                  (e.currentTarget.style.borderColor = "var(--border)")
+                }
+              />
+              {taskSearch && (
                 <button
-                  key={f}
-                  className={`chip ${taskFilter === f ? "active" : ""}`}
-                  onClick={() => setTaskFilter(f)}
+                  type="button"
+                  onClick={() => setTaskSearch("")}
+                  aria-label="Clear search"
+                  style={{
+                    position: "absolute",
+                    right: 18,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--ink-muted)",
+                    width: 20,
+                    height: 20,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 999,
+                    WebkitTapHighlightColor: "transparent",
+                    padding: 0,
+                  }}
                 >
-                  {f === "ALL"
-                    ? "All"
-                    : f === "ACTIVE"
-                      ? "Active"
-                      : f === "DONE"
-                        ? "Done"
-                        : "Overdue"}
+                  <Icons.x />
                 </button>
-              ))}
+              )}
             </div>
+            {/* Day nav — the new two-row pager + quick-jump pills. */}
             <TaskDayNav
               taskDay={taskDay}
               onChange={setTaskDay}
               notifPermission={notifPermission}
               onRequestNotif={requestNotifPermission}
+              tasks={tasks}
             />
+            {/* Combined filter strip — status chips on the left,
+               priority chips on the right, with a divider. A
+               small "Clear" link appears only when something is
+               non-default, so the default state stays uncluttered. */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 12px",
+                borderTop: "1px solid var(--border)",
+                overflowX: "auto",
+                msOverflowStyle: "none",
+                scrollbarWidth: "none",
+              }}
+            >
+              {TASK_FILTERS.map((f) => {
+                const active = taskFilter === f;
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setTaskFilter(f)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      background: active
+                        ? "var(--accent-soft)"
+                        : "var(--surface-2)",
+                      color: active ? "var(--accent)" : "var(--ink-muted)",
+                      border: `1px solid ${active ? "var(--accent)" : "transparent"}`,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      minHeight: 28,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {f === "ALL"
+                      ? "All"
+                      : f === "ACTIVE"
+                        ? "Active"
+                        : f === "DONE"
+                          ? "Done"
+                          : "Overdue"}
+                  </button>
+                );
+              })}
+              <span
+                style={{
+                  width: 1,
+                  height: 14,
+                  background: "var(--border)",
+                  flexShrink: 0,
+                  margin: "0 2px",
+                }}
+              />
+              {TASK_PRIORITY_FILTERS.map((p) => {
+                const isActive = taskPriorityFilter === p;
+                const meta = TASK_PRIORITIES.find((x) => x.value === p);
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setTaskPriorityFilter(p)}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      background: isActive && meta
+                        ? `${meta.color}1F`
+                        : isActive
+                          ? "var(--accent-soft)"
+                          : "var(--surface-2)",
+                      color: isActive && meta
+                        ? meta.color
+                        : isActive
+                          ? "var(--accent)"
+                          : "var(--ink-muted)",
+                      border: `1px solid ${
+                        isActive && meta
+                          ? `${meta.color}55`
+                          : isActive
+                            ? "var(--accent)"
+                            : "transparent"
+                      }`,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      minHeight: 28,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {p === "ALL" ? "All priority" : meta?.label || p}
+                  </button>
+                );
+              })}
+              {(taskFilter !== "ALL" ||
+                taskPriorityFilter !== "ALL" ||
+                taskSearch) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTaskFilter("ALL");
+                    setTaskPriorityFilter("ALL");
+                    setTaskSearch("");
+                  }}
+                  style={{
+                    flexShrink: 0,
+                    marginLeft: "auto",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--ink-muted)",
+                    fontFamily: "inherit",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: ".04em",
+                    padding: "4px 6px",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
             <PwaList
               items={visibleTasks}
               empty={
@@ -3302,72 +3614,83 @@ export default function HomeDashboard() {
       </PwaPanel>
 
       <PwaPanel
-        title="Recent purchase"
+        title="Recent purchases"
         icon={<Icons.truck />}
         defaultOpen={false}
       >
-        {!recentPO ? (
+        {recentPOs.length === 0 ? (
           <div className="list-empty">No PO this month</div>
         ) : (
-          <div className="list-item">
-            <div className="row" style={{ marginBottom: 8 }}>
-              <div className="grow">
-                <div style={{ fontWeight: 600 }}>PO #{recentPO.id}</div>
-                <div className="muted" style={{ fontSize: 11 }}>
-                  {recentPO.supplier}
+          <PwaList
+            items={recentPOs}
+            empty="No PO this month"
+            initial={5}
+            keyExtractor={(po) => po.id}
+            render={(po) => (
+              <div className="list-item">
+                <div className="row" style={{ marginBottom: 8 }}>
+                  <div className="grow">
+                    <div style={{ fontWeight: 600 }}>PO #{po.id}</div>
+                    <div className="muted" style={{ fontSize: 11 }}>
+                      {po.supplier}
+                    </div>
+                    <div className="muted" style={{ fontSize: 11 }}>
+                      {po.date
+                        ? new Date(po.date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "—"}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div
+                      className="muted"
+                      style={{
+                        fontSize: 10,
+                        textTransform: "uppercase",
+                        letterSpacing: ".04em",
+                      }}
+                    >
+                      Total
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>
+                      {displayMoneyCompact(moneyUnlocked, po.total)}
+                    </div>
+                  </div>
                 </div>
-                <div className="muted" style={{ fontSize: 11 }}>
-                  {recentPO.date
-                    ? new Date(recentPO.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    : "—"}
-                </div>
+                <PwaList
+                  items={safe(po.items)}
+                  empty="No items"
+                  initial={3}
+                  render={(it) => (
+                    <div
+                      className="row"
+                      style={{ padding: "6px 0", fontSize: 12 }}
+                    >
+                      <span className="grow truncate">
+                        {it.material_name || it.name}
+                      </span>
+                      <span
+                        className="muted"
+                        style={{ fontSize: 11, marginRight: 8 }}
+                      >
+                        {it.quantity} {it.unit}
+                      </span>
+                      <span style={{ fontWeight: 600 }}>
+                        {displayMoneyCompact(
+                          moneyUnlocked,
+                          Number(it.quantity || 0) *
+                            Number(it.unit_price || it.price || 0),
+                        )}
+                      </span>
+                    </div>
+                  )}
+                />
               </div>
-              <div style={{ textAlign: "right" }}>
-                <div
-                  className="muted"
-                  style={{
-                    fontSize: 10,
-                    textTransform: "uppercase",
-                    letterSpacing: ".04em",
-                  }}
-                >
-                  Total
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>
-                  {displayMoneyCompact(moneyUnlocked, recentPO.total)}
-                </div>
-              </div>
-            </div>
-            <PwaList
-              items={safe(recentPO.items)}
-              empty="No items"
-              initial={3}
-              render={(it) => (
-                <div className="row" style={{ padding: "6px 0", fontSize: 12 }}>
-                  <span className="grow truncate">
-                    {it.material_name || it.name}
-                  </span>
-                  <span
-                    className="muted"
-                    style={{ fontSize: 11, marginRight: 8 }}
-                  >
-                    {it.quantity} {it.unit}
-                  </span>
-                  <span style={{ fontWeight: 600 }}>
-                    {displayMoneyCompact(
-                      moneyUnlocked,
-                      Number(it.quantity || 0) *
-                        Number(it.unit_price || it.price || 0),
-                    )}
-                  </span>
-                </div>
-              )}
-            />
-          </div>
+            )}
+          />
         )}
       </PwaPanel>
     </div>
@@ -3826,6 +4149,7 @@ export default function HomeDashboard() {
           onChange={setTaskDay}
           notifPermission={notifPermission}
           onRequestNotif={requestNotifPermission}
+          tasks={tasks}
         />
         <div className="p-3 space-y-2">
           {loadingAll && tasks.length === 0 ? (
@@ -3844,109 +4168,113 @@ export default function HomeDashboard() {
                 : "No tasks match this filter"}
             </div>
           ) : (
-            visibleTasks.map((t) => {
-              const prio =
-                TASK_PRIORITIES.find((p) => p.value === t.priority) ||
-                TASK_PRIORITIES[1];
-              const overdue = isTaskOverdue(t);
-              const isToday = !t.done && t.dueDate === todayISO();
-              return (
-                <div
-                  key={t.id}
-                  className="check-row group flex items-center gap-3 rounded-lg transition-colors"
-                  style={{
-                    // Priority color rail + subtle tint when not done.
-                    borderLeft: `3px solid ${prio.color}`,
-                    background: t.done ? "transparent" : `${prio.color}0A`,
-                    padding: "12px 14px 12px 13px",
-                  }}
-                >
+            <ExpandableSection
+              items={visibleTasks}
+              initial={5}
+              keyExtractor={(t) => t.id}
+              renderItem={(t) => {
+                const prio =
+                  TASK_PRIORITIES.find((p) => p.value === t.priority) ||
+                  TASK_PRIORITIES[1];
+                const overdue = isTaskOverdue(t);
+                const isToday = !t.done && t.dueDate === todayISO();
+                return (
                   <div
-                    onClick={() => toggleTask(t.id)}
-                    className="w-4 h-4 rounded border flex items-center justify-center shrink-0 cursor-pointer transition-colors"
+                    className="check-row group flex items-center gap-3 rounded-lg transition-colors"
                     style={{
-                      borderColor: t.done ? prio.color : prio.color + "55",
-                      background: t.done ? prio.color : "transparent",
+                      // Priority color rail + subtle tint when not done.
+                      borderLeft: `3px solid ${prio.color}`,
+                      background: t.done ? "transparent" : `${prio.color}0A`,
+                      padding: "12px 14px 12px 13px",
                     }}
                   >
-                    {t.done && <Icons.check />}
-                  </div>
-                  <div
-                    className="flex-1 min-w-0 cursor-pointer"
-                    onClick={() => toggleTask(t.id)}
-                  >
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className="text-sm"
-                        style={{
-                          color: t.done ? "var(--ink-muted)" : "var(--ink)",
-                          textDecoration: t.done ? "line-through" : "none",
-                        }}
-                      >
-                        {t.text}
-                      </span>
-                      <PriorityChip priority={t.priority} />
-                      {t.dueTime && (
-                        <span
-                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded inline-flex items-center gap-1"
-                          style={{
-                            background: TASK_BLUE_SOFT,
-                            color: TASK_BLUE,
-                          }}
-                        >
-                          <Icons.clock /> {t.dueTime}
-                        </span>
-                      )}
+                    <div
+                      onClick={() => toggleTask(t.id)}
+                      className="w-4 h-4 rounded border flex items-center justify-center shrink-0 cursor-pointer transition-colors"
+                      style={{
+                        borderColor: t.done ? prio.color : prio.color + "55",
+                        background: t.done ? prio.color : "transparent",
+                      }}
+                    >
+                      {t.done && <Icons.check />}
                     </div>
                     <div
-                      className="flex items-center gap-2 mt-1.5 text-[11px]"
-                      style={{ color: "var(--ink-muted)" }}
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => toggleTask(t.id)}
                     >
-                      {t.assignee && <span>{t.assignee}</span>}
-                      {t.assignee && t.dueDate && <span>·</span>}
-                      {t.dueDate && (
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span
+                          className="text-sm"
                           style={{
-                            color: overdue
-                              ? "var(--stage-contract)"
-                              : isToday
-                                ? TASK_BLUE
-                                : "var(--ink-muted)",
-                            fontWeight: overdue || isToday ? 600 : 400,
+                            color: t.done ? "var(--ink-muted)" : "var(--ink)",
+                            textDecoration: t.done ? "line-through" : "none",
                           }}
                         >
-                          {overdue
-                            ? "Overdue"
-                            : isToday
-                              ? "Due today"
-                              : `Due ${new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                          {t.text}
                         </span>
-                      )}
+                        <PriorityChip priority={t.priority} />
+                        {t.dueTime && (
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded inline-flex items-center gap-1"
+                            style={{
+                              background: TASK_BLUE_SOFT,
+                              color: TASK_BLUE,
+                            }}
+                          >
+                            <Icons.clock /> {t.dueTime}
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        className="flex items-center gap-2 mt-1.5 text-[11px]"
+                        style={{ color: "var(--ink-muted)" }}
+                      >
+                        {t.assignee && <span>{t.assignee}</span>}
+                        {t.assignee && t.dueDate && <span>·</span>}
+                        {t.dueDate && (
+                          <span
+                            style={{
+                              color: overdue
+                                ? "var(--stage-contract)"
+                                : isToday
+                                  ? TASK_BLUE
+                                  : "var(--ink-muted)",
+                              fontWeight: overdue || isToday ? 600 : 400,
+                            }}
+                          >
+                            {overdue
+                              ? "Overdue"
+                              : isToday
+                                ? "Due today"
+                                : `Due ${new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() =>
+                          setModal({ type: "EDIT_TASK", payload: t })
+                        }
+                        className="p-1.5 rounded"
+                        style={{ color: "var(--ink-muted)" }}
+                        aria-label="Edit task"
+                      >
+                        <Icons.edit />
+                      </button>
+                      <button
+                        onClick={() => deleteTask(t.id)}
+                        className="p-1.5 rounded"
+                        style={{ color: "var(--ink-muted)" }}
+                        aria-label="Delete task"
+                      >
+                        <Icons.trash />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() =>
-                        setModal({ type: "EDIT_TASK", payload: t })
-                      }
-                      className="p-1.5 rounded"
-                      style={{ color: "var(--ink-muted)" }}
-                      aria-label="Edit task"
-                    >
-                      <Icons.edit />
-                    </button>
-                    <button
-                      onClick={() => deleteTask(t.id)}
-                      className="p-1.5 rounded"
-                      style={{ color: "var(--ink-muted)" }}
-                      aria-label="Delete task"
-                    >
-                      <Icons.trash />
-                    </button>
-                  </div>
-                </div>
-              );
-            })
+                );
+              }}
+            />
           )}
         </div>
         <div
@@ -3993,64 +4321,67 @@ export default function HomeDashboard() {
                   No workers yet
                 </div>
               ) : (
-                workers.map((w) => {
-                  const status = attendance[w.id];
-                  const name = w.full_name || w.shortName || w.name || "Worker";
-                  return (
-                    <div
-                      key={w.id}
-                      className="relative flex items-center gap-3 p-3 rounded-lg panel-hover"
-                    >
-                      <div className="relative shrink-0">
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold"
-                          style={{
-                            background: "var(--surface-2)",
-                            color: "var(--accent)",
-                          }}
-                        >
-                          {initials(name)}
-                        </div>
-                        {status === "PRESENT" && (
-                          <span
-                            className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-pulse"
+                <ExpandableSection
+                  items={workers}
+                  initial={5}
+                  keyExtractor={(w) => w.id}
+                  renderItem={(w) => {
+                    const status = attendance[w.id];
+                    const name =
+                      w.full_name || w.shortName || w.name || "Worker";
+                    return (
+                      <div className="relative flex items-center gap-3 p-3 rounded-lg panel-hover">
+                        <div className="relative shrink-0">
+                          <div
+                            className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold"
                             style={{
-                              background: "var(--stage-completed)",
-                              color: "var(--stage-completed)",
+                              background: "var(--surface-2)",
+                              color: "var(--accent)",
                             }}
-                          />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-sm font-medium truncate">
-                            {name}
-                          </span>
-                          <span
-                            className="text-[11px]"
+                          >
+                            {initials(name)}
+                          </div>
+                          {status === "PRESENT" && (
+                            <span
+                              className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-pulse"
+                              style={{
+                                background: "var(--stage-completed)",
+                                color: "var(--stage-completed)",
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-sm font-medium truncate">
+                              {name}
+                            </span>
+                            <span
+                              className="text-[11px]"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              · {w.role || "—"}
+                            </span>
+                          </div>
+                          <div
+                            className="text-[11px] truncate"
                             style={{ color: "var(--ink-muted)" }}
                           >
-                            · {w.role || "—"}
-                          </span>
+                            {w.hire_date
+                              ? `Joined ${new Date(w.hire_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
+                              : "No join date"}
+                          </div>
                         </div>
-                        <div
-                          className="text-[11px] truncate"
-                          style={{ color: "var(--ink-muted)" }}
-                        >
-                          {w.hire_date
-                            ? `Joined ${new Date(w.hire_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`
-                            : "No join date"}
-                        </div>
+                        <AttendanceBadge
+                          status={status}
+                          onCycle={() =>
+                            setWorkerStatus(w.id, cycleAttendance(status))
+                          }
+                        />
                       </div>
-                      <AttendanceBadge
-                        status={status}
-                        onCycle={() =>
-                          setWorkerStatus(w.id, cycleAttendance(status))
-                        }
-                      />
-                    </div>
-                  );
-                })
+                    );
+                  }}
+                />
               )}
             </div>
           </div>
@@ -4151,100 +4482,114 @@ export default function HomeDashboard() {
                       </td>
                     </tr>
                   ) : (
-                    ordersFiltered.map((o) => {
-                      const isToday = o.dueDate === todayISO();
-                      const isOver =
-                        o.dueDate &&
-                        new Date(o.dueDate) < new Date(todayISO()) &&
-                        o.stage !== "COMPLETED";
-                      return (
-                        <tr
-                          key={o.id}
-                          className="panel-hover transition-colors"
-                          style={{
-                            borderTop: "1px solid var(--border)",
-                            cursor: "pointer",
-                          }}
-                          onClick={() => openOrder(o.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              openOrder(o.id);
-                            }
-                          }}
-                          tabIndex={0}
-                        >
-                          <td className="px-5 py-3 font-medium">{o.id}</td>
-                          <td className="px-5 py-3">{o.client}</td>
-                          <td className="px-5 py-3">
-                            <div
-                              className="relative inline-block"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <StageBadge
-                                stage={o.stage}
-                                onClick={() =>
-                                  setActivePop(
-                                    activePop?.type === "order" &&
-                                      activePop.id === o.id
-                                      ? null
-                                      : { type: "order", id: o.id },
-                                  )
-                                }
-                              />
-                              <Popover
-                                open={
-                                  activePop?.type === "order" &&
-                                  activePop.id === o.id
-                                }
-                                onClose={() => setActivePop(null)}
+                    <ExpandableSection
+                      items={ordersFiltered}
+                      initial={5}
+                      keyExtractor={(o) => o.id}
+                      wrap={(list) => list}
+                      buttonWrap={(button) =>
+                        button && (
+                          <tr>
+                            <td colSpan={5} className="p-0">
+                              {button}
+                            </td>
+                          </tr>
+                        )
+                      }
+                      renderItem={(o) => {
+                        const isToday = o.dueDate === todayISO();
+                        const isOver =
+                          o.dueDate &&
+                          new Date(o.dueDate) < new Date(todayISO()) &&
+                          o.stage !== "COMPLETED";
+                        return (
+                          <tr
+                            className="panel-hover transition-colors"
+                            style={{
+                              borderTop: "1px solid var(--border)",
+                              cursor: "pointer",
+                            }}
+                            onClick={() => openOrder(o.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                openOrder(o.id);
+                              }
+                            }}
+                            tabIndex={0}
+                          >
+                            <td className="px-5 py-3 font-medium">{o.id}</td>
+                            <td className="px-5 py-3">{o.client}</td>
+                            <td className="px-5 py-3">
+                              <div
+                                className="relative inline-block"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <div
-                                  className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide"
-                                  style={{ color: "var(--ink-muted)" }}
-                                >
-                                  Move to stage
-                                </div>
-                                {STAGE_ORDER.map((s) => (
-                                  <div
-                                    key={s}
-                                    className={`popover-item ${o.stage === s ? "selected" : ""}`}
-                                    onClick={() => setOrderStage(o.id, s)}
-                                  >
-                                    {STAGE_MAP[s].label}
-                                  </div>
-                                ))}
-                              </Popover>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-right font-medium">
-                            {displayMoney(moneyUnlocked, o.amount)}
-                          </td>
-                          <td className="px-5 py-3">
-                            <span
-                              className="text-xs"
-                              style={{
-                                color: isOver
-                                  ? "var(--stage-contract)"
-                                  : isToday
-                                    ? "var(--accent)"
-                                    : "var(--ink-muted)",
-                                fontWeight: isToday || isOver ? 600 : 400,
-                              }}
-                            >
-                              {isToday
-                                ? "Today"
-                                : o.dueDate
-                                  ? new Date(o.dueDate).toLocaleDateString(
-                                      "en-US",
-                                      { month: "short", day: "numeric" },
+                                <StageBadge
+                                  stage={o.stage}
+                                  onClick={() =>
+                                    setActivePop(
+                                      activePop?.type === "order" &&
+                                        activePop.id === o.id
+                                        ? null
+                                        : { type: "order", id: o.id },
                                     )
-                                  : "—"}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })
+                                  }
+                                />
+                                <Popover
+                                  open={
+                                    activePop?.type === "order" &&
+                                    activePop.id === o.id
+                                  }
+                                  onClose={() => setActivePop(null)}
+                                >
+                                  <div
+                                    className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide"
+                                    style={{ color: "var(--ink-muted)" }}
+                                  >
+                                    Move to stage
+                                  </div>
+                                  {STAGE_ORDER.map((s) => (
+                                    <div
+                                      key={s}
+                                      className={`popover-item ${o.stage === s ? "selected" : ""}`}
+                                      onClick={() => setOrderStage(o.id, s)}
+                                    >
+                                      {STAGE_MAP[s].label}
+                                    </div>
+                                  ))}
+                                </Popover>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 text-right font-medium">
+                              {displayMoney(moneyUnlocked, o.amount)}
+                            </td>
+                            <td className="px-5 py-3">
+                              <span
+                                className="text-xs"
+                                style={{
+                                  color: isOver
+                                    ? "var(--stage-contract)"
+                                    : isToday
+                                      ? "var(--accent)"
+                                      : "var(--ink-muted)",
+                                  fontWeight: isToday || isOver ? 600 : 400,
+                                }}
+                              >
+                                {isToday
+                                  ? "Today"
+                                  : o.dueDate
+                                    ? new Date(o.dueDate).toLocaleDateString(
+                                        "en-US",
+                                        { month: "short", day: "numeric" },
+                                      )
+                                    : "—"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      }}
+                    />
                   )}
                 </tbody>
               </table>
@@ -4272,10 +4617,10 @@ export default function HomeDashboard() {
             <div className="panel">
               <SectionHead
                 icon={<Icons.package />}
-                title="Last Purchase Order"
+                title="Last 5 Purchase Orders"
               />
               <div className="p-5">
-                {!recentPO ? (
+                {recentPOs.length === 0 ? (
                   <div
                     className="text-center text-sm py-6"
                     style={{ color: "var(--ink-muted)" }}
@@ -4283,89 +4628,103 @@ export default function HomeDashboard() {
                     No purchase orders this month
                   </div>
                 ) : (
-                  <>
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="text-base font-semibold">
-                          PO #{recentPO.id}
-                        </div>
-                        <div
-                          className="text-xs mt-0.5"
-                          style={{ color: "var(--ink-muted)" }}
-                        >
-                          {recentPO.supplier}
-                        </div>
-                        <div
-                          className="text-[11px] mt-0.5 flex items-center gap-1"
-                          style={{ color: "var(--ink-muted)" }}
-                        >
-                          <Icons.calendar />{" "}
-                          {recentPO.date
-                            ? new Date(recentPO.date).toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                },
-                              )
-                            : "—"}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div
-                          className="text-[11px] font-medium uppercase tracking-wide"
-                          style={{ color: "var(--ink-muted)" }}
-                        >
-                          Total
-                        </div>
-                        <div
-                          className="text-lg font-bold mt-0.5"
-                          style={{ color: "var(--accent)" }}
-                        >
-                          {displayMoney(moneyUnlocked, recentPO.total)}
-                        </div>
-                      </div>
-                    </div>
-                    <div
-                      className="text-[11px] font-medium uppercase tracking-wide mb-2"
-                      style={{ color: "var(--ink-muted)" }}
-                    >
-                      Items ({safe(recentPO.items).length})
-                    </div>
-                    <div className="space-y-1.5">
-                      {safe(recentPO.items).map((it, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-2 py-1.5 px-2 rounded"
-                          style={{ background: "var(--surface-2)" }}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium truncate">
-                              {it.material_name || it.name}
+                  <div className="space-y-4">
+                    {recentPOs.map((po, idx) => (
+                      <div
+                        key={po.id ?? idx}
+                        style={
+                          idx > 0
+                            ? {
+                                borderTop: "1px solid var(--border)",
+                                paddingTop: 16,
+                              }
+                            : undefined
+                        }
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <div className="text-base font-semibold">
+                              PO #{po.id}
                             </div>
                             <div
-                              className="text-[10px]"
+                              className="text-xs mt-0.5"
                               style={{ color: "var(--ink-muted)" }}
                             >
-                              {it.quantity} {it.unit} ×{" "}
-                              {displayMoney(
-                                moneyUnlocked,
-                                it.unit_price || it.price,
-                              )}
+                              {po.supplier}
+                            </div>
+                            <div
+                              className="text-[11px] mt-0.5 flex items-center gap-1"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              <Icons.calendar />{" "}
+                              {po.date
+                                ? new Date(po.date).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    },
+                                  )
+                                : "—"}
                             </div>
                           </div>
-                          <div className="text-xs font-semibold shrink-0">
-                            {displayMoney(
-                              moneyUnlocked,
-                              Number(it.quantity || 0) *
-                                Number(it.unit_price || it.price || 0),
-                            )}
+                          <div className="text-right">
+                            <div
+                              className="text-[11px] font-medium uppercase tracking-wide"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              Total
+                            </div>
+                            <div
+                              className="text-lg font-bold mt-0.5"
+                              style={{ color: "var(--accent)" }}
+                            >
+                              {displayMoney(moneyUnlocked, po.total)}
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </>
+                        <div
+                          className="text-[11px] font-medium uppercase tracking-wide mb-2"
+                          style={{ color: "var(--ink-muted)" }}
+                        >
+                          Items ({safe(po.items).length})
+                        </div>
+                        <div className="space-y-1.5">
+                          {safe(po.items).map((it, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center gap-2 py-1.5 px-2 rounded"
+                              style={{ background: "var(--surface-2)" }}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-medium truncate">
+                                  {it.material_name || it.name}
+                                </div>
+                                <div
+                                  className="text-[10px]"
+                                  style={{ color: "var(--ink-muted)" }}
+                                >
+                                  {it.quantity} {it.unit} ×{" "}
+                                  {displayMoney(
+                                    moneyUnlocked,
+                                    it.unit_price || it.price,
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-xs font-semibold shrink-0">
+                                {displayMoney(
+                                  moneyUnlocked,
+                                  Number(it.quantity || 0) *
+                                    Number(it.unit_price || it.price || 0),
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -4477,63 +4836,67 @@ export default function HomeDashboard() {
                   ✓ All stock levels healthy
                 </div>
               ) : (
-                lowStockMaterials.slice(0, 5).map((m) => {
-                  const ratio = Math.min(
-                    Number(m.stock) / Math.max(1, Number(m.maxStock)),
-                    1,
-                  );
-                  const critical = Number(m.stock) <= 0;
-                  const color = critical
-                    ? "var(--stage-contract)"
-                    : "var(--accent)";
-                  return (
-                    <div
-                      key={m.id}
-                      className="p-3 rounded-lg"
-                      style={{ background: "var(--surface-2)" }}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="text-sm font-medium truncate">
-                          {m.name}
-                        </div>
-                        <div
-                          className="text-xs font-semibold shrink-0"
-                          style={{ color }}
-                        >
-                          {m.stock}
-                          <span
-                            className="font-normal"
-                            style={{ color: "var(--ink-muted)" }}
-                          >
-                            {" "}
-                            / {m.maxStock} {m.unit}
-                          </span>
-                        </div>
-                      </div>
+                <ExpandableSection
+                  items={lowStockMaterials}
+                  initial={5}
+                  keyExtractor={(m) => m.id}
+                  renderItem={(m) => {
+                    const ratio = Math.min(
+                      Number(m.stock) / Math.max(1, Number(m.maxStock)),
+                      1,
+                    );
+                    const critical = Number(m.stock) <= 0;
+                    const color = critical
+                      ? "var(--stage-contract)"
+                      : "var(--accent)";
+                    return (
                       <div
-                        className="h-1.5 rounded-full overflow-hidden"
-                        style={{ background: "var(--bg)" }}
+                        className="p-3 rounded-lg"
+                        style={{ background: "var(--surface-2)" }}
                       >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="text-sm font-medium truncate">
+                            {m.name}
+                          </div>
+                          <div
+                            className="text-xs font-semibold shrink-0"
+                            style={{ color }}
+                          >
+                            {m.stock}
+                            <span
+                              className="font-normal"
+                              style={{ color: "var(--ink-muted)" }}
+                            >
+                              {" "}
+                              / {m.maxStock} {m.unit}
+                            </span>
+                          </div>
+                        </div>
                         <div
-                          className="h-full bar-fill"
-                          style={{
-                            width: `${ratio * 100}%`,
-                            background: color,
-                          }}
-                        />
+                          className="h-1.5 rounded-full overflow-hidden"
+                          style={{ background: "var(--bg)" }}
+                        >
+                          <div
+                            className="h-full bar-fill"
+                            style={{
+                              width: `${ratio * 100}%`,
+                              background: color,
+                            }}
+                          />
+                        </div>
+                        <button
+                          onClick={() =>
+                            setModal({ type: "REORDER", payload: m })
+                          }
+                          className="text-[10px] mt-1.5 flex items-center gap-1"
+                          style={{ color: "var(--accent)" }}
+                        >
+                          <Icons.arrowRight /> Reorder
+                        </button>
                       </div>
-                      <button
-                        onClick={() =>
-                          setModal({ type: "REORDER", payload: m })
-                        }
-                        className="text-[10px] mt-1.5 flex items-center gap-1"
-                        style={{ color: "var(--accent)" }}
-                      >
-                        <Icons.arrowRight /> Reorder
-                      </button>
-                    </div>
-                  );
-                })
+                    );
+                  }}
+                />
               )}
             </div>
           </div>
@@ -5094,7 +5457,13 @@ const TaskForm = ({ onSubmit, onCancel, initialData, workers = [] }) => {
 /* ════════════════════════════════════════════════════════════════
    TASK DAY NAVIGATOR + NOTIFICATION TOGGLE
    ════════════════════════════════════════════════════════════════ */
-const TaskDayNav = ({ taskDay, onChange, notifPermission, onRequestNotif }) => {
+const TaskDayNav = ({
+  taskDay,
+  onChange,
+  notifPermission,
+  onRequestNotif,
+  tasks = [],
+}) => {
   const today = todayISO();
   const tomorrow = shiftDateISO(today, 1);
   const yesterday = shiftDateISO(today, -1);
@@ -5102,102 +5471,255 @@ const TaskDayNav = ({ taskDay, onChange, notifPermission, onRequestNotif }) => {
   const isTomorrow = taskDay === tomorrow;
   const isYesterday = taskDay === yesterday;
   const labelDate = new Date(taskDay + "T00:00:00");
-  const human = isToday
+  const subLabel = isToday
     ? "Today"
     : isTomorrow
       ? "Tomorrow"
       : isYesterday
         ? "Yesterday"
-        : labelDate.toLocaleDateString("en-US", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-          });
-  const showBell =
-    notifPermission === "default" || notifPermission === "denied";
+        : labelDate.toLocaleDateString("en-US", { weekday: "long" });
+  const mainLabel =
+    isToday || isTomorrow || isYesterday
+      ? labelDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : labelDate.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
+  // "Overdue" only makes sense if the selected day is in the past
+  // AND the user explicitly chose to look at it (i.e. not the default
+  // Today view) — otherwise the red treatment is just noise.
+  const isOverdueView = !isToday && taskDay < today;
+  const showBell = notifPermission === "default" || notifPermission === "denied";
+  // Counts for the three quick-jump pills. Computed from the full
+  // task list (not the visible one) so the badges reflect "what
+  // would I see if I tapped this", regardless of the active
+  // status / priority / search filters.
+  const openCount = (iso) =>
+    tasks.filter((t) => !t.done && t.dueDate === iso).length;
+  const cY = openCount(yesterday);
+  const cT = openCount(today);
+  const cM = openCount(tomorrow);
+
+  // Day label color: today → accent, past overdue → red, else ink.
+  const dayColor = isToday
+    ? "var(--accent)"
+    : isOverdueView
+      ? "var(--stage-contract)"
+      : "var(--ink)";
+
+  // Arrow button style — shared by prev/next.
+  const arrowBtnStyle = {
+    width: 36,
+    height: 36,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--surface-2)",
+    border: "1px solid var(--border)",
+    borderRadius: 10,
+    color: "var(--ink)",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    fontSize: 16,
+    fontWeight: 600,
+    lineHeight: 1,
+    flexShrink: 0,
+    WebkitTapHighlightColor: "transparent",
+    padding: 0,
+  };
+
+  // Round icon button (used for the calendar picker & notification bell).
+  const pickBtnStyle = (extra = {}) => ({
+    width: 30,
+    height: 30,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--surface-2)",
+    border: "1px solid var(--border)",
+    borderRadius: 999,
+    color: "var(--ink-muted)",
+    cursor: "pointer",
+    flexShrink: 0,
+    WebkitTapHighlightColor: "transparent",
+    position: "relative",
+    padding: 0,
+    ...extra,
+  });
+
+  // Quick-jump pill. Active = filled accent, otherwise muted, and
+  // when the day has open tasks we tint the badge accordingly.
+  const renderPill = (iso, label, count) => {
+    const active = taskDay === iso;
+    const has = count > 0;
+    const pillStyle = {
+      flex: 1,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 30,
+      padding: "5px 8px",
+      borderRadius: 999,
+      background: active ? "var(--accent)" : "var(--surface-2)",
+      color: active ? "#fff" : has ? "var(--ink)" : "var(--ink-muted)",
+      fontFamily: "inherit",
+      fontSize: 11,
+      fontWeight: 600,
+      border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+      cursor: "pointer",
+      WebkitTapHighlightColor: "transparent",
+      paddingTop: 5,
+      paddingBottom: 5,
+    };
+    const countStyle = {
+      marginLeft: 5,
+      fontSize: 9,
+      fontWeight: 700,
+      padding: "1px 5px",
+      borderRadius: 999,
+      background: active ? "rgba(255,255,255,.22)" : "var(--surface)",
+      color: active ? "#fff" : "var(--ink-muted)",
+    };
+    return (
+      <button
+        key={iso}
+        type="button"
+        onClick={() => onChange(iso)}
+        style={pillStyle}
+        aria-pressed={active}
+      >
+        {label}
+        {has && <span style={countStyle}>{count}</span>}
+      </button>
+    );
+  };
+
   return (
     <div
-      className="row"
       style={{
-        padding: "10px 14px",
         borderTop: "1px solid var(--border)",
-        gap: 6,
-        background: "var(--surface-2)",
+        background: "var(--surface)",
       }}
     >
-      <button
-        type="button"
-        onClick={() => onChange(shiftDateISO(taskDay, -1))}
-        className="btn-ghost"
-        style={{ padding: "6px 8px", borderRadius: 8 }}
-        aria-label="Previous day"
-      >
-        ‹
-      </button>
+      {/* Row 1 — day pager: single prominent date with arrow buttons.
+         The date label swaps "Today / Tomorrow / Yesterday" into the
+         sub-line so the user always knows what context they're in. */}
       <div
-        className="grow row"
         style={{
+          display: "flex",
+          alignItems: "center",
           gap: 4,
-          justifyContent: "center",
-          flexWrap: "wrap",
+          padding: "10px 8px 6px",
         }}
       >
         <button
           type="button"
-          onClick={() => onChange(today)}
-          className="text-[11px] font-semibold px-2.5 py-1 rounded-md"
+          onClick={() => onChange(shiftDateISO(taskDay, -1))}
+          style={arrowBtnStyle}
+          aria-label="Previous day"
+        >
+          ‹
+        </button>
+        <div
           style={{
-            background: isToday ? TASK_BLUE : "transparent",
-            color: isToday ? "#fff" : "var(--ink-muted)",
+            flex: 1,
+            minWidth: 0,
+            textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 1,
           }}
         >
-          Today
-        </button>
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: dayColor,
+              letterSpacing: "-.01em",
+              lineHeight: 1.1,
+            }}
+          >
+            {mainLabel}
+          </span>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: "var(--ink-muted)",
+              textTransform: "uppercase",
+              letterSpacing: ".04em",
+              lineHeight: 1,
+            }}
+          >
+            {subLabel}
+          </span>
+        </div>
         <button
           type="button"
-          onClick={() => onChange(tomorrow)}
-          className="text-[11px] font-semibold px-2.5 py-1 rounded-md"
-          style={{
-            background: isTomorrow ? TASK_BLUE : "transparent",
-            color: isTomorrow ? "#fff" : "var(--ink-muted)",
-          }}
+          onClick={() => onChange(shiftDateISO(taskDay, 1))}
+          style={arrowBtnStyle}
+          aria-label="Next day"
         >
-          Tomorrow
+          ›
         </button>
-        <span
-          className="text-[11px] truncate"
-          style={{ color: "var(--ink-muted)", marginLeft: 4 }}
-        >
-          {human}
-          {human === "Today" || human === "Tomorrow" || human === "Yesterday"
-            ? ""
-            : ` · ${labelDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
-        </span>
       </div>
-      <button
-        type="button"
-        onClick={() => onChange(shiftDateISO(taskDay, 1))}
-        className="btn-ghost"
-        style={{ padding: "6px 8px", borderRadius: 8 }}
-        aria-label="Next day"
+      {/* Row 2 — quick jumps: Yesterday / Today / Tomorrow, with open
+         task counts so the user can see at a glance which day needs
+         attention. The calendar icon on the right is a native date
+         picker for jumping to any specific day. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "0 10px 10px",
+        }}
       >
-        ›
-      </button>
-      {showBell && (
-        <button
-          type="button"
-          onClick={onRequestNotif}
-          className="text-[10px] font-semibold px-2 py-1 rounded-md"
-          style={{
-            background: TASK_BLUE_SOFT,
-            color: TASK_BLUE,
-            whiteSpace: "nowrap",
-          }}
-          title="Enable browser notifications"
+        {renderPill(yesterday, "Yesterday", cY)}
+        {renderPill(today, "Today", cT)}
+        {renderPill(tomorrow, "Tomorrow", cM)}
+        <label
+          style={pickBtnStyle()}
+          title="Jump to date"
+          aria-label="Jump to date"
         >
-          🔔 Notify
-        </button>
-      )}
+          <Icons.calendar />
+          {/* Hide the native date picker chrome but keep it functional.
+              We render our own calendar icon as the visual affordance. */}
+          <input
+            type="date"
+            value={taskDay}
+            onChange={(e) => {
+              if (e.target.value) onChange(e.target.value);
+            }}
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: 0,
+              width: "100%",
+              height: "100%",
+              cursor: "pointer",
+              border: "none",
+              padding: 0,
+              colorScheme: "dark",
+            }}
+          />
+        </label>
+        {showBell && (
+          <button
+            type="button"
+            onClick={onRequestNotif}
+            style={pickBtnStyle({ color: TASK_BLUE })}
+            title="Enable browser notifications"
+            aria-label="Enable browser notifications"
+          >
+            <Icons.bell />
+          </button>
+        )}
+      </div>
     </div>
   );
 };
