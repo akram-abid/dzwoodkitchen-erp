@@ -538,6 +538,21 @@ export default function FleetClient({ initialVehicles = [] }) {
         );
       }
 
+      // add trip cost to other expenses.
+      if (cost > 0) {
+        await fetch("/api/ledger", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "OTHER_EXPENSE",
+            date: tripForm.date,
+            amount: cost,
+            otherCategoryId: 4, // ID for "Transport" category in other_expense_categories
+            note: `Trip ${tripForm.purpose} - ${truck.name} (${distance} km)`,
+          }),
+        });
+      }
+
       setShowTripModal(false);
     } catch (error) {
       setTripError(error.message);
