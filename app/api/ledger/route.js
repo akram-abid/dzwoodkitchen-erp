@@ -17,6 +17,7 @@ export async function GET(request) {
       month: searchParams.get("month") ?? undefined,
       year: searchParams.get("year") ?? undefined,
       search: searchParams.get("search") ?? undefined,
+      tripId: searchParams.get("tripId") ?? undefined,
     });
 
     return NextResponse.json(result);

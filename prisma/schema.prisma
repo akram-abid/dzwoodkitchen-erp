@@ -492,6 +492,7 @@ model other_expenses {
   amount            Decimal  @db.Decimal(10, 2)
   reference         String?  @db.VarChar(100)
   note              String?
+  trip_id           Int? // links to vehicle_trips
   created_at        DateTime @default(now()) @db.Timestamp(6)
   updated_at        DateTime @default(now()) @db.Timestamp(6)
 

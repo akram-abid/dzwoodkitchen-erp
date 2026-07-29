@@ -213,20 +213,14 @@ function serialize(type, row) {
   if (type === TYPE.OTHER_EXPENSE) {
     return {
       id: row.id,
-
       type,
-
       date: toDateString(row.date),
-
       amount: Number(row.amount),
-
       reference: row.reference,
-
       note: row.note,
-
       otherCategoryId: row.other_category_id,
-
       otherCategory: row.category?.name || null,
+      tripId: row.trip_id,
     };
   }
 
@@ -241,16 +235,12 @@ function serialize(type, row) {
 
 export async function getEntries({
   page = 1,
-
   pageSize = 100,
-
   type,
-
   month,
-
   year,
-
   search,
+  tripId,
 } = {}) {
   // Coerce to numbers — query strings come in as strings, Prisma needs ints.
 
@@ -260,9 +250,9 @@ export async function getEntries({
 
   const types = type
     ? String(type)
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
     : Object.values(TYPE);
 
   const dateRange = buildDateRange(month, year);
@@ -274,57 +264,57 @@ export async function getEntries({
   const [incomeRows, workerRows, materialRows, otherRows] = await Promise.all([
     types.includes(TYPE.INCOME)
       ? prisma.incomes.findMany({
-          where: { ...(dateRange || {}), ...(searchFilter.income || {}) },
-          orderBy: [{ date: "desc" }, { id: "desc" }],
-          skip: (numPage - 1) * numPageSize,
-          take: numPageSize,
-        })
+        where: { ...(dateRange || {}), ...(searchFilter.income || {}) },
+        orderBy: [{ date: "desc" }, { id: "desc" }],
+        skip: (numPage - 1) * numPageSize,
+        take: numPageSize,
+      })
       : [],
 
     types.includes(TYPE.WORKER_PAYMENT)
       ? prisma.workersPayments.findMany({
-          where: { ...(dateRange || {}), ...(searchFilter.worker || {}) },
+        where: { ...(dateRange || {}), ...(searchFilter.worker || {}) },
 
-          include: { worker: { select: { id: true, full_name: true } } },
+        include: { worker: { select: { id: true, full_name: true } } },
 
-          orderBy: [{ date: "desc" }, { id: "desc" }],
+        orderBy: [{ date: "desc" }, { id: "desc" }],
 
-          skip: (numPage - 1) * numPageSize,
+        skip: (numPage - 1) * numPageSize,
 
-          take: numPageSize,
-        })
+        take: numPageSize,
+      })
       : [],
 
     types.includes(TYPE.MATERIAL_PURCHASE)
       ? prisma.material_purchases.findMany({
-          where: { ...(dateRange || {}), ...(searchFilter.material || {}) },
+        where: { ...(dateRange || {}), ...(searchFilter.material || {}) },
 
-          include: {
-            supplier: { select: { id: true, name: true } },
+        include: {
+          supplier: { select: { id: true, name: true } },
 
-            items: { orderBy: { id: "asc" } },
-          },
+          items: { orderBy: { id: "asc" } },
+        },
 
-          orderBy: [{ date: "desc" }, { id: "desc" }],
+        orderBy: [{ date: "desc" }, { id: "desc" }],
 
-          skip: (numPage - 1) * numPageSize,
+        skip: (numPage - 1) * numPageSize,
 
-          take: numPageSize,
-        })
+        take: numPageSize,
+      })
       : [],
 
     types.includes(TYPE.OTHER_EXPENSE)
       ? prisma.other_expenses.findMany({
-          where: { ...(dateRange || {}), ...(searchFilter.other || {}) },
-
-          include: { category: { select: { id: true, name: true } } },
-
-          orderBy: [{ date: "desc" }, { id: "desc" }],
-
-          skip: (numPage - 1) * numPageSize,
-
-          take: numPageSize,
-        })
+        where: {
+          ...(dateRange || {}),
+          ...(searchFilter.other || {}),
+          ...(tripId ? { trip_id: Number(tripId) } : {}),
+        },
+        include: { category: { select: { id: true, name: true } } },
+        orderBy: [{ date: "desc" }, { id: "desc" }],
+        skip: (numPage - 1) * numPageSize,
+        take: numPageSize,
+      })
       : [],
   ]);
 
@@ -467,18 +457,18 @@ export async function createEntry(input) {
 
             items: items.length
               ? {
-                  create: items.map((it) => ({
-                    material_id: it.materialId ?? null,
+                create: items.map((it) => ({
+                  material_id: it.materialId ?? null,
 
-                    material_name: it.materialName,
+                  material_name: it.materialName,
 
-                    quantity: it.quantity,
+                  quantity: it.quantity,
 
-                    unit: it.unit,
+                  unit: it.unit,
 
-                    unit_price: it.unitPrice,
-                  })),
-                }
+                  unit_price: it.unitPrice,
+                })),
+              }
               : undefined,
           },
 
@@ -499,19 +489,14 @@ export async function createEntry(input) {
       const created = await prisma.other_expenses.create({
         data: {
           other_category_id: input.otherCategoryId,
-
           date: toDate(input.date),
-
           amount: input.amount,
-
           reference: input.reference ?? null,
-
           note: input.note ?? null,
+          trip_id: input.tripId ?? null,
         },
-
         include: { category: { select: { id: true, name: true } } },
       });
-
       return serialize(TYPE.OTHER_EXPENSE, created);
     }
 
@@ -605,20 +590,20 @@ export async function updateEntry(type, id, input) {
 
             ...(items.length
               ? {
-                  items: {
-                    create: items.map((it) => ({
-                      material_id: it.materialId ?? null,
+                items: {
+                  create: items.map((it) => ({
+                    material_id: it.materialId ?? null,
 
-                      material_name: it.materialName,
+                    material_name: it.materialName,
 
-                      quantity: it.quantity,
+                    quantity: it.quantity,
 
-                      unit: it.unit,
+                    unit: it.unit,
 
-                      unit_price: it.unitPrice,
-                    })),
-                  },
-                }
+                    unit_price: it.unitPrice,
+                  })),
+                },
+              }
               : {}),
           },
 
@@ -646,22 +631,16 @@ export async function updateEntry(type, id, input) {
     case TYPE.OTHER_EXPENSE: {
       const updated = await prisma.other_expenses.update({
         where: { id: numId },
-
         data: {
           other_category_id: input.otherCategoryId,
-
           date: toDate(input.date),
-
           amount: input.amount,
-
           reference: input.reference ?? null,
-
           note: input.note ?? null,
+          trip_id: input.tripId ?? null,
         },
-
         include: { category: { select: { id: true, name: true } } },
       });
-
       return serialize(TYPE.OTHER_EXPENSE, updated);
     }
 

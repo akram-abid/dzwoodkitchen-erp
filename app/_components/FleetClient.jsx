@@ -538,19 +538,59 @@ export default function FleetClient({ initialVehicles = [] }) {
         );
       }
 
-      // add trip cost to other expenses.
+      // HANDLE LEDGER ENTRY FOR TRIP COST
       if (cost > 0) {
-        await fetch("/api/ledger", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "OTHER_EXPENSE",
-            date: tripForm.date,
-            amount: cost,
-            otherCategoryId: 4, // ID for "Transport" category in other_expense_categories
-            note: `Trip ${tripForm.purpose} - ${truck.name} (${distance} km)`,
-          }),
-        });
+        const note = `Trip ${tripForm.purpose} - ${truck.name} (${distance} km)`;
+        const ledgerPayload = {
+          type: "OTHER_EXPENSE",
+          date: tripForm.date,
+          amount: cost,
+          otherCategoryId: 4, // Transport category
+          note: note,
+          reference: `TRIP-${mapped.id || editingTripId || 'NEW'}`,  // Add reference
+          tripId: mapped.id || editingTripId || null,  // Add trip ID
+        };
+
+        if (editingTripId) {
+          try {
+            const searchRes = await fetch(`/api/ledger?type=OTHER_EXPENSE&tripId=${mapped.id}`);
+            const searchData = await searchRes.json();
+            const existingEntry = searchData.data?.[0];
+
+            if (existingEntry) {
+              await fetch(`/api/ledger/${existingEntry.id}?type=OTHER_EXPENSE`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  date: tripForm.date,
+                  amount: cost,
+                  otherCategoryId: 4,
+                  note: note,
+                  reference: `TRIP-${mapped.id}`,
+                  tripId: mapped.id,
+                }),
+              });
+            } else {
+              await fetch("/api/ledger", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(ledgerPayload),
+              });
+            }
+          } catch (ledgerError) {
+            console.error("Error updating ledger entry:", ledgerError);
+          }
+        } else {
+          try {
+            await fetch("/api/ledger", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(ledgerPayload),
+            });
+          } catch (ledgerError) {
+            console.error("Error creating ledger entry:", ledgerError);
+          }
+        }
       }
 
       setShowTripModal(false);
