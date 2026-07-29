@@ -602,6 +602,25 @@ export default function FleetClient({ initialVehicles = [] }) {
     if (!confirm("Delete this trip?")) return;
 
     try {
+      try {
+        // Search by trip_id
+        const searchRes = await fetch(`/api/ledger?type=OTHER_EXPENSE&tripId=${id}`);
+        const searchData = await searchRes.json();
+
+        const existingEntry = searchData.data?.find(e => e.tripId === Number(id));
+
+        if (existingEntry) {
+          await fetch(`/api/ledger/${existingEntry.id}?type=OTHER_EXPENSE`, {
+            method: "DELETE",
+          });
+          console.log(`✅ Deleted ledger entry for trip ${id}`);
+        } else {
+          console.log(`ℹ️ No ledger entry found for trip ${id}`);
+        }
+      } catch (ledgerError) {
+        console.error("Error deleting ledger entry:", ledgerError);
+      }
+
       const res = await fetch(`/api/vehicles_trips/${id}`, {
         method: "DELETE",
       });
