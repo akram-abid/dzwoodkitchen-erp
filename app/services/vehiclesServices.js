@@ -91,8 +91,7 @@ export async function createTrip(data) {
         data: {
             vehicle_id: parseInt(data.vehicleId),
             date: new Date(data.date),
-            start_km: data.startKm,
-            end_km: data.endKm,
+            distance: data.distance,
             purpose: data.purpose,
             cost: data.cost,
             order_id: data.orderId ? parseInt(data.orderId) : null,
@@ -101,18 +100,17 @@ export async function createTrip(data) {
     });
 
     // Update vehicle current_km
-    if (data.endKm) {
+    if (data.distance) {
         await prisma.vehicles.update({
             where: { id: parseInt(data.vehicleId) },
-            data: { current_km: data.endKm },
+            data: { current_km: { increment: data.distance } },
         });
     }
 
     return {
         id: trip.id,
         date: trip.date.toISOString().split("T")[0],
-        startKm: Number(trip.start_km),
-        endKm: Number(trip.end_km),
+        distance: Number(trip.distance),
         purpose: trip.purpose,
         cost: Number(trip.cost),
         orderId: trip.order_id,
@@ -129,8 +127,7 @@ export async function getTripsByVehicle(vehicleId) {
     return trips.map(t => ({
         id: t.id,
         date: t.date.toISOString().split("T")[0],
-        startKm: Number(t.start_km),
-        endKm: Number(t.end_km),
+        distance: Number(t.distance),
         purpose: t.purpose,
         cost: Number(t.cost),
         orderId: t.order_id,
@@ -157,8 +154,7 @@ export async function getAllVehicleTrips() {
         vehicleName: t.vehicle?.name || null,
         plateNumber: t.vehicle?.plate_number || null,
         date: t.date.toISOString().split("T")[0],
-        startKm: Number(t.start_km),
-        endKm: Number(t.end_km),
+        distance: Number(t.distance),
         purpose: t.purpose,
         cost: Number(t.cost),
         orderId: t.order_id,
@@ -173,8 +169,7 @@ export async function updateTrip(id, data) {
         where: { id: parseInt(id) },
         data: {
             date: new Date(data.date),
-            start_km: data.startKm,
-            end_km: data.endKm,
+            distance: data.distance,
             purpose: data.purpose,
             cost: data.cost,
             order_id: data.orderId ? parseInt(data.orderId) : null,
@@ -183,18 +178,17 @@ export async function updateTrip(id, data) {
     });
 
     // Update vehicle current_km
-    if (data.endKm) {
+    if (data.distance) {
         await prisma.vehicles.update({
             where: { id: parseInt(data.vehicleId) },
-            data: { current_km: data.endKm },
+            data: { current_km: { increment: data.distance } },
         });
     }
 
     return {
         id: trip.id,
         date: trip.date.toISOString().split("T")[0],
-        startKm: Number(trip.start_km),
-        endKm: Number(trip.end_km),
+        distance: Number(trip.distance),
         purpose: trip.purpose,
         cost: Number(trip.cost),
         orderId: trip.order_id,

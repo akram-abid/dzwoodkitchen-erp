@@ -72,21 +72,20 @@ const SEED_ORDERS = [
 // ];
 
 const SEED_TRIPS = [
-  { id: "TRP-001", truckId: "AST-010", date: "2026-04-20", startKm: 85100, endKm: 85165, purpose: "DELIVERY", cost: 2800, orderId: "ORD-2026-0142", notes: "Final delivery + on-site assembly" },
-  { id: "TRP-002", truckId: "AST-010", date: "2026-05-05", startKm: 85165, endKm: 85310, purpose: "DELIVERY", cost: 3500, orderId: "ORD-2026-0158", notes: "Two helpers, dressing delivery" },
-  { id: "TRP-003", truckId: "AST-010", date: "2026-05-15", startKm: 85310, endKm: 85340, purpose: "PICKUP", cost: 2200, orderId: null, notes: "Plywood from Bois du Nord" },
-  { id: "TRP-004", truckId: "AST-010", date: "2026-05-18", startKm: 85340, endKm: 85420, purpose: "DELIVERY", cost: 3000, orderId: "ORD-2026-0167", notes: "Office furniture" },
-  { id: "TRP-005", truckId: "AST-010", date: "2026-06-02", startKm: 85420, endKm: 85515, purpose: "DELIVERY", cost: 3200, orderId: "ORD-2026-0171", notes: "" },
-  { id: "TRP-006", truckId: "AST-010", date: "2026-06-15", startKm: 85515, endKm: 85640, purpose: "DELIVERY", cost: 3800, orderId: null, notes: "Multi-stop" },
-  { id: "TRP-007", truckId: "AST-010", date: "2026-06-22", startKm: 85640, endKm: 85735, purpose: "DELIVERY", cost: 3400, orderId: "ORD-2026-0185", notes: "Living room set" },
-  { id: "TRP-008", truckId: "AST-010", date: "2026-06-28", startKm: 85735, endKm: 85795, purpose: "MAINTENANCE", cost: 1500, orderId: null, notes: "To mechanic, oil change" },
-  { id: "TRP-009", truckId: "AST-010", date: "2026-07-03", startKm: 85800, endKm: 85905, purpose: "DELIVERY", cost: 3600, orderId: "ORD-2026-0190", notes: "" },
-  { id: "TRP-010", truckId: "AST-010", date: "2026-07-05", startKm: 85905, endKm: 85975, purpose: "PICKUP", cost: 2800, orderId: null, notes: "Quartz slabs from Marbre Elite" },
+  { id: "TRP-001", truckId: "AST-010", date: "2026-04-20", distance: 85, purpose: "DELIVERY", cost: 2800, orderId: "ORD-2026-0142", notes: "Final delivery + on-site assembly" },
+  { id: "TRP-002", truckId: "AST-010", date: "2026-05-05", distance: 85, purpose: "DELIVERY", cost: 3500, orderId: "ORD-2026-0158", notes: "Two helpers, dressing delivery" },
+  { id: "TRP-003", truckId: "AST-010", date: "2026-05-15", distance: 85, purpose: "PICKUP", cost: 2200, orderId: null, notes: "Plywood from Bois du Nord" },
+  { id: "TRP-004", truckId: "AST-010", date: "2026-05-18", distance: 85, purpose: "DELIVERY", cost: 3000, orderId: "ORD-2026-0167", notes: "Office furniture" },
+  { id: "TRP-005", truckId: "AST-010", date: "2026-06-02", distance: 85, purpose: "DELIVERY", cost: 3200, orderId: "ORD-2026-0171", notes: "" },
+  { id: "TRP-006", truckId: "AST-010", date: "2026-06-15", distance: 85, purpose: "DELIVERY", cost: 3800, orderId: null, notes: "Multi-stop" },
+  { id: "TRP-007", truckId: "AST-010", date: "2026-06-22", distance: 85, purpose: "DELIVERY", cost: 3400, orderId: "ORD-2026-0185", notes: "Living room set" },
+  { id: "TRP-008", truckId: "AST-010", date: "2026-06-28", distance: 85, purpose: "MAINTENANCE", cost: 1500, orderId: null, notes: "To mechanic, oil change" },
+  { id: "TRP-009", truckId: "AST-010", date: "2026-07-03", distance: 85, purpose: "DELIVERY", cost: 3600, orderId: "ORD-2026-0190", notes: "" },
+  { id: "TRP-010", truckId: "AST-010", date: "2026-07-05", distance: 85, purpose: "PICKUP", cost: 2800, orderId: null, notes: "Quartz slabs from Marbre Elite" },
 ];
 
 /* ─── Helpers ─── */
 const inMonth = (date, month, year) => { const d = new Date(date); return d.getMonth() === month && d.getFullYear() === year; };
-const distance = (trip) => Math.max(0, (Number(trip.endKm) || 0) - (Number(trip.startKm) || 0));
 
 const mapVehicle = (v) => ({
   id: String(v.id),
@@ -274,9 +273,10 @@ export default function FleetClient({ initialVehicles = [] }) {
   }, [truck]);
   const truckStats = useMemo(() => {
     const monthMaint = maintenance
-      .filter((m) => m.assetId === truck?.id && inMonth(m.date, cm, cy))  // ✅ Uses assetId
-      .reduce((s, m) => s + m.cost, 0); const tripCost = monthTrips.reduce((s, t) => s + (t.cost || 0), 0);
-    const tripKm = monthTrips.reduce((s, t) => s + distance(t), 0);
+      .filter((m) => m.assetId === truck?.id && inMonth(m.date, cm, cy))
+      .reduce((s, m) => s + m.cost, 0);
+    const tripCost = monthTrips.reduce((s, t) => s + (t.cost || 0), 0);
+    const tripKm = monthTrips.reduce((s, t) => s + (t.distance || 0), 0);
     const monthlyDeprec = (truck?.dailyCost || 0) * 30;
     return { tripCost, tripKm, count: monthTrips.length, monthMaint, monthlyDeprec, monthlyTotal: tripCost + monthMaint + monthlyDeprec };
   }, [truck, maintenance, monthTrips, cm, cy]);
@@ -450,15 +450,22 @@ export default function FleetClient({ initialVehicles = [] }) {
   const openNewTrip = () => {
     const lastTrip = [...trips].sort((a, b) => b.date.localeCompare(a.date))[0];
     setEditingTripId(null);
-    setTripForm({ date: today(), startKm: lastTrip ? String(lastTrip.endKm) : (truck?.currentKm != null ? String(truck.currentKm) : ""), endKm: "", purpose: "DELIVERY", cost: "", orderId: null, notes: "" });
-    setTripError(""); setShowTripModal(true);
+    setTripForm({
+      date: today(),
+      distance: "",
+      purpose: "DELIVERY",
+      cost: "",
+      orderId: null,
+      notes: ""
+    });
+    setTripError("");
+    setShowTripModal(true);
   };
   const openEditTrip = (t) => {
     setEditingTripId(t.id);
     setTripForm({
       date: t.date,
-      startKm: String(t.startKm),
-      endKm: String(t.endKm),
+      distance: String(t.distance),
       purpose: t.purpose,
       cost: String(t.cost),
       orderId: t.orderId || null,
@@ -469,19 +476,15 @@ export default function FleetClient({ initialVehicles = [] }) {
   };
   const saveTrip = async () => {
     if (!tripForm.date) return setTripError("Date is required");
-    const start = Number(tripForm.startKm);
-    const end = Number(tripForm.endKm);
-    if (isNaN(start)) return setTripError("Start km required");
-    if (isNaN(end)) return setTripError("End km required");
-    if (end < start) return setTripError("End km must be ≥ start km");
+    const distance = Number(tripForm.distance);
+    if (isNaN(distance) || distance < 0) return setTripError("Distance must be ≥ 0");
     const cost = parseFloat(tripForm.cost);
     if (isNaN(cost) || cost < 0) return setTripError("Cost must be ≥ 0");
 
     const entry = {
       vehicleId: truck.id,
       date: tripForm.date,
-      startKm: start,
-      endKm: end,
+      distance: distance,
       purpose: tripForm.purpose,
       cost: cost,
       orderId: tripForm.orderId || null,
@@ -513,8 +516,7 @@ export default function FleetClient({ initialVehicles = [] }) {
         id: result.data.id,
         truckId: truck.id,
         date: result.data.date,
-        startKm: result.data.startKm,
-        endKm: result.data.endKm,
+        distance: result.data.distance,
         purpose: result.data.purpose,
         cost: result.data.cost,
         orderId: result.data.orderId,
@@ -527,11 +529,11 @@ export default function FleetClient({ initialVehicles = [] }) {
         setTrips((prev) => [mapped, ...prev]);
       }
 
-      // Update vehicle current km
-      if (end > (truck.currentKm || 0)) {
+      // Update vehicle current km - add distance
+      if (distance > 0) {
         setAssets((prev) =>
           prev.map((a) =>
-            a.id === truck.id ? { ...a, currentKm: end } : a
+            a.id === truck.id ? { ...a, currentKm: (a.currentKm || 0) + distance } : a
           )
         );
       }
@@ -640,15 +642,7 @@ export default function FleetClient({ initialVehicles = [] }) {
               <div className="flex-1 overflow-auto">
                 <table className="w-full text-left text-sm" style={{ minWidth: 820 }}>
                   <thead className="sticky top-0 z-10" style={{ background: "var(--surface-2)" }}>
-                    <tr>
-                      <th className="px-4 py-3 text-xs font-medium" style={{ color: "var(--ink-muted)" }}>Date</th>
-                      <th className="px-4 py-3 text-xs font-medium" style={{ color: "var(--ink-muted)" }}>Purpose</th>
-                      <th className="px-4 py-3 text-xs font-medium hidden md:table-cell" style={{ color: "var(--ink-muted)" }}>Route</th>
-                      <th className="px-4 py-3 text-xs font-medium text-right" style={{ color: "var(--ink-muted)" }}>Distance</th>
-                      <th className="px-4 py-3 text-xs font-medium" style={{ color: "var(--ink-muted)" }}>Order</th>
-                      <th className="px-4 py-3 text-xs font-medium text-right" style={{ color: "var(--ink-muted)" }}>Cost</th>
-                      <th className="px-4 py-3 text-xs font-medium text-center" style={{ color: "var(--ink-muted)" }}>Actions</th>
-                    </tr>
+                    <tr><th className="px-4 py-3 text-xs font-medium" style={{ color: "var(--ink-muted)" }}>Date</th><th className="px-4 py-3 text-xs font-medium" style={{ color: "var(--ink-muted)" }}>Purpose</th><th className="px-4 py-3 text-xs font-medium text-right hidden md:table-cell" style={{ color: "var(--ink-muted)" }}>Distance</th><th className="px-4 py-3 text-xs font-medium" style={{ color: "var(--ink-muted)" }}>Order</th><th className="px-4 py-3 text-xs font-medium text-right" style={{ color: "var(--ink-muted)" }}>Cost</th><th className="px-4 py-3 text-xs font-medium text-center" style={{ color: "var(--ink-muted)" }}>Actions</th></tr>
                   </thead>
                   <tbody>
                     {trips
@@ -663,13 +657,13 @@ export default function FleetClient({ initialVehicles = [] }) {
                       .map((t) => {
                         const purpose = TRIP_PURPOSES.find((p) => p.id === t.purpose);
                         const order = orders.find((o) => o.id === t.orderId);
-                        const dist = distance(t);
                         return (
                           <tr key={t.id} className="group" style={{ borderTop: "1px solid var(--border)" }}>
                             <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--ink-muted)" }}><div className="flex items-center gap-1.5"><Icons.cal />{t.date}</div></td>
                             <td className="px-4 py-3"><span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>{purpose?.label || t.purpose}</span></td>
-                            <td className="px-4 py-3 text-xs tabular-nums hidden md:table-cell" style={{ color: "var(--ink-muted)" }}>{t.startKm.toLocaleString()} → {t.endKm.toLocaleString()}</td>
-                            <td className="px-4 py-3 text-right text-sm font-bold tabular-nums">{dist} km</td>
+                            <td className="px-4 py-3 text-xs tabular-nums text-right hidden md:table-cell" style={{ color: "var(--ink-muted)" }}>
+                              {t.distance} km
+                            </td>
                             <td className="px-4 py-3 text-xs">{order ? (<div><div className="font-medium" style={{ color: "var(--ink)" }}>{order.name}</div><div className="text-[10px]" style={{ color: "var(--ink-muted)" }}>{order.owner}</div></div>) : (<span style={{ color: "var(--ink-muted)" }}>—</span>)}</td>
                             <td className="px-4 py-3 text-right text-sm font-bold tabular-nums whitespace-nowrap" style={{ color: "var(--stage-contract)" }}>{formatDZD(t.cost)}</td>
                             <td className="px-4 py-3 text-center">
@@ -682,7 +676,7 @@ export default function FleetClient({ initialVehicles = [] }) {
                         );
                       })}
                     {trips.filter((t) => t.truckId === truck.id).length === 0 && (
-                      <tr><td colSpan={7} className="px-4 py-12 text-center text-sm" style={{ color: "var(--ink-muted)" }}>No trips logged yet.</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-12 text-center text-sm" style={{ color: "var(--ink-muted)" }}>No trips logged yet.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -868,8 +862,9 @@ export default function FleetClient({ initialVehicles = [] }) {
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Field label="Date" required><input type="date" value={tripForm.date || ""} onChange={(e) => setTripForm((f) => ({ ...f, date: e.target.value }))} className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full" style={inputStyle} /></Field>
-              <Field label="Start km" required><input type="number" min="0" value={tripForm.startKm || ""} onChange={(e) => setTripForm((f) => ({ ...f, startKm: e.target.value }))} className="px-3 py-2 rounded-md text-sm outline-none focus-ring tabular-nums w-full" style={inputStyle} /></Field>
-              <Field label="End km" required><input type="number" min="0" value={tripForm.endKm || ""} onChange={(e) => setTripForm((f) => ({ ...f, endKm: e.target.value }))} className="px-3 py-2 rounded-md text-sm outline-none focus-ring tabular-nums w-full" style={inputStyle} /></Field>
+              <Field label="Distance (km)" required>
+                <input type="number" min="0" value={tripForm.distance || ""} onChange={(e) => setTripForm((f) => ({ ...f, distance: e.target.value }))} className="px-3 py-2 rounded-md text-sm outline-none focus-ring tabular-nums w-full" style={inputStyle} />
+              </Field>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Purpose" required>
