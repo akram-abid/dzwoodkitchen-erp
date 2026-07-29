@@ -29,7 +29,7 @@ async function getAllWorkers() {
 async function createTimeEntry(workerId, data) {
     const { date, clockIn, clockOut, extraHours, extraNote } = data;
 
-    return await prisma.timeEntries.create({
+    const entry = await prisma.timeEntries.create({
         data: {
             workerId: Number(workerId),
             date: new Date(date),
@@ -39,12 +39,16 @@ async function createTimeEntry(workerId, data) {
             extraNote: extraNote || "",
         },
     });
+
+    await recalculateWorkerSold(workerId);
+
+    return entry;
 }
 
 async function updateTimeEntry(timeEntryId, data) {
     const { date, clockIn, clockOut, extraHours, extraNote } = data;
 
-    return await prisma.timeEntries.update({
+    const entry = await prisma.timeEntries.update({
         where: { id: Number(timeEntryId) },
         data: {
             date: new Date(date),
@@ -54,19 +58,27 @@ async function updateTimeEntry(timeEntryId, data) {
             extraNote: extraNote || "",
         },
     });
+
+    await recalculateWorkerSold(entry.workerId);
+
+    return entry;
 }
 
 async function deleteTimeEntry(timeEntryId) {
-    return await prisma.timeEntries.delete({
+    const entry = await prisma.timeEntries.delete({
         where: { id: Number(timeEntryId) },
     });
+
+    await recalculateWorkerSold(entry.workerId);
+
+    return entry;
 }
 
 
 async function createPayment(workerId, data) {
     const { date, amount, note } = data;
 
-    return await prisma.workersPayments.create({
+    const payment = await prisma.workersPayments.create({
         data: {
             workerId: Number(workerId),
             amount,
@@ -74,12 +86,18 @@ async function createPayment(workerId, data) {
             note: note || "",
         },
     });
+
+    await recalculateWorkerSold(workerId);
+    return payment;
 }
 
 async function deletePayment(paymentId) {
-    return await prisma.workersPayments.delete({
+    const payment = await prisma.workersPayments.delete({
         where: { id: Number(paymentId) },
     });
+
+    await recalculateWorkerSold(payment.workerId);
+    return payment;
 }
 
 async function updateAllWorkersSold() {
@@ -177,6 +195,51 @@ const getMonthlyPayments = (w, vKey) =>
         .filter((p) => formatDate(p.date).startsWith(vKey))
         .reduce((s, p) => s + p.amount, 0);
 
+
+
+export async function recalculateWorkerSold(workerId) {
+    const worker = await prisma.workers.findUnique({
+        where: { id: parseInt(workerId) },
+        include: {
+            timeEntries: true,
+            assignments: true,
+            workersPayments: true,
+        },
+    });
+
+    if (!worker) throw new Error("Worker not found");
+
+    let totalEarnings = 0;
+
+    if (worker.payment_type === "hours") {
+        for (const entry of worker.timeEntries) {
+            const [inH, inM] = entry.clockIn.split(":").map(Number);
+            const [outH, outM] = entry.clockOut.split(":").map(Number);
+            const hours = outH + outM / 60 - (inH + inM / 60) + (entry.extraHours || 0);
+            totalEarnings += hours * (worker.hourlyRate || 0);
+        }
+    } else if (worker.payment_type === "meters") {
+        for (const assignment of worker.assignments) {
+            totalEarnings += assignment.meters * (worker.meterRate || 0);
+        }
+    }
+
+    const totalPayments = worker.workersPayments.reduce(
+        (sum, p) => sum + p.amount,
+        0
+    );
+
+    // sold = previousSold + totalEarnings - totalPayments
+    const sold = (worker.sold || 0) + totalEarnings - totalPayments;
+
+    // Update worker
+    await prisma.workers.update({
+        where: { id: parseInt(workerId) },
+        data: { sold },
+    });
+
+    return sold;
+}
 
 export {
     getAllWorkers,
