@@ -14,6 +14,7 @@ export async function getAllClients() {
             ...o,
             total_amount: Number(o.total_amount),
             lift_cost: Number(o.lift_cost) || 0,
+            meters: Number(o.meters) || 0,
         })),
     }));
 }
