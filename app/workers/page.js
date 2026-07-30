@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import WorkersClient from '../_components/WorkersClient';
 import { getAllOrders } from '../services/ordersServices';
 

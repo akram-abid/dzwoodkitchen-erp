@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import FleetClient from "../_components/FleetClient";
 import { getAllVehicles } from "../services/vehiclesServices";
 
