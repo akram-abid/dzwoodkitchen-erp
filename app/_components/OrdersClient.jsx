@@ -1468,8 +1468,8 @@ const ReadyToDeliverModal = ({
                 skipToMaterials
                   ? onClose()
                   : setStep(
-                      pendingConfirm?.missingItems?.length ? "partial" : "ask",
-                    )
+                    pendingConfirm?.missingItems?.length ? "partial" : "ask",
+                  )
               }
             >
               {skipToMaterials ? "Cancel" : "← Back"}
@@ -1543,11 +1543,10 @@ const ReadyToDeliverModal = ({
                 type="number"
                 min="0.01"
                 step="0.01"
-                placeholder={`Qty${
-                  materialDraft.material_id
-                    ? ` (${materialUnitFor(materialDraft.material_id)})`
-                    : ""
-                }`}
+                placeholder={`Qty${materialDraft.material_id
+                  ? ` (${materialUnitFor(materialDraft.material_id)})`
+                  : ""
+                  }`}
                 className="col-span-3 px-2 py-1.5 rounded-md text-sm outline-none text-center"
                 style={{
                   background: "var(--surface)",
@@ -2853,15 +2852,15 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
         prev.map((r) =>
           r.id === row.id
             ? {
-                id: updated.id,
-                materialId: updated.material_id ?? editDraft.material_id,
-                code: updated.material?.code ?? mat?.id ?? r.code,
-                name: updated.material?.name ?? mat?.name ?? r.name,
-                unit: updated.unit || editDraft.unit || r.unit,
-                quantity: Number(updated.quantity) || qty,
-                note: updated.note ?? editDraft.note ?? "",
-                date: r.date,
-              }
+              id: updated.id,
+              materialId: updated.material_id ?? editDraft.material_id,
+              code: updated.material?.code ?? mat?.id ?? r.code,
+              name: updated.material?.name ?? mat?.name ?? r.name,
+              unit: updated.unit || editDraft.unit || r.unit,
+              quantity: Number(updated.quantity) || qty,
+              note: updated.note ?? editDraft.note ?? "",
+              date: r.date,
+            }
             : r,
         ),
       );

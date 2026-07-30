@@ -11,7 +11,7 @@ import {
 } from "../api/orders/orders";
 
 // import order modal 
-import { OrderFormModal } from "../../lib/components/Orderformmodal";
+import { OrderFormModal } from "./OrdersClient";
 
 /* ─── Reusable UI ─── */
 const StageBadge = ({ stage, size = 'sm', custom }) => {
@@ -346,6 +346,10 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
         address: newOrder.address || selected?.address || null,
         project: newOrder.project_name ?? "",
         amount: Number(newOrder.total_amount) || 0,
+        meters:
+          newOrder.meters === "" || newOrder.meters == null
+            ? null
+            : Number(newOrder.meters),
         dueDate: newOrder.due_date ? new Date(newOrder.due_date).toISOString().split("T")[0] : null,
         stage: (newOrder.state || "APPOINTMENT").toUpperCase(),
         worker: newOrder.worker
