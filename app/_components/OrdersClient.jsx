@@ -5371,7 +5371,7 @@ export default function OrdersClient() {
         onClose={() => setIsCreateOpen(false)}
         onSave={handleCreateOrder}
         existingClients={allClients.length > 0 ? allClients : existingClients}
-        workers={workers}
+        workersList={workers}
         dataFormat="orders"
       />
       <OrderFormModal
@@ -5380,7 +5380,7 @@ export default function OrdersClient() {
         onSave={handleUpdateOrder}
         initialData={selected}
         existingClients={allClients.length > 0 ? allClients : existingClients}
-        workers={workers}
+        workersList={workers}
         dataFormat="orders"
       />
       <AssignWorkerModal
