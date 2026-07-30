@@ -720,8 +720,7 @@ function TimeEntryForm({ initial, existingDates = [], onSave, onCancel, isSubmit
       <div className="flex gap-3 pt-2">
         <button type="button" onClick={onCancel} className="flex-1 text-base font-medium py-3 rounded-xl"
           style={{ background: "var(--surface-2)", color: "var(--ink)", border: "1px solid var(--border)" }}>Cancel</button>
-        <button type="submit" disabled={dateTaken} className="flex-1 text-base font-bold py-3 rounded-xl text-white disabled:opacity-40"
-          disabled={isSubmitting}
+        <button type="submit" disabled={dateTaken || isSubmitting} className="flex-1 text-base font-bold py-3 rounded-xl text-white disabled:opacity-40"
           style={{ background: "var(--stage-completed)" }}>{isSubmitting ? "Saving" : "Save"}</button>
       </div>
     </form>

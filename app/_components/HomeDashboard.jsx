@@ -787,7 +787,6 @@ const Icons = {
   trash: () => (
     <svg
       width="12"
-      width="12"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
