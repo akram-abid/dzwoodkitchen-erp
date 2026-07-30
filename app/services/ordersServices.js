@@ -26,6 +26,10 @@ export async function getAllOrders({
         payments: { orderBy: { payment_date: "asc" } },
         checklist_items: { where: { is_resolved: false } },
         delivery_notes: { orderBy: { id: "asc" }, take: 1 },
+        order_material_consumptions: {
+          include: { material: true },
+          orderBy: { created_at: "desc" },
+        },
       },
       orderBy: { created_at: "desc" },
       skip: (page - 1) * pageSize,
@@ -52,6 +56,10 @@ export async function getOrderById(id) {
     include: {
       clients: true,
       workers: true,
+      order_material_consumptions: {
+        include: { material: true },
+        orderBy: { created_at: "desc" },
+      },
     },
   });
 }
@@ -223,6 +231,10 @@ export async function updateOrder(id, data) {
         payments: { orderBy: { payment_date: "asc" } },
         checklist_items: { where: { is_resolved: false } },
         delivery_notes: { orderBy: { id: "asc" }, take: 1 },
+        order_material_consumptions: {
+          include: { material: true },
+          orderBy: { created_at: "desc" },
+        },
       },
     });
   });
@@ -373,6 +385,10 @@ export async function createOrder(data) {
         payments: { orderBy: { payment_date: "asc" } },
         checklist_items: { where: { is_resolved: false } },
         delivery_notes: { orderBy: { id: "asc" }, take: 1 },
+        order_material_consumptions: {
+          include: { material: true },
+          orderBy: { created_at: "desc" },
+        },
       },
     });
   });
@@ -532,6 +548,10 @@ export async function patchOrder(id, data) {
         payments: { orderBy: { payment_date: "asc" } },
         checklist_items: { where: { is_resolved: false } },
         delivery_notes: { orderBy: { id: "asc" }, take: 1 },
+        order_material_consumptions: {
+          include: { material: true },
+          orderBy: { created_at: "desc" },
+        },
       },
     });
   });

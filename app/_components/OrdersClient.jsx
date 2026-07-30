@@ -1377,27 +1377,25 @@ const ReadyToDeliverModal = ({
     }
   };
 
-  const materialUnitFor = (materialId) =>
-    materialsCatalog.find((m) => String(m.id) === String(materialId))
-      ?.default_unit ||
-    materialsCatalog.find((m) => String(m.id) === String(materialId))?.unit ||
-    "";
+  const materialUnitFor = (materialDbId) =>
+    materialsCatalog.find((m) => String(m.dbId) === String(materialDbId))
+      ?.unit || "";
 
   const addMaterialLine = () => {
     const { material_id, quantity, note } = materialDraft;
     const qty = Number(quantity);
     if (!material_id || !qty || qty <= 0) return;
     const mat = materialsCatalog.find(
-      (m) => String(m.id) === String(material_id),
+      (m) => String(m.dbId) === String(material_id),
     );
     if (!mat) return;
     setUsedMaterials((prev) => [
       ...prev,
       {
-        material_id: mat.id,
-        code: mat.code,
+        material_id: mat.dbId,
+        code: mat.id,
         name: mat.name,
-        unit: mat.default_unit || mat.unit || "",
+        unit: mat.unit || "",
         quantity: qty,
         note: note.trim(),
       },
@@ -1536,8 +1534,8 @@ const ReadyToDeliverModal = ({
                   {materialsLoading ? "Loading materials…" : "— select material —"}
                 </option>
                 {materialsCatalog.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.code ? `${m.code} — ${m.name}` : m.name}
+                  <option key={m.id} value={m.dbId}>
+                    {m.id ? `${m.id} — ${m.name}` : m.name}
                   </option>
                 ))}
               </select>
@@ -2683,6 +2681,7 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({ material_id: "", quantity: "", unit: "", note: "" });
   const [editDraft, setEditDraft] = useState({ material_id: "", quantity: "", unit: "", note: "" });
+  const [pendingRows, setPendingRows] = useState([]); // queued locally, not saved yet
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -2702,6 +2701,7 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
       setEditingId(null);
       setDraft({ material_id: "", quantity: "", unit: "", note: "" });
       setEditDraft({ material_id: "", quantity: "", unit: "", note: "" });
+      setPendingRows([]);
     }
   }, [isOpen, order]);
 
@@ -2721,9 +2721,9 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
       .finally(() => setCatalogLoading(false));
   }, [isOpen, catalog.length, catalogLoading]);
 
-  const unitFor = (materialId) => {
-    const mat = catalog.find((m) => String(m.id) === String(materialId));
-    return mat?.default_unit || mat?.unit || "";
+  const unitFor = (materialDbId) => {
+    const mat = catalog.find((m) => String(m.dbId) === String(materialDbId));
+    return mat?.unit || "";
   };
 
   const updateDraft = (field, value) =>
@@ -2739,7 +2739,8 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
       ...(field === "material_id" ? { unit: unitFor(value) } : {}),
     }));
 
-  const addRow = async () => {
+  const queueMaterial = () => {
+    console.log("Queueing material:", draft);
     const qty = Number(draft.quantity);
     if (!draft.material_id) {
       alert("Please select a material.");
@@ -2749,39 +2750,69 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
       alert("Quantity must be a positive number.");
       return;
     }
-    try {
-      setBusy(true);
-      const res = await createMaterialConsumptionClient({
-        order_id: order.id,
-        material_id: draft.material_id,
+    const mat = catalog.find((m) => String(m.dbId) === String(draft.material_id));
+    if (!mat) {
+      alert("Please select a material.");
+      return;
+    }
+    setPendingRows((prev) => [
+      ...prev,
+      {
+        tempId: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        material_id: mat.dbId,
+        code: mat.id,
+        name: mat.name,
+        unit: draft.unit || mat.unit || "",
         quantity: qty,
-        unit: draft.unit || undefined,
-        note: draft.note || undefined,
-      });
-      const created = res.data;
-      const mat = catalog.find(
-        (m) => String(m.id) === String(draft.material_id),
-      );
-      setRows((prev) => [
-        ...prev,
-        {
+        note: draft.note.trim(),
+      },
+    ]);
+    setDraft({ material_id: "", quantity: "", unit: "", note: "" });
+  };
+
+  const removePending = (tempId) =>
+    setPendingRows((prev) => prev.filter((r) => r.tempId !== tempId));
+
+  const saveAll = async () => {
+    if (pendingRows.length === 0) return;
+    setBusy(true);
+    const succeeded = [];
+    const failed = [];
+    for (const p of pendingRows) {
+      try {
+        const res = await createMaterialConsumptionClient({
+          order_id: order.id,
+          material_id: p.material_id,
+          quantity: p.quantity,
+          unit: p.unit || undefined,
+          note: p.note || undefined,
+        });
+        const created = res.data;
+        succeeded.push({
           id: created.id,
-          materialId: created.material_id ?? draft.material_id,
-          code: created.material?.code ?? mat?.code ?? "",
-          name: created.material?.name ?? mat?.name ?? "",
-          unit: created.unit || draft.unit || "",
-          quantity: Number(created.quantity) || qty,
-          note: created.note ?? draft.note ?? "",
+          materialId: created.material_id ?? p.material_id,
+          code: created.material?.code ?? p.code ?? "",
+          name: created.material?.name ?? p.name ?? "",
+          unit: created.unit || p.unit || "",
+          quantity: Number(created.quantity) || p.quantity,
+          note: created.note ?? p.note ?? "",
           date: new Date().toISOString().split("T")[0],
-        },
-      ]);
-      setDraft({ material_id: "", quantity: "", unit: "", note: "" });
+        });
+      } catch (err) {
+        console.error("Failed to save material consumption:", err);
+        failed.push(p);
+      }
+    }
+    if (succeeded.length > 0) {
+      setRows((prev) => [...prev, ...succeeded]);
       onChange?.();
-    } catch (err) {
-      console.error("Failed to add material consumption:", err);
-      alert("Failed to add material. Please try again.");
-    } finally {
-      setBusy(false);
+    }
+    setPendingRows(failed);
+    setBusy(false);
+    if (failed.length > 0) {
+      alert(
+        `${succeeded.length} material(s) saved. ${failed.length} failed and are still queued — please try saving again.`,
+      );
     }
   };
 
@@ -2816,7 +2847,7 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
       });
       const updated = res.data;
       const mat = catalog.find(
-        (m) => String(m.id) === String(editDraft.material_id),
+        (m) => String(m.dbId) === String(editDraft.material_id),
       );
       setRows((prev) =>
         prev.map((r) =>
@@ -2824,7 +2855,7 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
             ? {
                 id: updated.id,
                 materialId: updated.material_id ?? editDraft.material_id,
-                code: updated.material?.code ?? mat?.code ?? r.code,
+                code: updated.material?.code ?? mat?.id ?? r.code,
                 name: updated.material?.name ?? mat?.name ?? r.name,
                 unit: updated.unit || editDraft.unit || r.unit,
                 quantity: Number(updated.quantity) || qty,
@@ -2871,9 +2902,28 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
       maxWidth="680px"
       footer={
         <>
-          <Btn variant="ghost" onClick={onClose} disabled={busy}>
-            Done
+          <Btn
+            variant="ghost"
+            onClick={() => {
+              if (
+                pendingRows.length === 0 ||
+                confirm(
+                  `You have ${pendingRows.length} unsaved material(s) queued. Discard and close?`,
+                )
+              ) {
+                onClose();
+              }
+            }}
+            disabled={busy}
+          >
+            {pendingRows.length > 0 ? "Discard & Close" : "Done"}
           </Btn>
+          {pendingRows.length > 0 && (
+            <Btn variant="success" onClick={saveAll} disabled={busy}>
+              <Icons.check /> Save {pendingRows.length} Material
+              {pendingRows.length === 1 ? "" : "s"}
+            </Btn>
+          )}
         </>
       }
     >
@@ -2956,8 +3006,8 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
                       >
                         <option value="">— select material —</option>
                         {catalog.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.code ? `${m.code} — ${m.name}` : m.name}
+                          <option key={m.id} value={m.dbId}>
+                            {m.id ? `${m.id} — ${m.name}` : m.name}
                           </option>
                         ))}
                       </select>
@@ -3086,7 +3136,7 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
           )}
         </div>
 
-        {/* Add new */}
+        {/* Add new (queued locally — nothing is saved until you click Save) */}
         <div
           className="pt-3"
           style={{ borderTop: "1px dashed var(--border)" }}
@@ -3095,8 +3145,58 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
             className="text-xs mb-2 font-bold uppercase tracking-wider"
             style={{ color: "var(--ink-muted)" }}
           >
-            Add material
+            Add material{pendingRows.length > 0 ? " (queued, not saved yet)" : ""}
           </p>
+
+          {pendingRows.length > 0 && (
+            <div className="space-y-1.5 mb-2">
+              {pendingRows.map((p) => (
+                <div
+                  key={p.tempId}
+                  className="flex items-center gap-2 p-2 rounded-md"
+                  style={{
+                    background: "var(--stage-appointment)15",
+                    border: "1px dashed var(--stage-appointment)",
+                  }}
+                >
+                  <Icons.package />
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-sm font-bold flex items-center gap-2 flex-wrap"
+                      style={{ color: "var(--ink)" }}
+                    >
+                      <span className="truncate">{p.name}</span>
+                      <span
+                        className="text-xs font-normal"
+                        style={{ color: "var(--ink-muted)" }}
+                      >
+                        × {p.quantity} {p.unit}
+                      </span>
+                    </div>
+                    {p.note && (
+                      <div
+                        className="text-[10px] italic truncate"
+                        style={{ color: "var(--ink-muted)" }}
+                      >
+                        {p.note}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removePending(p.tempId)}
+                    disabled={busy}
+                    className="p-1 rounded-md hover:opacity-70 shrink-0"
+                    style={{ color: "var(--ink-muted)" }}
+                    title="Remove from queue"
+                  >
+                    <Icons.x />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div
             className="space-y-2 p-2.5 rounded-lg"
             style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
@@ -3117,8 +3217,8 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
                   {catalogLoading ? "Loading materials…" : "— select material —"}
                 </option>
                 {catalog.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.code ? `${m.code} — ${m.name}` : m.name}
+                  <option key={m.id} value={m.dbId}>
+                    {m.id ? `${m.id} — ${m.name}` : m.name}
                   </option>
                 ))}
               </select>
@@ -3147,18 +3247,18 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
                 value={draft.note}
                 onChange={(e) => updateDraft("note", e.target.value)}
                 onKeyDown={(e) =>
-                  e.key === "Enter" && (e.preventDefault(), addRow())
+                  e.key === "Enter" && (e.preventDefault(), queueMaterial())
                 }
               />
             </div>
             <button
               type="button"
-              onClick={addRow}
+              onClick={queueMaterial}
               disabled={busy || !draft.material_id || !Number(draft.quantity)}
               className="w-full flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-md transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              <Icons.plus /> Add material
+              <Icons.plus /> Add material{pendingRows.length > 0 ? " (queue another)" : ""}
             </button>
           </div>
         </div>
@@ -4180,7 +4280,6 @@ export default function OrdersClient() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isReadyConfirmOpen, setIsReadyConfirmOpen] = useState(false);
-  const [skipReadyAsk, setSkipReadyAsk] = useState(false);
   const [isMissingPartsOpen, setIsMissingPartsOpen] = useState(false);
   const [isPaymentsOpen, setIsPaymentsOpen] = useState(false);
   const [isMaterialsMgmtOpen, setIsMaterialsMgmtOpen] = useState(false);
@@ -4580,10 +4679,27 @@ export default function OrdersClient() {
   };
 
   const handleQuickStageChange = async (orderId, newStage) => {
-    if (newStage === "READY_TO_DELIVER" || newStage === "COMPLETED") {
+    if (newStage === "READY_TO_DELIVER") {
       setAssigningOrderId(orderId);
-      setSkipReadyAsk(newStage === "COMPLETED");
       setIsReadyConfirmOpen(true);
+      return;
+    }
+
+    if (newStage === "COMPLETED") {
+      try {
+        const res = await patchOrderClient(orderId, { stage: newStage });
+        const normalized = normalizeOrder(res.data);
+        setOrders((prev) =>
+          prev.map((o) => (o.id === normalized.id ? normalized : o)),
+        );
+      } catch (err) {
+        console.error("Failed to change stage:", err);
+        alert("Failed to change stage. Please try again.");
+        return;
+      }
+      // Completing an order should open the same "Manage Materials" popup
+      // used elsewhere — not the Ready-to-Deliver confirmation flow.
+      openMaterialsMgmtModal(orderId);
       return;
     }
 
@@ -5280,7 +5396,6 @@ export default function OrdersClient() {
         onClose={() => setIsReadyConfirmOpen(false)}
         order={orders.find((o) => o.id === assigningOrderId)}
         onConfirm={handleReadyConfirm}
-        skipToMaterials={skipReadyAsk}
       />
       <MissingPartsModal
         isOpen={isMissingPartsOpen}

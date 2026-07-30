@@ -32,6 +32,7 @@ const shapeMaterial = (m) => {
   const leftoverCount = (m.leftovers ?? []).reduce((s, l) => s + l.quantity, 0);
   return {
     id: m.code,
+    dbId: m.id,
     name: m.name,
     category: m.category?.name ?? "Uncategorized",
     categoryId: m.category_id ?? null,
