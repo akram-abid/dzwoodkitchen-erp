@@ -79,3 +79,76 @@ export async function patchOrderClient(id, data) {
   }
   return res.json();
 }
+
+// ── Material consumptions ────────────────────────────────────────
+
+export async function fetchMaterialConsumptions(filters = {}) {
+  const { page = 1, pageSize = 100, ...rest } = filters;
+  const base = {
+    page,
+    pageSize,
+    ...rest,
+  };
+  const qs = buildQuery(base);
+  const res = await fetch(`/api/orders/material-consumptions${qs ? `?${qs}` : ""}`, {
+    cache: "no-store",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Failed to fetch material consumptions: ${res.status} ${body}`);
+  }
+  return res.json();
+}
+
+export async function fetchMaterialConsumptionById(id) {
+  const res = await fetch(`/api/orders/material-consumptions/${id}`, {
+    cache: "no-store",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Failed to fetch material consumption: ${res.status} ${body}`);
+  }
+  return res.json();
+}
+
+export async function createMaterialConsumptionClient(data) {
+  const res = await fetch(`/api/orders/material-consumptions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Failed to create material consumption: ${res.status} ${body}`);
+  }
+  return res.json();
+}
+
+export async function updateMaterialConsumptionClient(id, data) {
+  const res = await fetch(`/api/orders/material-consumptions/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Failed to update material consumption: ${res.status} ${body}`);
+  }
+  return res.json();
+}
+
+export async function deleteMaterialConsumptionClient(id) {
+  const res = await fetch(`/api/orders/material-consumptions/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Failed to delete material consumption: ${res.status} ${body}`);
+  }
+  return res.json();
+}

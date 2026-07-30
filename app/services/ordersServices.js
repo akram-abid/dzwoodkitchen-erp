@@ -78,9 +78,11 @@ export async function updateOrder(id, data) {
   const {
     client,
     phone,
+    clientType,
     address,
     project,
     amount,
+    meters,
     dueDate,
     stage,
     worker,
@@ -102,12 +104,16 @@ export async function updateOrder(id, data) {
       if (phone !== undefined && phone !== existingClient.phone) {
         await tx.clients.update({
           where: { id: clientId },
-          data: { phone: phone || null },
+          data: { phone: phone || existingClient.phone || "" },
         });
       }
     } else {
       const created = await tx.clients.create({
-        data: { name: client, phone: phone || null },
+        data: {
+          name: client,
+          phone: phone || "",
+          type: clientType || "Individual",
+        },
       });
       clientId = created.id;
     }
@@ -129,6 +135,7 @@ export async function updateOrder(id, data) {
         worker_id: workerId,
         project_name: project,
         total_amount: amount,
+        meters: meters != null ? meters : null,
         due_date: dueDate ? new Date(dueDate) : null,
         state,
         address: address || null,
@@ -241,9 +248,11 @@ export async function createOrder(data) {
   const {
     client,
     phone,
+    clientType,
     address,
     project,
     amount,
+    meters,
     dueDate,
     stage,
     worker,
@@ -264,12 +273,16 @@ export async function createOrder(data) {
       if (phone !== undefined && phone !== existingClient.phone) {
         await tx.clients.update({
           where: { id: clientId },
-          data: { phone: phone || null },
+          data: { phone: phone || existingClient.phone || "" },
         });
       }
     } else {
       const c = await tx.clients.create({
-        data: { name: client, phone: phone || null },
+        data: {
+          name: client,
+          phone: phone || "",
+          type: clientType || "Individual",
+        },
       });
       clientId = c.id;
     }
@@ -289,6 +302,7 @@ export async function createOrder(data) {
         worker_id: workerId,
         project_name: project,
         total_amount: amount,
+        meters: meters != null ? meters : null,
         due_date: dueDate ? new Date(dueDate) : null,
         state,
         address: address || null,
@@ -402,15 +416,26 @@ export async function patchOrder(id, data) {
       });
       if (existing) {
         clientId = existing.id;
+        const clientUpdate = {};
         if (data.phone !== undefined && data.phone !== existing.phone) {
+          clientUpdate.phone = data.phone || existing.phone || "";
+        }
+        if (data.clientType !== undefined) {
+          clientUpdate.type = data.clientType;
+        }
+        if (Object.keys(clientUpdate).length > 0) {
           await tx.clients.update({
             where: { id: clientId },
-            data: { phone: data.phone || null },
+            data: clientUpdate,
           });
         }
       } else {
         const c = await tx.clients.create({
-          data: { name: data.client, phone: data.phone || null },
+          data: {
+            name: data.client,
+            phone: data.phone || "",
+            type: data.clientType || "Individual",
+          },
         });
         clientId = c.id;
       }
@@ -419,6 +444,7 @@ export async function patchOrder(id, data) {
 
     if (data.project !== undefined) updateData.project_name = data.project;
     if (data.amount !== undefined) updateData.total_amount = data.amount;
+    if (data.meters !== undefined) updateData.meters = data.meters;
     if (data.dueDate !== undefined) {
       updateData.due_date = data.dueDate ? new Date(data.dueDate) : null;
     }

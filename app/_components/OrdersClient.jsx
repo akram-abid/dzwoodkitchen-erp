@@ -7,6 +7,9 @@ import {
   createOrderClient,
   deleteOrderClient,
   patchOrderClient,
+  createMaterialConsumptionClient,
+  updateMaterialConsumptionClient,
+  deleteMaterialConsumptionClient,
 } from "../api/orders/orders";
 import {
   createPaymentClient,
@@ -14,6 +17,7 @@ import {
   deletePaymentClient,
 } from "../api/payments/payments";
 import { fetchWorkers } from "../api/workers/workers";
+import { getAllMaterialsClient } from "../../lib/api_helpers/materials";
 
 /* ─── Icons ─── */
 const Icons = {
@@ -969,6 +973,10 @@ const normalizeOrder = (updated) => {
     stage: dbStateToStage(updated.state ?? "appointment"),
     worker: updated.workers?.full_name ?? "Unassigned",
     amount: Number(updated.total_amount) || 0,
+    meters:
+      updated.meters === null || updated.meters === undefined
+        ? null
+        : Number(updated.meters),
     paid,
     dueDate: toDateStr(updated.due_date),
     created: toDateStr(updated.created_at),
@@ -991,6 +999,16 @@ const normalizeOrder = (updated) => {
       qty: c.quantity ?? 1,
       unit: c.unit ?? "pcs",
       notes: c.notes ?? "",
+    })),
+    materialsUsed: (updated.order_material_consumptions || []).map((c) => ({
+      id: c.id,
+      materialId: c.material_id,
+      code: c.material?.code ?? "",
+      name: c.material?.name ?? "Unknown material",
+      unit: c.unit || c.material?.default_unit || "",
+      quantity: Number(c.quantity) || 0,
+      note: c.note ?? "",
+      date: toDateStr(c.created_at),
     })),
     technical: {
       truckDistance: dn.truck_distance_km ?? "",
@@ -1248,7 +1266,13 @@ const Btn = ({
 };
 
 /* ─── Ready-to-deliver confirmation (fires when stage changes to READY) ─── */
-const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
+const ReadyToDeliverModal = ({
+  isOpen,
+  onClose,
+  order,
+  onConfirm,
+  skipToMaterials = false,
+}) => {
   const [step, setStep] = useState("ask");
   const [itemStates, setItemStates] = useState([]); // [{...item, ready: bool}]
   const [customMissing, setCustomMissing] = useState([]); // [{ name, qty, unit, notes }]
@@ -1258,10 +1282,21 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
     unit: "pcs",
     notes: "",
   });
+  const [pendingConfirm, setPendingConfirm] = useState(null); // { missingItems, stage } waiting on materials step
+
+  // Materials-used (only relevant when the order is about to become COMPLETED)
+  const [materialsCatalog, setMaterialsCatalog] = useState([]);
+  const [materialsLoading, setMaterialsLoading] = useState(false);
+  const [materialsError, setMaterialsError] = useState("");
+  const [usedMaterials, setUsedMaterials] = useState([]); // [{ material_id, code, name, unit, quantity, note }]
+  const [materialDraft, setMaterialDraft] = useState({
+    material_id: "",
+    quantity: "",
+    note: "",
+  });
 
   useEffect(() => {
     if (isOpen) {
-      setStep("ask");
       setItemStates((order?.items || []).map((i) => ({ ...i, ready: true })));
       setCustomMissing(
         (order?.missingItems || []).filter(
@@ -1269,8 +1304,36 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
         ),
       );
       setCustomDraft({ name: "", qty: 1, unit: "pcs", notes: "" });
+      setUsedMaterials([]);
+      setMaterialDraft({ material_id: "", quantity: "", note: "" });
+      setMaterialsError("");
+      if (skipToMaterials) {
+        setPendingConfirm({ missingItems: [], stage: "COMPLETED" });
+        setStep("materials");
+      } else {
+        setPendingConfirm(null);
+        setStep("ask");
+      }
     }
-  }, [isOpen, order]);
+  }, [isOpen, order, skipToMaterials]);
+
+  // Load the material catalog once, the first time we actually need it.
+  useEffect(() => {
+    if (step !== "materials" || materialsCatalog.length > 0 || materialsLoading)
+      return;
+    setMaterialsLoading(true);
+    setMaterialsError("");
+    getAllMaterialsClient()
+      .then((res) => {
+        const list = res?.data || res || [];
+        setMaterialsCatalog(Array.isArray(list) ? list : []);
+      })
+      .catch((err) => {
+        console.error("Failed to load materials catalog:", err);
+        setMaterialsError("Failed to load materials. Please try again.");
+      })
+      .finally(() => setMaterialsLoading(false));
+  }, [step, materialsCatalog.length, materialsLoading]);
 
   const toggleReady = (idx) =>
     setItemStates((prev) =>
@@ -1293,18 +1356,63 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
     itemStates.filter((p) => !p.ready).length + customMissing.length;
   const blocking = missingCount > 0;
 
-  const handleAllReady = () =>
-    onConfirm({ missingItems: [], stage: "COMPLETED" });
+  // Both of these used to call onConfirm directly. Now, when the order is
+  // about to become COMPLETED, we route through a "materials used" step first.
+  const handleAllReady = () => {
+    setPendingConfirm({ missingItems: [], stage: "COMPLETED" });
+    setStep("materials");
+  };
   const handlePartial = () => {
     const missingFromItems = itemStates
       .filter((p) => !p.ready)
       .map(({ ready, ...rest }) => rest);
     const allMissing = [...missingFromItems, ...customMissing];
-    onConfirm({
-      missingItems: allMissing,
-      stage: allMissing.length > 0 ? "READY_TO_DELIVER" : "COMPLETED",
-    });
+    const stage = allMissing.length > 0 ? "READY_TO_DELIVER" : "COMPLETED";
+    if (stage === "COMPLETED") {
+      setPendingConfirm({ missingItems: allMissing, stage });
+      setStep("materials");
+    } else {
+      // Not actually completing yet (still missing parts) — no materials step.
+      onConfirm({ missingItems: allMissing, stage });
+    }
   };
+
+  const materialUnitFor = (materialId) =>
+    materialsCatalog.find((m) => String(m.id) === String(materialId))
+      ?.default_unit ||
+    materialsCatalog.find((m) => String(m.id) === String(materialId))?.unit ||
+    "";
+
+  const addMaterialLine = () => {
+    const { material_id, quantity, note } = materialDraft;
+    const qty = Number(quantity);
+    if (!material_id || !qty || qty <= 0) return;
+    const mat = materialsCatalog.find(
+      (m) => String(m.id) === String(material_id),
+    );
+    if (!mat) return;
+    setUsedMaterials((prev) => [
+      ...prev,
+      {
+        material_id: mat.id,
+        code: mat.code,
+        name: mat.name,
+        unit: mat.default_unit || mat.unit || "",
+        quantity: qty,
+        note: note.trim(),
+      },
+    ]);
+    setMaterialDraft({ material_id: "", quantity: "", note: "" });
+  };
+
+  const removeMaterialLine = (idx) =>
+    setUsedMaterials((prev) => prev.filter((_, i) => i !== idx));
+
+  const handleFinalizeCompletion = () => {
+    if (!pendingConfirm) return;
+    onConfirm({ ...pendingConfirm, materialsUsed: usedMaterials });
+  };
+
 
   return (
     <Modal
@@ -1313,15 +1421,33 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
       title={
         step === "ask"
           ? "Mark as Ready to Deliver?"
-          : "Which items are NOT ready?"
+          : step === "materials"
+            ? "Materials Used"
+            : "Which items are NOT ready?"
       }
       subtitle={
         step === "ask"
           ? `${order?.id} — ${order?.project}`
-          : `${missingCount} item${missingCount === 1 ? "" : "s"} still need work before delivery`
+          : step === "materials"
+            ? "What materials did this order consume? (optional)"
+            : `${missingCount} item${missingCount === 1 ? "" : "s"} still need work before delivery`
       }
-      icon={step === "ask" ? <Icons.truck /> : <Icons.alertCircle />}
-      accent={step === "ask" ? "stage-ready" : "stage-production"}
+      icon={
+        step === "ask" ? (
+          <Icons.truck />
+        ) : step === "materials" ? (
+          <Icons.package />
+        ) : (
+          <Icons.alertCircle />
+        )
+      }
+      accent={
+        step === "ask"
+          ? "stage-ready"
+          : step === "materials"
+            ? "stage-completed"
+            : "stage-production"
+      }
       maxWidth="600px"
       footer={
         step === "ask" ? (
@@ -1336,6 +1462,25 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
               <Icons.check /> Yes, all ready
             </Btn>
           </>
+        ) : step === "materials" ? (
+          <>
+            <Btn
+              variant="ghost"
+              onClick={() =>
+                skipToMaterials
+                  ? onClose()
+                  : setStep(
+                      pendingConfirm?.missingItems?.length ? "partial" : "ask",
+                    )
+              }
+            >
+              {skipToMaterials ? "Cancel" : "← Back"}
+            </Btn>
+            <Btn variant="success" onClick={handleFinalizeCompletion}>
+              <Icons.check /> Complete Order
+              {usedMaterials.length > 0 ? ` (${usedMaterials.length})` : ""}
+            </Btn>
+          </>
         ) : (
           <>
             <Btn variant="ghost" onClick={() => setStep("ask")}>
@@ -1348,7 +1493,161 @@ const ReadyToDeliverModal = ({ isOpen, onClose, order, onConfirm }) => {
         )
       }
     >
-      {step === "ask" ? (
+      {step === "materials" ? (
+        <div className="space-y-3">
+          {materialsError && (
+            <div
+              className="px-3 py-2 rounded-md text-xs flex items-center gap-2"
+              style={{
+                background: "var(--stage-contract)15",
+                color: "var(--stage-contract)",
+                border: "1px solid var(--stage-contract)40",
+              }}
+            >
+              <Icons.alertTriangle /> {materialsError}
+            </div>
+          )}
+
+          <div
+            className="space-y-2 p-2.5 rounded-lg"
+            style={{
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div className="grid grid-cols-12 gap-2">
+              <select
+                className="col-span-6 px-2.5 py-1.5 rounded-md text-sm outline-none"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                }}
+                value={materialDraft.material_id}
+                onChange={(e) =>
+                  setMaterialDraft((prev) => ({
+                    ...prev,
+                    material_id: e.target.value,
+                  }))
+                }
+                disabled={materialsLoading}
+              >
+                <option value="">
+                  {materialsLoading ? "Loading materials…" : "— select material —"}
+                </option>
+                {materialsCatalog.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.code ? `${m.code} — ${m.name}` : m.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder={`Qty${
+                  materialDraft.material_id
+                    ? ` (${materialUnitFor(materialDraft.material_id)})`
+                    : ""
+                }`}
+                className="col-span-3 px-2 py-1.5 rounded-md text-sm outline-none text-center"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                }}
+                value={materialDraft.quantity}
+                onChange={(e) =>
+                  setMaterialDraft((prev) => ({
+                    ...prev,
+                    quantity: e.target.value,
+                  }))
+                }
+              />
+              <input
+                placeholder="Note (optional)"
+                className="col-span-3 px-2 py-1.5 rounded-md text-sm outline-none"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                }}
+                value={materialDraft.note}
+                onChange={(e) =>
+                  setMaterialDraft((prev) => ({
+                    ...prev,
+                    note: e.target.value,
+                  }))
+                }
+                onKeyDown={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addMaterialLine())
+                }
+              />
+            </div>
+            <button
+              type="button"
+              onClick={addMaterialLine}
+              disabled={!materialDraft.material_id || !Number(materialDraft.quantity)}
+              className="w-full flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-md transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              <Icons.plus /> Add material
+            </button>
+          </div>
+
+          {usedMaterials.length === 0 ? (
+            <div
+              className="text-xs text-center py-3 rounded-lg"
+              style={{ background: "var(--bg)", color: "var(--ink-muted)" }}
+            >
+              No materials logged yet. You can still complete the order without
+              any.
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {usedMaterials.map((m, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 p-2 rounded-md"
+                  style={{
+                    background: "var(--accent-soft)",
+                    border: "1px solid var(--accent)",
+                  }}
+                >
+                  <Icons.package />
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-xs font-bold flex items-center gap-2 flex-wrap"
+                      style={{ color: "var(--ink)" }}
+                    >
+                      <span className="truncate">{m.name}</span>
+                      <span style={{ color: "var(--accent)" }}>
+                        × {m.quantity} {m.unit}
+                      </span>
+                    </div>
+                    {m.note && (
+                      <div
+                        className="text-[10px] italic truncate"
+                        style={{ color: "var(--ink-muted)" }}
+                      >
+                        {m.note}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeMaterialLine(i)}
+                    className="p-1 rounded-md hover:opacity-70 shrink-0"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    <Icons.x />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : step === "ask" ? (
         <div className="space-y-3">
           <p className="text-sm" style={{ color: "var(--ink)" }}>
             Are all the items in this order ready to be delivered?
@@ -2375,6 +2674,499 @@ const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
   );
 };
 
+/* ─── Materials Used management modal (mirrors PaymentsModal) ─── */
+const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
+  const [rows, setRows] = useState([]);
+  const [catalog, setCatalog] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState({ material_id: "", quantity: "", unit: "", note: "" });
+  const [editDraft, setEditDraft] = useState({ material_id: "", quantity: "", unit: "", note: "" });
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && order) {
+      setRows(
+        (order.materialsUsed || []).map((m) => ({
+          id: m.id,
+          materialId: m.materialId,
+          code: m.code,
+          name: m.name,
+          unit: m.unit,
+          quantity: Number(m.quantity) || 0,
+          note: m.note ?? "",
+          date: m.date || "",
+        })),
+      );
+      setEditingId(null);
+      setDraft({ material_id: "", quantity: "", unit: "", note: "" });
+      setEditDraft({ material_id: "", quantity: "", unit: "", note: "" });
+    }
+  }, [isOpen, order]);
+
+  useEffect(() => {
+    if (!isOpen || catalog.length > 0 || catalogLoading) return;
+    setCatalogLoading(true);
+    setCatalogError("");
+    getAllMaterialsClient()
+      .then((res) => {
+        const list = res?.data || res || [];
+        setCatalog(Array.isArray(list) ? list : []);
+      })
+      .catch((err) => {
+        console.error("Failed to load materials catalog:", err);
+        setCatalogError("Failed to load materials. Please try again.");
+      })
+      .finally(() => setCatalogLoading(false));
+  }, [isOpen, catalog.length, catalogLoading]);
+
+  const unitFor = (materialId) => {
+    const mat = catalog.find((m) => String(m.id) === String(materialId));
+    return mat?.default_unit || mat?.unit || "";
+  };
+
+  const updateDraft = (field, value) =>
+    setDraft((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === "material_id" ? { unit: unitFor(value) } : {}),
+    }));
+  const updateEditDraft = (field, value) =>
+    setEditDraft((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === "material_id" ? { unit: unitFor(value) } : {}),
+    }));
+
+  const addRow = async () => {
+    const qty = Number(draft.quantity);
+    if (!draft.material_id) {
+      alert("Please select a material.");
+      return;
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      alert("Quantity must be a positive number.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await createMaterialConsumptionClient({
+        order_id: order.id,
+        material_id: draft.material_id,
+        quantity: qty,
+        unit: draft.unit || undefined,
+        note: draft.note || undefined,
+      });
+      const created = res.data;
+      const mat = catalog.find(
+        (m) => String(m.id) === String(draft.material_id),
+      );
+      setRows((prev) => [
+        ...prev,
+        {
+          id: created.id,
+          materialId: created.material_id ?? draft.material_id,
+          code: created.material?.code ?? mat?.code ?? "",
+          name: created.material?.name ?? mat?.name ?? "",
+          unit: created.unit || draft.unit || "",
+          quantity: Number(created.quantity) || qty,
+          note: created.note ?? draft.note ?? "",
+          date: new Date().toISOString().split("T")[0],
+        },
+      ]);
+      setDraft({ material_id: "", quantity: "", unit: "", note: "" });
+      onChange?.();
+    } catch (err) {
+      console.error("Failed to add material consumption:", err);
+      alert("Failed to add material. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startEdit = (row) => {
+    setEditingId(row.id);
+    setEditDraft({
+      material_id: String(row.materialId ?? ""),
+      quantity: String(row.quantity ?? ""),
+      unit: row.unit ?? "",
+      note: row.note ?? "",
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDraft({ material_id: "", quantity: "", unit: "", note: "" });
+  };
+
+  const saveEdit = async (row) => {
+    const qty = Number(editDraft.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      alert("Quantity must be a positive number.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await updateMaterialConsumptionClient(row.id, {
+        material_id: editDraft.material_id || undefined,
+        quantity: qty,
+        unit: editDraft.unit || undefined,
+        note: editDraft.note || null,
+      });
+      const updated = res.data;
+      const mat = catalog.find(
+        (m) => String(m.id) === String(editDraft.material_id),
+      );
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === row.id
+            ? {
+                id: updated.id,
+                materialId: updated.material_id ?? editDraft.material_id,
+                code: updated.material?.code ?? mat?.code ?? r.code,
+                name: updated.material?.name ?? mat?.name ?? r.name,
+                unit: updated.unit || editDraft.unit || r.unit,
+                quantity: Number(updated.quantity) || qty,
+                note: updated.note ?? editDraft.note ?? "",
+                date: r.date,
+              }
+            : r,
+        ),
+      );
+      setEditingId(null);
+      onChange?.();
+    } catch (err) {
+      console.error("Failed to update material consumption:", err);
+      alert("Failed to update material. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeRow = async (row) => {
+    if (!confirm("Delete this material entry? This cannot be undone.")) return;
+    try {
+      setBusy(true);
+      await deleteMaterialConsumptionClient(row.id);
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      if (editingId === row.id) cancelEdit();
+      onChange?.();
+    } catch (err) {
+      console.error("Failed to delete material consumption:", err);
+      alert("Failed to delete material. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Manage Materials Used"
+      subtitle={`${order?.id} — ${order?.project}`}
+      icon={<Icons.package />}
+      accent="stage-completed"
+      maxWidth="680px"
+      footer={
+        <>
+          <Btn variant="ghost" onClick={onClose} disabled={busy}>
+            Done
+          </Btn>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {catalogError && (
+          <div
+            className="px-3 py-2 rounded-md text-xs flex items-center gap-2"
+            style={{
+              background: "var(--stage-contract)15",
+              color: "var(--stage-contract)",
+              border: "1px solid var(--stage-contract)40",
+            }}
+          >
+            <Icons.alertTriangle /> {catalogError}
+          </div>
+        )}
+
+        {/* Summary */}
+        <div
+          className="flex items-center justify-between gap-2 p-3 rounded-lg text-sm"
+          style={{
+            background: "var(--accent-soft)",
+            border: "1px solid var(--accent)",
+          }}
+        >
+          <span
+            className="font-bold flex items-center gap-1.5"
+            style={{ color: "var(--accent)" }}
+          >
+            <Icons.package /> Materials logged
+          </span>
+          <span
+            className="font-bold tabular-nums"
+            style={{ color: "var(--accent)" }}
+          >
+            {rows.length} entr{rows.length === 1 ? "y" : "ies"}
+          </span>
+        </div>
+
+        {/* Existing rows */}
+        <div>
+          <h3
+            className="text-xs font-bold uppercase tracking-wider mb-2"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            Materials History ({rows.length})
+          </h3>
+
+          {rows.length === 0 ? (
+            <div
+              className="text-xs text-center py-4 rounded-lg"
+              style={{ background: "var(--bg)", color: "var(--ink-muted)" }}
+            >
+              No materials logged yet.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {rows.map((row) =>
+                editingId === row.id ? (
+                  <div
+                    key={row.id}
+                    className="p-2.5 rounded-lg space-y-2"
+                    style={{
+                      background: "var(--bg)",
+                      border: "1px solid var(--accent)",
+                    }}
+                  >
+                    <div className="grid grid-cols-12 gap-2">
+                      <select
+                        className="col-span-6 px-2 py-1.5 rounded-md text-sm outline-none"
+                        style={{
+                          background: "var(--surface)",
+                          border: "1px solid var(--border)",
+                          color: "var(--ink)",
+                        }}
+                        value={editDraft.material_id}
+                        onChange={(e) =>
+                          updateEditDraft("material_id", e.target.value)
+                        }
+                      >
+                        <option value="">— select material —</option>
+                        {catalog.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.code ? `${m.code} — ${m.name}` : m.name}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="Qty"
+                        className="col-span-3 px-2 py-1.5 rounded-md text-sm outline-none text-center"
+                        style={{
+                          background: "var(--surface)",
+                          border: "1px solid var(--border)",
+                          color: "var(--ink)",
+                        }}
+                        value={editDraft.quantity}
+                        onChange={(e) =>
+                          updateEditDraft("quantity", e.target.value)
+                        }
+                      />
+                      <input
+                        placeholder="Unit"
+                        className="col-span-3 px-2 py-1.5 rounded-md text-sm outline-none"
+                        style={{
+                          background: "var(--surface)",
+                          border: "1px solid var(--border)",
+                          color: "var(--ink)",
+                        }}
+                        value={editDraft.unit}
+                        onChange={(e) =>
+                          updateEditDraft("unit", e.target.value)
+                        }
+                      />
+                    </div>
+                    <input
+                      placeholder="Note (optional)"
+                      className="w-full px-2 py-1.5 rounded-md text-sm outline-none"
+                      style={{
+                        background: "var(--surface)",
+                        border: "1px solid var(--border)",
+                        color: "var(--ink)",
+                      }}
+                      value={editDraft.note}
+                      onChange={(e) => updateEditDraft("note", e.target.value)}
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        disabled={busy}
+                        className="text-xs font-bold px-3 py-1.5 rounded-md"
+                        style={{
+                          border: "1px solid var(--border)",
+                          color: "var(--ink)",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => saveEdit(row)}
+                        disabled={busy}
+                        className="text-xs font-bold px-3 py-1.5 rounded-md text-white"
+                        style={{ background: "var(--accent)" }}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    key={row.id}
+                    className="flex items-center gap-2 p-2.5 rounded-lg"
+                    style={{
+                      background: "var(--bg)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    <Icons.package />
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className="text-sm font-bold flex items-center gap-2 flex-wrap"
+                        style={{ color: "var(--ink)" }}
+                      >
+                        <span className="truncate">{row.name}</span>
+                        <span
+                          className="text-xs font-normal"
+                          style={{ color: "var(--ink-muted)" }}
+                        >
+                          × {row.quantity} {row.unit}
+                        </span>
+                      </div>
+                      <div
+                        className="text-[10px] flex items-center gap-2"
+                        style={{ color: "var(--ink-muted)" }}
+                      >
+                        {row.date && <span>{row.date}</span>}
+                        {row.note && (
+                          <span className="italic truncate">{row.note}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(row)}
+                      disabled={busy}
+                      className="p-1.5 rounded-md hover:opacity-70 shrink-0"
+                      style={{ color: "var(--ink-muted)" }}
+                      title="Edit"
+                    >
+                      <Icons.edit />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeRow(row)}
+                      disabled={busy}
+                      className="p-1.5 rounded-md hover:opacity-70 shrink-0"
+                      style={{ color: "#ef4444" }}
+                      title="Delete"
+                    >
+                      <Icons.trash />
+                    </button>
+                  </div>
+                ),
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Add new */}
+        <div
+          className="pt-3"
+          style={{ borderTop: "1px dashed var(--border)" }}
+        >
+          <p
+            className="text-xs mb-2 font-bold uppercase tracking-wider"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            Add material
+          </p>
+          <div
+            className="space-y-2 p-2.5 rounded-lg"
+            style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
+          >
+            <div className="grid grid-cols-12 gap-2">
+              <select
+                className="col-span-6 px-2.5 py-1.5 rounded-md text-sm outline-none"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                }}
+                value={draft.material_id}
+                onChange={(e) => updateDraft("material_id", e.target.value)}
+                disabled={catalogLoading}
+              >
+                <option value="">
+                  {catalogLoading ? "Loading materials…" : "— select material —"}
+                </option>
+                {catalog.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.code ? `${m.code} — ${m.name}` : m.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder={`Qty${draft.unit ? ` (${draft.unit})` : ""}`}
+                className="col-span-3 px-2 py-1.5 rounded-md text-sm outline-none text-center"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                }}
+                value={draft.quantity}
+                onChange={(e) => updateDraft("quantity", e.target.value)}
+              />
+              <input
+                placeholder="Note (optional)"
+                className="col-span-3 px-2 py-1.5 rounded-md text-sm outline-none"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                }}
+                value={draft.note}
+                onChange={(e) => updateDraft("note", e.target.value)}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), addRow())
+                }
+              />
+            </div>
+            <button
+              type="button"
+              onClick={addRow}
+              disabled={busy || !draft.material_id || !Number(draft.quantity)}
+              className="w-full flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-md transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              <Icons.plus /> Add material
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 /* ─── Assign worker modal ─── */
 const AssignWorkerModal = ({
   isOpen,
@@ -2479,9 +3271,11 @@ const OrderFormModal = ({
   const [formData, setFormData] = useState({
     client: "",
     phone: "",
+    clientType: "Individual",
     address: "",
     project: "",
     amount: "",
+    meters: "",
     dueDate: "",
     stage: "APPOINTMENT",
     worker: "Unassigned",
@@ -2498,6 +3292,8 @@ const OrderFormModal = ({
       setFormData({
         ...initialData,
         amount: initialData.amount.toString(),
+        meters: initialData.meters != null ? initialData.meters.toString() : "",
+        clientType: initialData.clientType || "Individual",
         items: initialData.items || [],
         payments: initialData.payments || [],
         missingItems: initialData.missingItems || [],
@@ -2515,9 +3311,11 @@ const OrderFormModal = ({
       setFormData({
         client: "",
         phone: "",
+        clientType: "Individual",
         address: "",
         project: "",
         amount: "",
+        meters: "",
         dueDate: "",
         stage: "APPOINTMENT",
         worker: "Unassigned",
@@ -2558,6 +3356,7 @@ const OrderFormModal = ({
       client: c.client,
       phone: c.phone,
       address: c.address,
+      clientType: c.clientType || c.type || prev.clientType,
     }));
     setUseExistingClient(true);
   };
@@ -2583,6 +3382,7 @@ const OrderFormModal = ({
         worker: formData.worker !== "Unassigned" ? formData.worker : null,
         project_name: formData.project,
         total_amount: Number(formData.amount),
+        meters: formData.meters ? parseFloat(formData.meters) : null,
         due_date: formData.dueDate ? new Date(formData.dueDate) : null,
         state: formData.stage.toLowerCase(),
         address: formData.address,
@@ -2601,9 +3401,11 @@ const OrderFormModal = ({
         id: initialData?.id,  // ADD THIS LINE
         client: formData.client,
         phone: formData.phone,
+        clientType: formData.clientType || "Individual",
         address: formData.address,
         project: formData.project,
         amount: Number(formData.amount),
+        meters: formData.meters ? parseFloat(formData.meters) : 0,
         dueDate: formData.dueDate,
         stage: formData.stage,
         worker: formData.worker !== "Unassigned" ? formData.worker : null,
@@ -2884,6 +3686,28 @@ const OrderFormModal = ({
                 onChange={(e) => handleChange("phone", e.target.value)}
               />
             </div>
+            <div>
+              <label
+                className="block text-xs font-medium mb-1"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                Client Type
+              </label>
+              <select
+                disabled={useExistingClient}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none disabled:opacity-80"
+                style={{
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                }}
+                value={formData.clientType}
+                onChange={(e) => handleChange("clientType", e.target.value)}
+              >
+                <option value="Individual">Individual</option>
+                <option value="Company">Company</option>
+              </select>
+            </div>
             <div className="md:col-span-2">
               <label
                 className="block text-xs font-medium mb-1"
@@ -2952,6 +3776,26 @@ const OrderFormModal = ({
                 }}
                 value={formData.amount}
                 onChange={(e) => handleChange("amount", e.target.value)}
+              />
+            </div>
+            <div>
+              <label
+                className="block text-xs font-medium mb-1"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                Meters
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                }}
+                value={formData.meters}
+                onChange={(e) => handleChange("meters", e.target.value)}
               />
             </div>
             <div>
@@ -3336,8 +4180,10 @@ export default function OrdersClient() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isReadyConfirmOpen, setIsReadyConfirmOpen] = useState(false);
+  const [skipReadyAsk, setSkipReadyAsk] = useState(false);
   const [isMissingPartsOpen, setIsMissingPartsOpen] = useState(false);
   const [isPaymentsOpen, setIsPaymentsOpen] = useState(false);
+  const [isMaterialsMgmtOpen, setIsMaterialsMgmtOpen] = useState(false);
   const [managingOrderId, setManagingOrderId] = useState(null);
   const [assigningOrderId, setAssigningOrderId] = useState(null);
 
@@ -3546,6 +4392,10 @@ export default function OrdersClient() {
         address: newOrder.address || null,
         project: newOrder.project,
         amount: Number(newOrder.amount) || 0,
+        meters:
+          newOrder.meters === "" || newOrder.meters == null
+            ? null
+            : Number(newOrder.meters),
         dueDate: newOrder.dueDate || null,
         stage: (newOrder.stage || "APPOINTMENT").toUpperCase(),
         worker: newOrder.worker || null,
@@ -3600,6 +4450,10 @@ export default function OrdersClient() {
         stage: dbStateToStage(updated.state ?? "appointment"),
         worker: updated.workers?.full_name ?? "Unassigned",
         amount: Number(updated.total_amount) || 0,
+        meters:
+          updated.meters === null || updated.meters === undefined
+            ? null
+            : Number(updated.meters),
         paid,
         dueDate: toDateStr(updated.due_date),
         created: toDateStr(updated.created_at),
@@ -3623,6 +4477,18 @@ export default function OrdersClient() {
           unit: c.unit ?? "pcs",
           notes: c.notes ?? "",
         })),
+        materialsUsed: (updated.order_material_consumptions || []).map(
+          (c) => ({
+            id: c.id,
+            materialId: c.material_id,
+            code: c.material?.code ?? "",
+            name: c.material?.name ?? "Unknown material",
+            unit: c.unit || c.material?.default_unit || "",
+            quantity: Number(c.quantity) || 0,
+            note: c.note ?? "",
+            date: toDateStr(c.created_at),
+          }),
+        ),
         technical: {
           truckDistance: dn.truck_distance_km ?? "",
           floor: dn.floor ?? "",
@@ -3690,6 +4556,11 @@ export default function OrdersClient() {
     setIsPaymentsOpen(true);
   };
 
+  const openMaterialsMgmtModal = (orderId) => {
+    setManagingOrderId(orderId);
+    setIsMaterialsMgmtOpen(true);
+  };
+
   /**
    * Refresh a single order from the server after a payment mutation.
    * Reuses the same `/api/orders` filter endpoint and normalizes the
@@ -3709,8 +4580,9 @@ export default function OrdersClient() {
   };
 
   const handleQuickStageChange = async (orderId, newStage) => {
-    if (newStage === "READY_TO_DELIVER") {
+    if (newStage === "READY_TO_DELIVER" || newStage === "COMPLETED") {
       setAssigningOrderId(orderId);
+      setSkipReadyAsk(newStage === "COMPLETED");
       setIsReadyConfirmOpen(true);
       return;
     }
@@ -3730,7 +4602,7 @@ export default function OrdersClient() {
 
   };
 
-  const handleReadyConfirm = async ({ missingItems, stage }) => {
+  const handleReadyConfirm = async ({ missingItems, stage, materialsUsed }) => {
     try {
       console.log("🟢 PATCH ready confirm", {
         assigningOrderId,
@@ -3745,6 +4617,27 @@ export default function OrdersClient() {
       setOrders((prev) =>
         prev.map((o) => (o.id === normalized.id ? normalized : o)),
       );
+
+      if (materialsUsed && materialsUsed.length > 0) {
+        try {
+          await Promise.all(
+            materialsUsed.map((m) =>
+              createMaterialConsumptionClient({
+                order_id: assigningOrderId,
+                material_id: m.material_id,
+                quantity: m.quantity,
+                unit: m.unit || undefined,
+                note: m.note || undefined,
+              }),
+            ),
+          );
+        } catch (matErr) {
+          console.error("Failed to record material consumption:", matErr);
+          alert(
+            "Order was completed, but recording materials used failed. Please add them from the order's Materials section.",
+          );
+        }
+      }
     } catch (err) {
       console.error("Failed to confirm ready:", err);
       alert("Failed to update order. Please try again.");
@@ -3845,6 +4738,7 @@ export default function OrdersClient() {
             onPrint={() => handlePrint(selected)}
             onManageMissing={openMissingPartsModal}
             onManagePayments={openPaymentsModal}
+            onManageMaterials={openMaterialsMgmtModal}
           />
         </div>
       )}
@@ -4059,6 +4953,8 @@ export default function OrdersClient() {
                     o.stage !== "COMPLETED";
                   const missingCount = (o.missingItems || []).length;
                   const isBlocked = hasBlockingMissing(o);
+                  // Color priority: overdue = red, missing parts = orange
+                  const rowAccent = isOverdue ? "red" : isBlocked ? "orange" : null;
                   const techFee = Number(o.technical?.fee) || 0;
                   return (
                     <tr
@@ -4069,28 +4965,46 @@ export default function OrdersClient() {
                       }}
                       className="cursor-pointer transition-colors"
                       style={{
-                        background: isBlocked
-                          ? "#ff000010"
-                          : isSel
-                            ? "var(--accent-soft)"
-                            : "transparent",
+                        background:
+                          rowAccent === "red"
+                            ? "#ef444412"
+                            : rowAccent === "orange"
+                              ? "#f59e0b12"
+                              : isSel
+                                ? "var(--accent-soft)"
+                                : "transparent",
                         borderTop: "1px solid var(--border)",
-                        borderLeft: isBlocked
-                          ? "4px solid #ef4444"
-                          : "4px solid transparent",
+                        borderLeft:
+                          rowAccent === "red"
+                            ? "4px solid #ef4444"
+                            : rowAccent === "orange"
+                              ? "4px solid #f59e0b"
+                              : "4px solid transparent",
                         boxShadow:
-                          isSel && isBlocked
+                          isSel && rowAccent
                             ? "inset 0 0 0 2px #facc15"
                             : "none",
                       }}
                     >
                       <td className="px-4 py-3 font-bold">
                         {o.id}
+                        {isOverdue && (
+                          <span
+                            className="ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded inline-block"
+                            style={{
+                              background: "#ef4444",
+                              color: "#fff",
+                              letterSpacing: ".05em",
+                            }}
+                          >
+                            ⏰ OVERDUE
+                          </span>
+                        )}
                         {isBlocked && (
                           <span
                             className="ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded inline-block animate-pulse"
                             style={{
-                              background: "#ef4444",
+                              background: "#f59e0b",
                               color: "#fff",
                               letterSpacing: ".05em",
                             }}
@@ -4103,7 +5017,12 @@ export default function OrdersClient() {
                         <div
                           className="font-bold text-sm"
                           style={{
-                            color: isBlocked ? "#991b1b" : "var(--ink)",
+                            color:
+                              rowAccent === "red"
+                                ? "#991b1b"
+                                : rowAccent === "orange"
+                                  ? "#92400e"
+                                  : "var(--ink)",
                           }}
                         >
                           {o.client}
@@ -4124,14 +5043,14 @@ export default function OrdersClient() {
                         <StageBadge stage={o.stage} />
                         {missingCount > 0 && (
                           <div
-                            className={`text-[10px] mt-1 px-1.5 py-0.5 rounded inline-block font-bold ${isBlocked ? "animate-pulse" : ""}`}
+                            className="text-[10px] mt-1 px-1.5 py-0.5 rounded inline-block font-bold"
                             style={{
-                              background: isBlocked ? "#ef444420" : "#f59e0b15",
-                              color: isBlocked ? "#ef4444" : "#f59e0b",
-                              border: isBlocked ? "1px solid #ef4444" : "none",
+                              background: "#f59e0b20",
+                              color: "#f59e0b",
+                              border: "1px solid #f59e0b60",
                             }}
                           >
-                            {isBlocked ? "🚫" : "⚠"} {missingCount} missing
+                            ⚠ {missingCount} missing
                           </div>
                         )}
                       </td>
@@ -4209,6 +5128,8 @@ export default function OrdersClient() {
                   o.stage !== "COMPLETED";
                 const missingCount = (o.missingItems || []).length;
                 const isBlocked = hasBlockingMissing(o);
+                // Color priority: overdue = red, missing parts = orange (synced with desktop)
+                const rowAccent = isOverdue ? "red" : isBlocked ? "orange" : null;
                 return (
                   <div
                     key={o.id}
@@ -4218,26 +5139,47 @@ export default function OrdersClient() {
                     }}
                     className="p-4 cursor-pointer active:opacity-70"
                     style={{
-                      background: isBlocked
-                        ? "#fef2f2"
-                        : selectedId === o.id
-                          ? "var(--accent-soft)"
-                          : "var(--surface)",
-                      borderLeft: isBlocked
-                        ? "4px solid #ef4444"
-                        : "4px solid transparent",
+                      background:
+                        rowAccent === "red"
+                          ? "#ef444412"
+                          : rowAccent === "orange"
+                            ? "#f59e0b12"
+                            : selectedId === o.id
+                              ? "var(--accent-soft)"
+                              : "var(--surface)",
+                      borderLeft:
+                        rowAccent === "red"
+                          ? "4px solid #ef4444"
+                          : rowAccent === "orange"
+                            ? "4px solid #f59e0b"
+                            : "4px solid transparent",
                     }}
                   >
                     <div className="flex justify-between items-start mb-2 gap-2">
                       <div
                         className="font-bold text-sm flex items-center gap-2 flex-wrap"
-                        style={{ color: isBlocked ? "#991b1b" : "var(--ink)" }}
+                        style={{
+                          color:
+                            rowAccent === "red"
+                              ? "#991b1b"
+                              : rowAccent === "orange"
+                                ? "#92400e"
+                                : "var(--ink)",
+                        }}
                       >
                         {o.id}
+                        {isOverdue && (
+                          <span
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                            style={{ background: "#ef4444", color: "#fff" }}
+                          >
+                            ⏰ OVERDUE
+                          </span>
+                        )}
                         {isBlocked && (
                           <span
                             className="text-[9px] font-bold px-1.5 py-0.5 rounded animate-pulse"
-                            style={{ background: "#ef4444", color: "#fff" }}
+                            style={{ background: "#f59e0b", color: "#fff" }}
                           >
                             🚫 BLOCKED
                           </span>
@@ -4259,10 +5201,10 @@ export default function OrdersClient() {
                     </div>
                     {missingCount > 0 && (
                       <div
-                        className={`text-[10px] mb-1 font-bold ${isBlocked ? "animate-pulse" : ""}`}
-                        style={{ color: isBlocked ? "#ef4444" : "#f59e0b" }}
+                        className="text-[10px] mb-1 font-bold"
+                        style={{ color: "#f59e0b" }}
                       >
-                        {isBlocked ? "🚫" : "⚠"} {missingCount} item
+                        ⚠ {missingCount} item
                         {missingCount === 1 ? "" : "s"} missing
                       </div>
                     )}
@@ -4304,6 +5246,7 @@ export default function OrdersClient() {
             onPrint={() => handlePrint(selected)}
             onManageMissing={openMissingPartsModal}
             onManagePayments={openPaymentsModal}
+            onManageMaterials={openMaterialsMgmtModal}
           />
         </div>
       </div>
@@ -4337,6 +5280,7 @@ export default function OrdersClient() {
         onClose={() => setIsReadyConfirmOpen(false)}
         order={orders.find((o) => o.id === assigningOrderId)}
         onConfirm={handleReadyConfirm}
+        skipToMaterials={skipReadyAsk}
       />
       <MissingPartsModal
         isOpen={isMissingPartsOpen}
@@ -4347,6 +5291,12 @@ export default function OrdersClient() {
       <PaymentsModal
         isOpen={isPaymentsOpen}
         onClose={() => setIsPaymentsOpen(false)}
+        order={orders.find((o) => o.id === managingOrderId)}
+        onChange={() => refreshOrder(managingOrderId)}
+      />
+      <MaterialConsumptionsModal
+        isOpen={isMaterialsMgmtOpen}
+        onClose={() => setIsMaterialsMgmtOpen(false)}
         order={orders.find((o) => o.id === managingOrderId)}
         onChange={() => refreshOrder(managingOrderId)}
       />
@@ -4376,6 +5326,8 @@ function OrderDetailPanel({
   onManageMissing,
 
   onManagePayments,
+
+  onManageMaterials,
 }) {
   if (!order) {
     return (
@@ -4393,6 +5345,8 @@ function OrderDetailPanel({
   const progress = order.amount > 0 ? (order.paid / order.amount) * 100 : 0;
   const missingCount = (order.missingItems || []).length;
   const isBlocked = hasBlockingMissing(order);
+  // Color priority: overdue = red, missing parts = orange (synced with the orders list)
+  const rowAccent = isOverdue ? "red" : isBlocked ? "orange" : null;
   const tech = order.technical || { truckDistance: "", floor: "", fee: "" };
   const techFee = Number(tech.fee) || 0;
   const grandTotal = (order.amount || 0) + techFee;
@@ -4404,22 +5358,37 @@ function OrderDetailPanel({
         className="p-5"
         style={{
           borderBottom: "1px solid var(--border)",
-          background: isBlocked
-            ? "linear-gradient(135deg, #ff000040, var(--surface))"
-            : "var(--surface)",
+          background:
+            rowAccent === "red"
+              ? "linear-gradient(135deg, #ef444440, var(--surface))"
+              : rowAccent === "orange"
+                ? "linear-gradient(135deg, #f59e0b40, var(--surface))"
+                : "var(--surface)",
         }}
       >
         <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <h2
             className="text-lg font-bold truncate flex items-center gap-2"
-            style={{ color: isBlocked ? "#ffffff" : "var(--ink)" }}
+            style={{ color: rowAccent ? "#ffffff" : "var(--ink)" }}
           >
             {order.id}
+            {isOverdue && (
+              <span
+                className="text-[10px] font-bold px-2 py-0.5 rounded"
+                style={{
+                  background: "#ef4444",
+                  color: "#fff",
+                  letterSpacing: ".05em",
+                }}
+              >
+                ⏰ OVERDUE
+              </span>
+            )}
             {isBlocked && (
               <span
                 className="text-[10px] font-bold px-2 py-0.5 rounded animate-pulse"
                 style={{
-                  background: "#ef4444",
+                  background: "#f59e0b",
                   color: "#fff",
                   letterSpacing: ".05em",
                 }}
@@ -4461,14 +5430,14 @@ function OrderDetailPanel({
         <div className="flex items-center justify-between gap-2">
           <h3
             className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"
-            style={{ color: isBlocked ? "#ef4444" : "var(--ink-muted)" }}
+            style={{ color: missingCount > 0 ? "#f59e0b" : "var(--ink-muted)" }}
           >
             <Icons.alertTriangle /> Missing Parts
             {missingCount > 0 && (
               <span
                 className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${isBlocked ? "animate-pulse" : ""}`}
                 style={{
-                  background: isBlocked ? "#ef4444" : "#f59e0b",
+                  background: "#f59e0b",
                   color: "#fff",
                 }}
               >
@@ -4507,15 +5476,15 @@ function OrderDetailPanel({
                 key={i}
                 className="flex items-center justify-between gap-2 text-xs px-2.5 py-2 rounded-md"
                 style={{
-                  background: isBlocked ? "#fef2f2" : "#fffbeb",
-                  border: `1px solid ${isBlocked ? "#fecaca" : "#fde68a"}`,
+                  background: "#fffbeb",
+                  border: "1px solid #fde68a",
                 }}
               >
                 <span className="flex items-center gap-1.5 min-w-0 flex-1">
                   <Icons.package />
                   <span
                     className="truncate font-medium"
-                    style={{ color: isBlocked ? "#991b1b" : "#92400e" }}
+                    style={{ color: "#92400e" }}
                   >
                     {p.name}
                   </span>
@@ -4530,7 +5499,7 @@ function OrderDetailPanel({
                 </span>
                 <span
                   className="font-bold tabular-nums shrink-0"
-                  style={{ color: isBlocked ? "#dc2626" : "#d97706" }}
+                  style={{ color: "#d97706" }}
                 >
                   ×{p.qty} {p.unit}
                 </span>
@@ -4539,7 +5508,7 @@ function OrderDetailPanel({
             {isBlocked && (
               <div
                 className="flex items-start gap-2 text-[10px] p-2 rounded mt-1"
-                style={{ background: "#fef2f2", color: "#991b1b" }}
+                style={{ background: "#fffbeb", color: "#92400e" }}
               >
                 <Icons.ban />
                 <span>
@@ -4667,6 +5636,20 @@ function OrderDetailPanel({
           >
             {isOverdue ? "Overdue: " : ""}
             {order.dueDate}
+          </div>
+        </div>
+        <div
+          className="p-3 rounded-lg col-span-2"
+          style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
+        >
+          <div
+            className="text-xs mb-1 font-bold uppercase flex items-center gap-1"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            <Icons.ruler /> Meters
+          </div>
+          <div className="text-sm font-bold" style={{ color: "var(--ink)" }}>
+            {order.meters ? `${order.meters} m²` : "—"}
           </div>
         </div>
       </div>
@@ -4943,6 +5926,87 @@ function OrderDetailPanel({
         )}
       </div>
 
+      {/* Materials Used */}
+      <div
+        className="p-5 space-y-2.5"
+        style={{ borderBottom: "1px solid var(--border)" }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <h3
+            className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            <Icons.package /> Materials Used
+          </h3>
+          <button
+            onClick={() => onManageMaterials?.(order.id)}
+            className="text-[10px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 transition-all hover:brightness-110"
+            style={{
+              background: "var(--accent-soft)",
+              color: "var(--accent)",
+              border: "1px solid var(--accent)",
+            }}
+            title="Add, edit, or remove materials used on this order"
+          >
+            <Icons.package /> Manage Materials
+            {order.materialsUsed && order.materialsUsed.length > 0 && (
+              <span
+                className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold"
+                style={{
+                  background: "var(--accent)",
+                  color: "#fff",
+                }}
+              >
+                {order.materialsUsed.length}
+              </span>
+            )}
+          </button>
+        </div>
+        {!order.materialsUsed || order.materialsUsed.length === 0 ? (
+          <div
+            className="text-xs text-center py-4"
+            style={{ color: "var(--ink-muted)" }}
+          >
+            No materials logged yet.
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {order.materialsUsed.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-start gap-3 text-sm p-2 rounded-md"
+                style={{ background: "var(--bg)" }}
+              >
+                <span style={{ color: "var(--ink-muted)" }}>
+                  <Icons.package />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div
+                    className="font-medium flex items-center gap-2 flex-wrap"
+                    style={{ color: "var(--ink)" }}
+                  >
+                    <span className="truncate">{m.name}</span>
+                    <span
+                      className="text-xs font-normal"
+                      style={{ color: "var(--ink-muted)" }}
+                    >
+                      × {m.quantity} {m.unit}
+                    </span>
+                  </div>
+                  <div
+                    className="text-[10px] mt-0.5 flex items-center gap-2"
+                    style={{ color: "var(--ink-muted)" }}
+                  >
+                    {m.date && <span>{m.date}</span>}
+                    {m.note && <span className="italic truncate">{m.note}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Items */}
       <div
         className="p-5 space-y-3"
@@ -4964,23 +6028,13 @@ function OrderDetailPanel({
                 key={i}
                 className="flex items-start gap-3 text-sm p-2 rounded-md"
                 style={{
-                  background: isMissing
-                    ? isBlocked
-                      ? "#fef2f2"
-                      : "#fffbeb"
-                    : "var(--bg)",
-                  border: isMissing
-                    ? `1px solid ${isBlocked ? "#fecaca" : "#fde68a"}`
-                    : "none",
+                  background: isMissing ? "#fffbeb" : "var(--bg)",
+                  border: isMissing ? "1px solid #fde68a" : "none",
                 }}
               >
                 <span
                   style={{
-                    color: isMissing
-                      ? isBlocked
-                        ? "#dc2626"
-                        : "#d97706"
-                      : "var(--ink-muted)",
+                    color: isMissing ? "#d97706" : "var(--ink-muted)",
                   }}
                 >
                   <Icons.package />
@@ -4989,7 +6043,7 @@ function OrderDetailPanel({
                   <div
                     className="font-medium flex items-center gap-2 flex-wrap"
                     style={{
-                      color: isMissing && isBlocked ? "#991b1b" : "var(--ink)",
+                      color: isMissing ? "#92400e" : "var(--ink)",
                     }}
                   >
                     <span className="truncate">{item.name}</span>
@@ -4997,8 +6051,8 @@ function OrderDetailPanel({
                       <span
                         className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
                         style={{
-                          background: isBlocked ? "#ef444420" : "#f59e0b20",
-                          color: isBlocked ? "#ef4444" : "#f59e0b",
+                          background: "#f59e0b20",
+                          color: "#f59e0b",
                         }}
                       >
                         MISSING

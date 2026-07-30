@@ -11,7 +11,7 @@ import {
 } from "../api/orders/orders";
 
 // import order modal 
-import { OrderFormModal } from "./OrdersClient";
+import { OrderFormModal } from "../../lib/components/Orderformmodal";
 
 /* ─── Reusable UI ─── */
 const StageBadge = ({ stage, size = 'sm', custom }) => {
