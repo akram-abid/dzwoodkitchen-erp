@@ -11,6 +11,32 @@ datasource db {
   provider = "postgresql"
 }
 
+
+
+
+model roles {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique @db.VarChar(50)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  users      users[]
+}
+
+model users {
+  id            Int      @id @default(autoincrement())
+  name          String   @db.VarChar(150)
+  email         String   @unique @db.VarChar(255)
+  password_hash String
+  role_id       Int
+  worker_id     Int?     @unique
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+  updated_at    DateTime @default(now()) @db.Timestamp(6)
+
+  role   roles    @relation(fields: [role_id], references: [id], onDelete: NoAction)
+  worker workers? @relation(fields: [worker_id], references: [id], onDelete: SetNull)
+}
+
+
+
 // =============================================================
 // CORE: orders, clients, workers, vehicles
 // =============================================================
@@ -207,7 +233,7 @@ model workers {
   created_at   DateTime            @default(now()) @db.Timestamp(6)
   updated_at   DateTime            @default(now()) @db.Timestamp(6)
   orders       orders[]
-
+  user        users?
   hourlyRate Float?
   meterRate  Float?
 
