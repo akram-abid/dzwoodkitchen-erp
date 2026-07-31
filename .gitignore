@@ -45,3 +45,4 @@ next-env.d.ts
 /prisma/seed.sql
 /dzwoodkitchen-erp-db.html
 
+server.js
