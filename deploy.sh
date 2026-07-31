@@ -24,6 +24,8 @@ docker build --shm-size=1g -t dzwk-erp:"$IMAGE_TAG" -t dzwk-erp:latest .
 
 # swarm secrets
 export ENV_SECRET_NAME="env_prod_$(sha256sum .env.prod | cut -c1-8)"
+export POSTGRES_SECRET_NAME="postgres_password_$(sha256sum .postgres_password | cut -c1-8)"
+
 # unique tag per run forces swarm to actually roll the service
 export APP_IMAGE="dzwk-erp:$IMAGE_TAG"
 
