@@ -16,10 +16,10 @@ else
 fi
 
 
-IMAGE_TAG=$(git rev-parse --short HEAD)
 docker info 2>/dev/null | grep -q "Swarm: active" || docker swarm init
+docker swarm update --task-history-limit 2
 
-docker build --shm-size=1g -t dzwk-erp:"$IMAGE_TAG" -t dzwk-erp:latest .
+docker build --shm-size=1g -t dzwk-erp:latest .
 
 # swarm secrets
 ENV_FILE="/etc/dzwk/.env.prod"
@@ -28,10 +28,11 @@ POSTGRES_FILE="/etc/dzwk/.postgres_password"
 export ENV_SECRET_NAME="env_prod_$(sha256sum "$ENV_FILE" | cut -c1-8)"
 export POSTGRES_SECRET_NAME="postgres_password_$(sha256sum "$POSTGRES_FILE" | cut -c1-8)"
 
-# unique tag per run forces swarm to actually roll the service
-export APP_IMAGE="dzwk-erp:$IMAGE_TAG"
 
-docker stack deploy -c docker-compose.yml "$STACK_NAME" --with-registry-auth
+# echo "APP_IMAGE=$APP_IMAGE"
+docker stack deploy -c docker-compose.yml "$STACK_NAME" --with-registry-auth --detach=true
+
+docker service update --force dzwk-erp_app
 
 echo "waiting for ${STACK_NAME}_app to converge..."
 TIMEOUT=180
