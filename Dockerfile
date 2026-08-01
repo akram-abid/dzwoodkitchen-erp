@@ -31,8 +31,7 @@ COPY --from=build /app/prisma ./prisma
 # custom output path from schema.prisma: output = "../app/generated/prisma"
 COPY --from=build /app/app/generated/prisma ./app/generated/prisma
 # prisma CLI itself, needed to run migrate deploy at boot without hitting the network
-COPY --from=build /app/node_modules/prisma ./node_modules/prisma
-COPY --from=build /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+COPY --from=build /app/node_modules ./node_modules
 
 USER nextjs
 EXPOSE 3000
