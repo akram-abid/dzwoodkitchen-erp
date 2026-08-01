@@ -766,7 +766,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
             </Field>
             <Field label="Type *">
               <select
-                value={form.type}
+                value={form.type || 'Individual'}
                 onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
                 className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
                 style={inputStyle}
@@ -779,7 +779,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
             <div />
             <Field label="Phone *">
               <input
-                value={form.phone}
+                value={form.phone || ""}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                 placeholder="+213 ..."
                 className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full whitespace-nowrap"
@@ -797,7 +797,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
             </Field>
             <Field label="City">
               <input
-                value={form.city}
+                value={form.city || ""}
                 onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
                 placeholder="Algiers, Oran, ..."
                 className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
@@ -806,7 +806,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
             </Field>
             <Field label="District">
               <input
-                value={form.district}
+                value={form.district || ""}
                 onChange={e => setForm(f => ({ ...f, district: e.target.value }))}
                 placeholder="Hydra, Kouba, ..."
                 className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
@@ -815,7 +815,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
             </Field>
             <Field label="Full Address" hint="Optional">
               <input
-                value={form.address}
+                value={form.address || ""}
                 onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                 placeholder="Street, building, ..."
                 className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
@@ -824,7 +824,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
             </Field>
             <Field label="Notes" hint="Optional">
               <textarea
-                value={form.notes}
+                value={form.notes || ""}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 placeholder="Preferences, payment terms, ..."
                 rows={3}
