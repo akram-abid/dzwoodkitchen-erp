@@ -69,8 +69,9 @@ volumes:
 
 secrets:
   env_prod:
-    file: /opt/dzwk-erp/.env.prod
+    file: /etc/dzwk/.env.prod
     name: ${ENV_SECRET_NAME}
+
   postgres_password:
-    file: /opt/dzwk-erp/.postgres_password
+    file: /etc/dzwk/.postgres_password
     name: ${POSTGRES_SECRET_NAME}
