@@ -28,7 +28,7 @@ services:
           memory: 1G
 
   app:
-    image: ${APP_IMAGE:-dzwk-erp:latest}
+    image: dzwk-erp:latest
     environment:
       NODE_ENV: production
     secrets:
