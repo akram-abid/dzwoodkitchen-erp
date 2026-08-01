@@ -11,9 +11,6 @@ datasource db {
   provider = "postgresql"
 }
 
-
-
-
 model roles {
   id         Int      @id @default(autoincrement())
   name       String   @unique @db.VarChar(50)
@@ -34,8 +31,6 @@ model users {
   role   roles    @relation(fields: [role_id], references: [id], onDelete: NoAction)
   worker workers? @relation(fields: [worker_id], references: [id], onDelete: SetNull)
 }
-
-
 
 // =============================================================
 // CORE: orders, clients, workers, vehicles
@@ -98,6 +93,7 @@ model order_items {
   name       String   @db.VarChar(255)
   quantity   Int      @default(1)
   unit       String   @db.VarChar(20)
+  unit_price Decimal? @db.Decimal(10, 2)
   length_cm  Decimal? @db.Decimal(10, 2)
   width_cm   Decimal? @db.Decimal(10, 2)
   height_cm  Decimal? @db.Decimal(10, 2)
@@ -233,9 +229,9 @@ model workers {
   created_at   DateTime            @default(now()) @db.Timestamp(6)
   updated_at   DateTime            @default(now()) @db.Timestamp(6)
   orders       orders[]
-  user        users?
-  hourlyRate Float?
-  meterRate  Float?
+  user         users?
+  hourlyRate   Float?
+  meterRate    Float?
 
   sold Float @default(0) // Balance carried from previous months
 

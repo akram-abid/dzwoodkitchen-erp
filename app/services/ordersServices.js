@@ -166,6 +166,7 @@ export async function updateOrder(id, data) {
             length_cm: i.l || null,
             width_cm: i.w || null,
             height_cm: i.h || null,
+            unit_price: i.unit_price || null
           })),
       });
     }
@@ -334,6 +335,7 @@ export async function createOrder(data) {
             length_cm: i.l || null,
             width_cm: i.w || null,
             height_cm: i.h || null,
+            unit_price: i.unit_price || null
           })),
       });
     }
@@ -530,6 +532,7 @@ export async function patchOrder(id, data) {
               length_cm: i.l || null,
               width_cm: i.w || null,
               height_cm: i.h || null,
+              unit_price: i.unit_price || null
             })),
         });
       }

@@ -987,6 +987,7 @@ const normalizeOrder = (updated) => {
       l: Number(i.length_cm) || 0,
       w: Number(i.width_cm) || 0,
       h: Number(i.height_cm) || 0,
+      unit_price: Number(i.unit_price) || 0,
     })),
     payments: (updated.payments || []).map((p) => ({
       id: p.id,
@@ -1049,6 +1050,7 @@ const toServerPayload = (order, { workerIdByName, clientIdByName } = {}) => ({
     width_cm: i.w === "" || i.w == null ? null : Number(i.w),
 
     height_cm: i.h === "" || i.h == null ? null : Number(i.h),
+    unit_price: i.unit_price ? Number(i.unit_price) : null,
   })),
 
   payments: (order.payments || []).map((p) => ({
@@ -3378,7 +3380,7 @@ const OrderFormModal = ({
     dueDate: "",
     stage: "APPOINTMENT",
     worker: "Unassigned",
-    items: [{ name: "", qty: 1, unit: "pcs", l: "", w: "", h: "" }],
+    items: [{ name: "", qty: 1, unit: "pcs", l: "", w: "", h: "", unit_price: 0 }],
     payments: [],
     missingItems: [],
     technical: { truckDistance: "", floor: "", fee: "" },
@@ -3393,7 +3395,10 @@ const OrderFormModal = ({
         amount: initialData.amount.toString(),
         meters: initialData.meters != null ? initialData.meters.toString() : "",
         clientType: initialData.clientType || "Individual",
-        items: initialData.items || [],
+        items: (initialData.items || []).map(i => ({
+          ...i,
+          unit_price: i.unit_price || 0
+        })),
         payments: initialData.payments || [],
         missingItems: initialData.missingItems || [],
         technical: initialData.technical || {
@@ -3418,7 +3423,7 @@ const OrderFormModal = ({
         dueDate: "",
         stage: "APPOINTMENT",
         worker: "Unassigned",
-        items: [{ name: "", qty: 1, unit: "pcs", l: "", w: "", h: "" }],
+        items: [{ name: "", qty: 1, unit: "pcs", l: "", w: "", h: "", unit_price: 0 }],
         payments: [],
         missingItems: [],
         technical: { truckDistance: "", floor: "", fee: "" },
@@ -3440,7 +3445,7 @@ const OrderFormModal = ({
       ...prev,
       items: [
         ...prev.items,
-        { name: "", qty: 1, unit: "pcs", l: "", w: "", h: "" },
+        { name: "", qty: 1, unit: "pcs", l: "", w: "", h: "", unit_price: 0 },
       ],
     }));
   const removeItem = (index) =>
@@ -3492,6 +3497,7 @@ const OrderFormModal = ({
           length_cm: item.l ? parseFloat(item.l) : null,
           width_cm: item.w ? parseFloat(item.w) : null,
           height_cm: item.h ? parseFloat(item.h) : null,
+          unit_price: item.unit_price ? parseFloat(item.unit_price) : null
         })),
       };
     } else {
@@ -3515,6 +3521,7 @@ const OrderFormModal = ({
           l: item.l ? parseFloat(item.l) : 0,
           w: item.w ? parseFloat(item.w) : 0,
           h: item.h ? parseFloat(item.h) : 0,
+          unit_price: item.unit_price ? parseFloat(item.unit_price) : null
         })),
         payments: [],
         missingItems: [],
@@ -4096,6 +4103,25 @@ const OrderFormModal = ({
                     }
                   />
                 </div>
+
+                <div className="grid grid-cols-1 gap-2">
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="Unit Price (DZD)"
+                    className="col-span-1 px-2 py-2 rounded-lg text-sm outline-none text-center"
+                    style={{
+                      border: "1px solid var(--border)",
+                      color: "var(--ink)",
+                      background: "var(--surface)",
+                    }}
+                    value={item.unit_price || 0}
+                    onChange={(e) =>
+                      handleItemChange(index, "unit_price", Number(e.target.value))
+                    }
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -4505,6 +4531,7 @@ export default function OrdersClient() {
           l: i.l === "" || i.l == null ? 0 : Number(i.l),
           w: i.w === "" || i.w == null ? 0 : Number(i.w),
           h: i.h === "" || i.h == null ? 0 : Number(i.h),
+          unit_price: Number(i.unit_price) || 0,
         })),
 
         payments: [],
@@ -4562,6 +4589,7 @@ export default function OrdersClient() {
           l: Number(i.length_cm) || 0,
           w: Number(i.width_cm) || 0,
           h: Number(i.height_cm) || 0,
+          unit_price: Number(i.unit_price) || 0
         })),
         payments: (updated.payments || []).map((p) => ({
           id: p.id,
@@ -6186,6 +6214,12 @@ function OrderDetailPanel({
                         style={{ color: "var(--stage-contract)" }}
                       >
                         {item.l}cm × {item.w}cm × {item.h}cm
+                      </span>
+                    )}
+
+                    {item.unit_price > 0 && (
+                      <span className="font-bold" style={{ color: "var(--accent)" }}>
+                        {formatDZD(item.unit_price)} / {item.unit}
                       </span>
                     )}
                   </div>
