@@ -15,16 +15,6 @@ else
   cd "$APP_DIR"
 fi
 
-# nginx setup — one-time
-if ! [ -f /etc/nginx/sites-enabled/dzwk-erp.conf ]; then
-  echo "nginx site not configured, setting it up..."
-  sudo apt-get update -y && sudo apt-get install -y nginx certbot python3-certbot-nginx
-  sudo cp "$APP_DIR/nginx/dzwk-erp.conf" /etc/nginx/sites-available/dzwk-erp.conf
-  sudo ln -sf /etc/nginx/sites-available/dzwk-erp.conf /etc/nginx/sites-enabled/dzwk-erp.conf
-  sudo nginx -t && sudo systemctl reload nginx
-fi
-
-
 [ -f .env.prod ] || { echo ".env.prod not found in $APP_DIR, aborting"; exit 1; }
 
 IMAGE_TAG=$(git rev-parse --short HEAD)
