@@ -57,6 +57,12 @@ export async function updateClient(clientId, data) {
 }
 
 export async function deleteClient(clientId) {
+
+    await prisma.orders.deleteMany({
+        where: { client_id: clientId }
+    });
+
+
     return await prisma.clients.delete({
         where: { id: clientId },
     });

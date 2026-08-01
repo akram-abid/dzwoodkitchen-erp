@@ -788,7 +788,7 @@ export default function ClientsClient({ clientsData = [], workersData = [] }) {
             </Field>
             <Field label="Email">
               <input
-                value={form.email}
+                value={form.email || ""}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                 placeholder="email@example.dz"
                 className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"

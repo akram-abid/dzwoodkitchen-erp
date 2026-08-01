@@ -948,10 +948,10 @@ export default function FleetClient({ initialVehicles = [] }) {
               </Field>
               <Field label="Trip cost (DZD)" required><input type="number" min="0" value={tripForm.cost || ""} onChange={(e) => setTripForm((f) => ({ ...f, cost: e.target.value }))} placeholder="0" className="px-3 py-2 rounded-md text-sm outline-none focus-ring tabular-nums w-full" style={inputStyle} /></Field>
             </div>
-
+            {/* 
             <Field label="Linked order" hint={tripForm.purpose === "DELIVERY" ? "Recommended for deliveries" : "Optional"}>
               <OrderPicker value={tripForm.orderId} onChange={(v) => setTripForm((f) => ({ ...f, orderId: v }))} orders={orders} />
-            </Field>
+            </Field> */}
 
             <Field label="Notes" hint="Optional"><textarea rows={2} value={tripForm.notes || ""} onChange={(e) => setTripForm((f) => ({ ...f, notes: e.target.value }))} className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full resize-none" style={inputStyle} /></Field>
 
