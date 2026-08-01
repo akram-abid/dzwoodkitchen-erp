@@ -28,6 +28,7 @@ COPY --from=build /app/public ./public
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 # custom output path from schema.prisma: output = "../app/generated/prisma"
 COPY --from=build /app/app/generated/prisma ./app/generated/prisma
 # prisma CLI itself, needed to run migrate deploy at boot without hitting the network
