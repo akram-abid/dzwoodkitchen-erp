@@ -15,7 +15,6 @@ else
   cd "$APP_DIR"
 fi
 
-[ -f .env.prod ] || { echo ".env.prod not found in $APP_DIR, aborting"; exit 1; }
 
 IMAGE_TAG=$(git rev-parse --short HEAD)
 docker info 2>/dev/null | grep -q "Swarm: active" || docker swarm init
