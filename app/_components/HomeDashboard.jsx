@@ -3096,7 +3096,7 @@ export default function HomeDashboard() {
                     color: "var(--stage-contract)",
                   }}
                 >
-                  {displayMoneyCompact(moneyUnlocked, t.cost)}
+                  {displayMoneyCompact(true, t.cost)}
                 </div>
                 <div
                   className="muted"
@@ -3606,7 +3606,7 @@ export default function HomeDashboard() {
             <div className="row" style={{ fontSize: 11, marginBottom: 4 }}>
               <span className="grow muted">Expenses</span>
               <span style={{ fontWeight: 600 }}>
-                {displayMoneyCompact(moneyUnlocked, monthExpenses)} DZD
+                {displayMoneyCompact(true, monthExpenses)} DZD
               </span>
             </div>
             <div
@@ -3676,7 +3676,7 @@ export default function HomeDashboard() {
               data={expenseBreakdown}
               size={120}
               thickness={18}
-              formatValue={(n) => displayMoneyCompact(moneyUnlocked, n)}
+              formatValue={(n) => displayMoneyCompact(true, n)}
             />
             <div className="grow">
               {expenseBreakdown.map((t) => (
@@ -3691,7 +3691,7 @@ export default function HomeDashboard() {
                   />
                   <span className="grow muted">{t.label}</span>
                   <span style={{ fontWeight: 600 }}>
-                    {displayMoneyCompact(moneyUnlocked, t.value)}
+                    {displayMoneyCompact(true, t.value)}
                   </span>
                 </div>
               ))}
@@ -3712,7 +3712,7 @@ export default function HomeDashboard() {
           <div className="kpi-card">
             <div className="k-label">Expenses</div>
             <div className="k-value">
-              {displayMoneyCompact(moneyUnlocked, monthExpenses)}
+              {displayMoneyCompact(true, monthExpenses)}
             </div>
             <div className="k-sub">{expenseBreakdown.length} categories</div>
           </div>
@@ -3982,7 +3982,7 @@ export default function HomeDashboard() {
                       Total
                     </div>
                     <div style={{ fontSize: 18, fontWeight: 700 }}>
-                      {displayMoneyCompact(moneyUnlocked, po.total)}
+                      {displayMoneyCompact(true, po.total)}
                     </div>
                   </div>
                 </div>
@@ -4006,7 +4006,7 @@ export default function HomeDashboard() {
                       </span>
                       <span style={{ fontWeight: 600 }}>
                         {displayMoneyCompact(
-                          moneyUnlocked,
+                          true,
                           Number(it.quantity || 0) *
                             Number(it.unit_price || it.price || 0),
                         )}
@@ -4204,7 +4204,7 @@ export default function HomeDashboard() {
           },
           {
             label: "Expenses (MTD)",
-            value: displayMoneyCompact(moneyUnlocked, monthExpenses),
+            value: displayMoneyCompact(true, monthExpenses),
             color: "var(--stage-contract)",
             icon: <Icons.money />,
           },
@@ -4329,7 +4329,7 @@ export default function HomeDashboard() {
                   data={expenseBreakdown}
                   size={140}
                   thickness={22}
-                  formatValue={(n) => displayMoneyCompact(moneyUnlocked, n)}
+                  formatValue={(n) => displayMoneyCompact(true, n)}
                 />
                 <div className="w-full mt-4 space-y-1.5">
                   {expenseBreakdown.map((t) => (
@@ -4345,7 +4345,7 @@ export default function HomeDashboard() {
                         {t.label}
                       </span>
                       <span className="font-semibold">
-                        {displayMoneyCompact(moneyUnlocked, t.value)}
+                        {displayMoneyCompact(true, t.value)}
                       </span>
                     </div>
                   ))}
@@ -4939,7 +4939,7 @@ export default function HomeDashboard() {
                               className="text-lg font-bold mt-0.5"
                               style={{ color: "var(--accent)" }}
                             >
-                              {displayMoney(moneyUnlocked, po.total)}
+                              {displayMoney(true, po.total)}
                             </div>
                           </div>
                         </div>
@@ -4966,14 +4966,14 @@ export default function HomeDashboard() {
                                 >
                                   {it.quantity} {it.unit} ×{" "}
                                   {displayMoney(
-                                    moneyUnlocked,
+                                    true,
                                     it.unit_price || it.price,
                                   )}
                                 </div>
                               </div>
                               <div className="text-xs font-semibold shrink-0">
                                 {displayMoney(
-                                  moneyUnlocked,
+                                  true,
                                   Number(it.quantity || 0) *
                                     Number(it.unit_price || it.price || 0),
                                 )}
@@ -5053,7 +5053,7 @@ export default function HomeDashboard() {
                       Expenses
                     </span>
                     <span className="font-semibold">
-                      {displayMoney(moneyUnlocked, monthExpenses)}
+                      {displayMoney(true, monthExpenses)}
                     </span>
                   </div>
                   <div
