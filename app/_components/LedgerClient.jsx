@@ -1167,16 +1167,13 @@ export default function LedgerClient() {
       } else if (newType === "OTHER_EXPENSE") {
         const amt = parseFloat(form.amount);
         if (!amt || amt <= 0) throw new Error("Amount must be greater than 0");
+        if (!form.category?.trim()) throw new Error("Category is required");
         if (!form.note?.trim()) throw new Error("Note is required");
 
-        // Category field was removed from the form — every Other Expense
-        // is silently filed under the "Other" category behind the scenes.
-        const catId =
-          otherCatNameToId("Other") ??
-          (otherCategories.length > 0 ? otherCategories[0].id : null);
+        const catId = otherCatNameToId(form.category.trim());
         if (!catId)
           throw new Error(
-            'No "Other" category exists yet — please create one from the categories admin.',
+            `Category "${form.category}" not found — pick from the existing list`,
           );
 
         payload = {
@@ -2287,6 +2284,30 @@ export default function LedgerClient() {
                     style={inputStyle}
                   />
                 </Field>
+
+                <Field
+                  label="Category"
+                  required
+                  hint="Pick from existing categories"
+                >
+                  <input
+                    list="other-categories-list"
+                    value={form.category || ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, category: e.target.value }))
+                    }
+                    placeholder="Rent, Utilities, ..."
+                    className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                    style={inputStyle}
+                  />
+                  <datalist id="other-categories-list">
+                    {otherCategories.map((c) => (
+                      <option key={c.id} value={c.name} />
+                    ))}
+                  </datalist>
+                </Field>
+
+                <div />
 
                 <div className="sm:col-span-2">
                   <Field
