@@ -143,14 +143,22 @@ const GlobalStyles = () => (
     .chart-legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
 
     /* ═══ PWA / mobile (scoped to .pwa-shell) ═══ */
+    /* The shell is a fixed-height flex column: header (pinned) → main
+       (the only scrollable region) → tabbar (pinned). This is more
+       robust than "position: sticky" on the header, which silently
+       breaks if any ancestor ever gets a transform/overflow/filter —
+       a flex layout can't be broken that way. */
     .pwa-shell {
-      min-height: 100vh;
-      min-height: 100dvh;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
       background: var(--bg);
-      padding-bottom: calc(72px + env(safe-area-inset-bottom));
+      overflow: hidden;
     }
     .pwa-shell .pwa-header {
-      position: sticky; top: 0; z-index: 20;
+      flex: 0 0 auto;
+      z-index: 20;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       padding: 12px 16px;
@@ -161,9 +169,19 @@ const GlobalStyles = () => (
       max-width: 720px; margin: 0 auto;
     }
     .pwa-shell .pwa-main {
-      padding: 12px 12px 24px;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding: 12px 12px calc(24px + 72px + env(safe-area-inset-bottom));
       max-width: 720px; margin: 0 auto;
+      width: 100%;
+      /* hide the scrollbar itself while keeping scroll working */
+      -ms-overflow-style: none;
+      scrollbar-width: none;
     }
+    .pwa-shell .pwa-main::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
     /* bottom tab bar */
     .pwa-shell .pwa-tabbar {
