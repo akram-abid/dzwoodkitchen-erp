@@ -23,7 +23,6 @@ import {
 import {
   fetchOrders,
   createOrderClient,
-  patchOrderClient,
 } from "../api/orders/orders";
 import { createPaymentClient } from "../api/payments/payments";
 import { useRouter } from "next/navigation";
@@ -2217,7 +2216,8 @@ export default function HomeDashboard() {
   const [taskSearch, setTaskSearch] = useState("");
   const [taskDay, setTaskDay] = useState(todayISO()); // selected day in task manager
   const [notifPermission, setNotifPermission] = useState("default"); // "default" | "granted" | "denied" | "unsupported"
-  const [activePop, setActivePop] = useState(null);
+  // activePop (order stage popover) was removed along with setOrderStage —
+  // stage is read-only on this dashboard now.
   const [modal, setModal] = useState(null);
   const [busy, setBusy] = useState(false);
   const [loadingAll, setLoadingAll] = useState(true);
@@ -2607,31 +2607,10 @@ export default function HomeDashboard() {
     }, 800);
   };
 
-  const setOrderStage = async (orderId, stage) => {
-    const prevOrders = orders;
-    setOrders((p) => p.map((o) => (o.id === orderId ? { ...o, stage } : o)));
-    setActivePop(null);
-    try {
-      const res = await patchOrderClient(orderId, { stage });
-      const raw = res?.data ?? res;
-      if (!raw || !raw.id)
-        throw new Error("Server did not return the updated order");
-      const confirmed = normalizeOrderLite(raw);
-      setOrders((p) => p.map((o) => (o.id === orderId ? confirmed : o)));
-      if (confirmed.stage !== stage) {
-        push(
-          `Server kept order ${orderId} at ${STAGE_MAP[confirmed.stage]?.label || confirmed.stage}`,
-          "error",
-        );
-      } else {
-        push(`Order ${orderId} → ${STAGE_MAP[stage].label}`, "success");
-      }
-    } catch (e) {
-      setOrders(prevOrders);
-      console.error("patchOrderClient failed:", e);
-      push("Failed to move order — change was not saved", "error");
-    }
-  };
+  // Note: order stage is intentionally read-only on this dashboard now —
+  // there used to be a setOrderStage(orderId, stage) handler here wired
+  // to a "move to stage" popover on both the mobile and desktop views;
+  // both were removed on request, so this is gone too.
 
   const toggleTask = async (id) => {
     const prevTasks = tasks;
@@ -4113,52 +4092,9 @@ export default function HomeDashboard() {
                   </div>
                 </div>
                 <div className="row">
-                  <div
-                    style={{ position: "relative" }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <StageBadge
-                      stage={o.stage}
-                      onClick={() =>
-                        setActivePop(activePop === o.id ? null : o.id)
-                      }
-                    />
-                    <Popover
-                      open={activePop === o.id}
-                      onClose={() => setActivePop(null)}
-                    >
-                      <div
-                        style={{
-                          padding: "6px 12px 4px",
-                          fontSize: 10,
-                          fontWeight: 600,
-                          textTransform: "uppercase",
-                          letterSpacing: ".04em",
-                          color: "var(--ink-muted)",
-                        }}
-                      >
-                        Move to
-                      </div>
-                      {STAGE_ORDER.map((s) => (
-                        <div
-                          key={s}
-                          className={`popover-item ${o.stage === s ? "selected" : ""}`}
-                          onClick={() => setOrderStage(o.id, s)}
-                        >
-                          <span
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: 2,
-                              background: STAGE_MAP[s].color,
-                              display: "inline-block",
-                            }}
-                          />
-                          {STAGE_MAP[s].label}
-                        </div>
-                      ))}
-                    </Popover>
-                  </div>
+                  {/* Stage is read-only on the home dashboard — change
+                     it from the order's own page instead. */}
+                  <StageBadge stage={o.stage} />
                   <div className="grow" />
                   <span
                     style={{
@@ -4861,45 +4797,9 @@ export default function HomeDashboard() {
                             <td className="px-5 py-3 font-medium">{o.id}</td>
                             <td className="px-5 py-3">{o.client}</td>
                             <td className="px-5 py-3">
-                              <div
-                                className="relative inline-block"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <StageBadge
-                                  stage={o.stage}
-                                  onClick={() =>
-                                    setActivePop(
-                                      activePop?.type === "order" &&
-                                        activePop.id === o.id
-                                        ? null
-                                        : { type: "order", id: o.id },
-                                    )
-                                  }
-                                />
-                                <Popover
-                                  open={
-                                    activePop?.type === "order" &&
-                                    activePop.id === o.id
-                                  }
-                                  onClose={() => setActivePop(null)}
-                                >
-                                  <div
-                                    className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide"
-                                    style={{ color: "var(--ink-muted)" }}
-                                  >
-                                    Move to stage
-                                  </div>
-                                  {STAGE_ORDER.map((s) => (
-                                    <div
-                                      key={s}
-                                      className={`popover-item ${o.stage === s ? "selected" : ""}`}
-                                      onClick={() => setOrderStage(o.id, s)}
-                                    >
-                                      {STAGE_MAP[s].label}
-                                    </div>
-                                  ))}
-                                </Popover>
-                              </div>
+                              {/* Stage is read-only on the home dashboard —
+                                 change it from the order's own page instead. */}
+                              <StageBadge stage={o.stage} />
                             </td>
                             <td className="px-5 py-3 text-right font-medium">
                               {displayMoney(moneyUnlocked, o.amount)}
