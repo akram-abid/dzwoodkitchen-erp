@@ -30,6 +30,16 @@ model users {
 
   role   roles    @relation(fields: [role_id], references: [id], onDelete: NoAction)
   worker workers? @relation(fields: [worker_id], references: [id], onDelete: SetNull)
+  passwordResetToken PasswordResetToken?
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  token     String
+  expiresAt DateTime
+
+  user users @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // =============================================================
