@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAllWorkers } from "../../services/workersServices";
+import { createWorker, getAllWorkers } from "../../services/workersServices";
 
 // GET  /api/workers
 export async function GET() {
@@ -15,4 +15,21 @@ export async function GET() {
     }
 
 }
+
+// POST /api/workers
+export async function POST(request) {
+    try {
+        const body = await request.json();
+
+        const worker = await createWorker(body)
+        return NextResponse.json({ data: worker });
+    } catch (error) {
+        console.error("Failed to create worker:", error);
+        return NextResponse.json(
+            { error: error.message || "Failed to create worker" },
+            { status: 500 }
+        );
+    }
+}
+
 

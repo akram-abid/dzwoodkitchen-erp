@@ -767,6 +767,35 @@ function PaymentForm({ onSave, onCancel }) {
   );
 }
 
+/* ─── Modal Component ─── */
+const Modal = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <h2 className="text-base font-semibold" style={{ color: "var(--ink)" }}>{title}</h2>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+const inputStyle = {
+  background: "var(--bg)",
+  border: "1px solid var(--border)",
+  color: "var(--ink)",
+};
+
 /* ─── Data ─── */
 
 // fake worker obj : id ,firstName, lastName, shortName, initials, role, skills, email, joined, payment_type, meterRate, status, attendance, assignments, payments, performance, notes, hourlyRate, timeEntries 
@@ -1196,13 +1225,19 @@ const WeekStrip = memo(function WeekStrip({ year, weekIndex, yearWeeks, currentW
 });
 
 /* ─── ListScreen ─── */
-const ListScreen = memo(function ListScreen({ workers, filtered, search, setSearch, roleFilter, setRoleFilter, statusFilter, setStatusFilter, roles, todayPresent, todayAbsent, todayNotSet, vKey, orders, onMarkAll, onOpenWorker, onAttendanceChange, isSaving }) {
+const ListScreen = memo(function ListScreen({ workers, filtered, search, setSearch, roleFilter, setRoleFilter, statusFilter, setStatusFilter, roles, todayPresent, todayAbsent, todayNotSet, vKey, orders, onMarkAll, onOpenWorker, onAttendanceChange, isSaving, onAddWorker }) {
 
   return (
     <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
-      <div className="px-4 pt-4 pb-2 shrink-0">
-        <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--ink)" }}>Team</h1>
-        <p className="text-sm" style={{ color: "var(--ink-muted)" }}>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</p>
+      <div className="px-4 pt-4 pb-2 shrink-0 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--ink)" }}>Team</h1>
+          <p className="text-sm" style={{ color: "var(--ink-muted)" }}>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</p>
+        </div>
+        <button onClick={onAddWorker} className="text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1"
+          style={{ background: "var(--accent)", color: "#000" }}>
+          <Icons.plus /> Add Worker
+        </button>
       </div>
 
       <div className="mx-4 mb-3 p-3 rounded-xl shrink-0" style={{ background: "var(--accent-soft)", border: "1px solid rgba(254,189,17,0.15)" }}>
@@ -1953,6 +1988,170 @@ const DetailScreen = memo(function DetailScreen({
   );
 });
 
+const AddWorkerModal = ({ isOpen, onClose, onSave, getWorkerStatus, orders }) => {
+  const [form, setForm] = useState({
+    full_name: "",
+    phone: "",
+    payment_type: "hours",
+    hourlyRate: "",
+    meterRate: "",
+    hire_date: formatDate(new Date()),
+  });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.full_name.trim()) return setError("Name is required");
+    if (form.payment_type === "hours" && !form.hourlyRate) return setError("Hourly rate required");
+    if (form.payment_type === "meters" && !form.meterRate) return setError("Meter rate required");
+
+    setSaving(true);
+    try {
+      const payload = {
+        full_name: form.full_name.trim(),
+        phone: form.phone || null,
+        payment_type: form.payment_type,
+        hourlyRate: form.payment_type === "hours" ? parseFloat(form.hourlyRate) : null,
+        meterRate: form.payment_type === "meters" ? parseFloat(form.meterRate) : null,
+        hire_date: form.hire_date ? new Date(form.hire_date) : new Date(),
+        sold: 0,
+      };
+
+      const res = await fetch("/api/workers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error);
+
+      const nameParts = result.data.full_name.trim().split(/\s+/);
+      const first = nameParts[0] || "";
+      const last = nameParts[1] || "";
+
+      const newWorker = {
+        ...result.data,
+        shortName: first ? first[0].toUpperCase() + (last ? ". " + last : "") : "",
+        initials: (first[0] || "").toUpperCase() + (last[0] || "").toUpperCase(),
+        status: getWorkerStatus(result.data, orders),
+        attendance: {},
+        timeEntries: [],
+        assignments: [],
+        payments: [],
+      };
+
+      onSave(newWorker);
+      onClose();
+      setForm({ full_name: "", phone: "", payment_type: "hours", hourlyRate: "", meterRate: "", hire_date: formatDate(new Date()) });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <h2 className="text-base font-semibold" style={{ color: "var(--ink)" }}>Add Worker</h2>
+        </div>
+        <div className="p-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Full Name *</label>
+              <input
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                value={form.full_name}
+                onChange={(e) => setForm(f => ({ ...f, full_name: e.target.value }))}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Phone</label>
+              <input
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                value={form.phone}
+                onChange={(e) => setForm(f => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Payment Type *</label>
+              <select
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                value={form.payment_type}
+                onChange={(e) => setForm(f => ({ ...f, payment_type: e.target.value }))}
+              >
+                <option value="hours">Hourly</option>
+                <option value="meters">Meters</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {form.payment_type === "hours" ? (
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Hourly Rate *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                    value={form.hourlyRate}
+                    onChange={(e) => setForm(f => ({ ...f, hourlyRate: e.target.value }))}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Meter Rate *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                    value={form.meterRate}
+                    onChange={(e) => setForm(f => ({ ...f, meterRate: e.target.value }))}
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Hire Date</label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                  value={form.hire_date}
+                  onChange={(e) => setForm(f => ({ ...f, hire_date: e.target.value }))}
+                />
+              </div>
+            </div>
+            {error && <div className="text-xs px-3 py-2 rounded-md" style={{ background: "var(--stage-contract)15", color: "var(--stage-contract)" }}>{error}</div>}
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onClose} className="flex-1 text-sm font-medium py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--ink)", border: "1px solid var(--border)" }}>Cancel</button>
+              <button type="submit" disabled={saving} className="flex-1 text-sm font-bold py-2 rounded-lg" style={{ background: "var(--accent)", color: "#000" }}>{saving ? "Adding..." : "Add Worker"}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─── Main App ─── */
 export default function WorkersApp({ workersData, orders = [] }) {
   // const [today, setToday] = useState("");
@@ -1983,6 +2182,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
 
 
   const [workers, setWorkers] = useState(workersWithDynamicStatus);
+  const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
   const [showTimeEntryModal, setShowTimeEntryModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
@@ -2069,6 +2269,11 @@ export default function WorkersApp({ workersData, orders = [] }) {
     setWeekIndexState(todayWeek >= 0 ? todayWeek : 0);
     setYearState(CURRENT_YEAR);
   }, []);
+
+
+  const handleAddWorker = (newWorker) => {
+    setWorkers((prev) => [...prev, newWorker]);
+  };
 
   const addTimeEntry = useCallback(async (entry) => {
     setIsSubmitting(true);
@@ -2224,6 +2429,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
           todayAbsent={todayAbsent} todayNotSet={todayNotSet} vKey={vKey} orders={orders}
           onMarkAll={markAllPresent} onOpenWorker={openWorker} onAttendanceChange={setAttendance}
           isSaving={isSaving}
+          onAddWorker={() => setShowAddWorkerModal(true)}
         />
       </div>
 
@@ -2272,6 +2478,14 @@ export default function WorkersApp({ workersData, orders = [] }) {
           </div>
         </div>
       )}
+
+      <AddWorkerModal
+        isOpen={showAddWorkerModal}
+        onClose={() => setShowAddWorkerModal(false)}
+        onSave={handleAddWorker}
+        getWorkerStatus={getWorkerStatus}
+        orders={orders}
+      />
     </div>
   );
 }

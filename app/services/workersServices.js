@@ -12,19 +12,51 @@ async function getAllWorkers() {
     })
 
 
-    return workers.map((w) => ({
-        ...w,
-        attendance: w.attendance.reduce((acc, record) => {
-            acc[record.date.toISOString().split("T")[0]] = record.status
-            return acc
-        }, {}),
-        shortName: w.full_name.split(' ')[0][0].toUpperCase() + '. ' + w.full_name.split(' ')[1],
-        initials: w.full_name.split(' ')[0][0].toUpperCase() + w.full_name.split(' ')[1][0].toUpperCase(),
-        payments: w.workersPayments,
-        sold: w.sold || 0,
-    }))
+    return workers.map((w) => {
+        const nameParts = w.full_name.trim().split(/\s+/);
+        const first = nameParts[0] || "";
+        const last = nameParts[1] || "";
+
+        return {
+            ...w,
+            attendance: w.attendance.reduce((acc, record) => {
+                acc[record.date.toISOString().split("T")[0]] = record.status
+                return acc
+            }, {}),
+            shortName: first ? first[0].toUpperCase() + (last ? '. ' + last : '') : "",
+            initials: (first[0] || "").toUpperCase() + (last[0] || "").toUpperCase(),
+            payments: w.workersPayments,
+            sold: w.sold || 0,
+        };
+    })
 }
 
+async function createWorker(data) {
+    const worker = await prisma.workers.create({
+        data: {
+            full_name: data.full_name,
+            phone: data.phone || null,
+            payment_type: data.payment_type,
+            hourlyRate: data.hourlyRate || null,
+            meterRate: data.meterRate || null,
+            hire_date: data.hire_date ? new Date(data.hire_date) : null,
+            sold: data.sold || 0,
+        },
+    });
+
+    return {
+        id: worker.id,
+        full_name: worker.full_name,
+        phone: worker.phone,
+        payment_type: worker.payment_type,
+        hourlyRate: worker.hourlyRate ? Number(worker.hourlyRate) : null,
+        meterRate: worker.meterRate ? Number(worker.meterRate) : null,
+        hire_date: worker.hire_date?.toISOString().split("T")[0] || null,
+        sold: Number(worker.sold),
+        created_at: worker.created_at,
+        updated_at: worker.updated_at,
+    };
+}
 
 async function createTimeEntry(workerId, data) {
     const { date, clockIn, clockOut, extraHours, extraNote } = data;
@@ -243,6 +275,7 @@ export async function recalculateWorkerSold(workerId) {
 
 export {
     getAllWorkers,
+    createWorker,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
