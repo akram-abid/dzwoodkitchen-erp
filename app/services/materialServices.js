@@ -203,8 +203,11 @@ export async function adjustStock(code, { type, quantity, note }) {
     e.status = 400;
     throw e;
   }
-  const material = await prisma.material_catalog.findUnique({
-    where: { code },
+  const asNumericId = Number(code);
+  const material = await prisma.material_catalog.findFirst({
+    where: Number.isFinite(asNumericId)
+      ? { OR: [{ code: String(code) }, { id: asNumericId }] }
+      : { code: String(code) },
   });
   if (!material) {
     const e = new Error(`Material ${code} not found`);

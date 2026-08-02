@@ -754,6 +754,7 @@ export default function LedgerClient() {
         failed.map((f) => f.reason?.message || f.reason),
       );
     }
+    return failed.length;
   };
 
   const workerNameToId = (n) => workerIdByName.get(n) ?? null;
@@ -1213,14 +1214,27 @@ export default function LedgerClient() {
       //    materials table reflects what was just bought. We do this
       //    AFTER the ledger entry is committed, so a failed purchase
       //    never leaves phantom stock behind.
+      let stockFailCount = 0;
       if (
         newType === "MATERIAL_PURCHASE" &&
         !editingId &&
         handleSave.__stockItems?.length
       ) {
-        await applyStockMovementsForPurchase(handleSave.__stockItems);
+        stockFailCount = await applyStockMovementsForPurchase(
+          handleSave.__stockItems,
+        );
       }
       handleSave.__stockItems = null;
+
+      if (stockFailCount > 0) {
+        // The ledger entry itself saved fine — only the stock bump failed.
+        // Don't block the modal from closing, but don't pretend it worked.
+        setFormError(
+          `Purchase saved, but stock update failed for ${stockFailCount} item(s). Check the material's stock manually.`,
+        );
+        setSaving(false);
+        return;
+      }
 
       closeModal();
     } catch (err) {
