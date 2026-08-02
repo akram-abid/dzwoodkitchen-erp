@@ -61,3 +61,13 @@ export async function deleteUser(id) {
 export async function assignRole(userId, role_id) {
   return prisma.users.update({ where: { id: userId }, data: { role_id } });
 }
+
+
+export async function resetUserPassword(id, newPassword) {
+  const password_hash = await bcrypt.hash(newPassword, 10);
+  await prisma.users.update({
+    where: { id },
+    data: { password_hash },
+  });
+  return { id, message: "Password reset successfully" };
+}
