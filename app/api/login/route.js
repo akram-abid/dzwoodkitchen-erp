@@ -4,6 +4,7 @@ import { login } from "@/app/services/userAuthService";
 export async function POST(req) {
   try {
     const loginData = await login(await req.json());
+    const token = loginData.token;
 
     const resp = NextResponse.json({loginData}); 
 
