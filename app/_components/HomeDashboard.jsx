@@ -1943,6 +1943,244 @@ const ReorderForm = ({ material, onSubmit, onCancel }) => {
 /* ════════════════════════════════════════════════════════════════
    MAIN COMPONENT
    ════════════════════════════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════════════════════════
+   PURE PRESENTATIONAL COMPONENTS — hoisted out of HomeDashboard
+   These used to be declared *inside* HomeDashboard's function body.
+   Every one of them only reads its own props (no closures over
+   HomeDashboard's state), so nothing was gained by nesting them —
+   except a bug: being redefined on every HomeDashboard render made
+   React treat them as a brand-new component type each time, which
+   force-remounted them (and any input/expand-collapse state inside,
+   e.g. DesktopCollapsiblePanel/PwaPanel/PwaList/ExpandableSection's
+   own useState) on every unrelated re-render. Living at module
+   scope now, their identity is stable across renders.
+   ════════════════════════════════════════════════════════════════ */
+/* ─────── shared UI bits ─────── */
+const SectionHead = ({ icon, title, action }) => (
+  <div
+    className="flex items-center justify-between px-5 py-4"
+    style={{ borderBottom: "1px solid var(--border)" }}
+  >
+    <h3 className="text-sm font-semibold flex items-center gap-2">
+      {icon}
+      {title}
+    </h3>
+    {action}
+  </div>
+);
+
+const Skeleton = ({ w = "100%", h = 14 }) => (
+  <div className="skeleton" style={{ width: w, height: h }} />
+);
+
+/* Desktop counterpart to PwaPanel: a `.panel` whose SectionHead
+   doubles as a toggle button, with a chevron that rotates and the
+   body hidden when closed. Used to make Recent Trips / Last 5
+   Purchase Orders foldable on desktop the same way the mobile
+   panels already are. */
+const DesktopCollapsiblePanel = ({
+  icon,
+  title,
+  action,
+  defaultOpen = true,
+  children,
+}) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="panel">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex items-center justify-between px-5 py-4 w-full"
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          textAlign: "left",
+          fontFamily: "inherit",
+          borderBottom: open ? "1px solid var(--border)" : "none",
+        }}
+      >
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          {icon}
+          {title}
+        </h3>
+        <span className="flex items-center gap-2">
+          {action}
+          <span
+            style={{
+              display: "inline-flex",
+              color: "var(--ink-muted)",
+              transition: "transform .15s ease",
+              transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+              flexShrink: 0,
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+        </span>
+      </button>
+      {open && children}
+    </div>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════
+   PWA / MOBILE — collapsible panel + show-3-then-expand list
+   (only used inside the .pwa-shell wrapper)
+   ════════════════════════════════════════════════════════════ */
+const PwaPanel = ({ title, icon, count, defaultOpen = true, children }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={`panel ${open ? "" : "collapsed"}`}>
+      <button
+        className="panel-head"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="ph-icon">{icon}</span>
+        <span className="ph-title">{title}</span>
+        {count != null && <span className="ph-count">{count}</span>}
+        <span className="ph-chev">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
+      </button>
+      {open && <div className="panel-body">{children}</div>}
+    </div>
+  );
+};
+
+const PwaList = ({ items, render, empty, initial = 3, keyExtractor }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!items || items.length === 0) {
+    return <div className="list-empty">{empty || "Nothing here yet"}</div>;
+  }
+  const visible = expanded ? items : items.slice(0, initial);
+  return (
+    <>
+      {visible.map((item, i) => {
+        const k = keyExtractor ? keyExtractor(item, i) : (item?.id ?? i);
+        return <Fragment key={k}>{render(item, i)}</Fragment>;
+      })}
+      {items.length > initial && (
+        <button className="list-more" onClick={() => setExpanded((e) => !e)}>
+          {expanded ? "Show less" : `Show all (${items.length})`}
+        </button>
+      )}
+    </>
+  );
+};
+
+/* Desktop counterpart to PwaList: renders a `wrap`-supplied container
+   (space-y-2 stack, table <tbody>, grid, etc.) with only the first
+   `initial` items, plus a "Show more" button that reveals the rest.
+   Each of the desktop panels below (Task Manager, Workers Today,
+   Orders table, Low Stock) uses this instead of dumping every row
+   into the DOM at once. */
+const ExpandableSection = ({
+  items,
+  renderItem,
+  initial = 5,
+  keyExtractor,
+  wrap,
+  buttonWrap,
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, initial);
+  const list = visible.map((item, i) => (
+    <Fragment key={keyExtractor ? keyExtractor(item, i) : (item?.id ?? i)}>
+      {renderItem(item, i)}
+    </Fragment>
+  ));
+  const button = items.length > initial && (
+    <button
+      onClick={() => setExpanded((e) => !e)}
+      className="w-full text-xs font-semibold py-2 rounded-md transition-colors"
+      style={{ color: "var(--accent)", background: "var(--surface-2)" }}
+    >
+      {expanded ? "Show less" : `Show more (${items.length - initial})`}
+    </button>
+  );
+  return (
+    <>
+      {wrap ? wrap(list) : list}
+      {buttonWrap ? buttonWrap(button) : button}
+    </>
+  );
+};
+
+const PwaPipelineMini = ({ counts }) => {
+  const total = counts.reduce((s, c) => s + c.value, 0) || 0;
+  return (
+    <div className="list-item" style={{ padding: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          height: 8,
+          borderRadius: 4,
+          overflow: "hidden",
+          background: "var(--surface-2)",
+        }}
+      >
+        {counts.map((c) =>
+          c.value > 0 ? (
+            <div
+              key={c.key}
+              style={{
+                width: `${(c.value / Math.max(1, total)) * 100}%`,
+                background: c.color,
+              }}
+            />
+          ) : null,
+        )}
+      </div>
+      <div
+        style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}
+      >
+        {counts.map((c) => (
+          <div key={c.key} className="row" style={{ fontSize: 11 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 2,
+                background: c.color,
+                display: "inline-block",
+              }}
+            />
+            <span className="muted">{c.label}</span>
+            <span style={{ fontWeight: 600 }}>{c.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function HomeDashboard() {
   /* ─────── navigation ─────── */
   const router = useRouter();
@@ -2014,6 +2252,14 @@ export default function HomeDashboard() {
   };
 
   /* ─────── mobile / pwa tab state ─────── */
+  // isMobile MUST start as a value that matches what the server rendered
+  // (the server has no `window`, so it always renders the desktop layout).
+  // Reading window.innerWidth in the useState initializer caused a
+  // hydration mismatch: the client's very first render already said
+  // "mobile" while the server-sent HTML said "desktop", so React threw
+  // away the whole tree and rebuilt it — that's the "renders 7 times"
+  // loop. Keep this at false and only correct it in the effect below,
+  // which only runs after hydration has completed.
   const [isMobile, setIsMobile] = useState(false);
   const [pwaTab, setPwaTab] = useState("home");
   useEffect(() => {
@@ -2716,230 +2962,6 @@ export default function HomeDashboard() {
     setModal(null);
   };
 
-  /* ─────── shared UI bits ─────── */
-  const SectionHead = ({ icon, title, action }) => (
-    <div
-      className="flex items-center justify-between px-5 py-4"
-      style={{ borderBottom: "1px solid var(--border)" }}
-    >
-      <h3 className="text-sm font-semibold flex items-center gap-2">
-        {icon}
-        {title}
-      </h3>
-      {action}
-    </div>
-  );
-
-  const Skeleton = ({ w = "100%", h = 14 }) => (
-    <div className="skeleton" style={{ width: w, height: h }} />
-  );
-
-  /* Desktop counterpart to PwaPanel: a `.panel` whose SectionHead
-     doubles as a toggle button, with a chevron that rotates and the
-     body hidden when closed. Used to make Recent Trips / Last 5
-     Purchase Orders foldable on desktop the same way the mobile
-     panels already are. */
-  const DesktopCollapsiblePanel = ({
-    icon,
-    title,
-    action,
-    defaultOpen = true,
-    children,
-  }) => {
-    const [open, setOpen] = useState(defaultOpen);
-    return (
-      <div className="panel">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          className="flex items-center justify-between px-5 py-4 w-full"
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            textAlign: "left",
-            fontFamily: "inherit",
-            borderBottom: open ? "1px solid var(--border)" : "none",
-          }}
-        >
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            {icon}
-            {title}
-          </h3>
-          <span className="flex items-center gap-2">
-            {action}
-            <span
-              style={{
-                display: "inline-flex",
-                color: "var(--ink-muted)",
-                transition: "transform .15s ease",
-                transform: open ? "rotate(0deg)" : "rotate(-90deg)",
-                flexShrink: 0,
-              }}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </span>
-          </span>
-        </button>
-        {open && children}
-      </div>
-    );
-  };
-
-  /* ════════════════════════════════════════════════════════════
-     PWA / MOBILE — collapsible panel + show-3-then-expand list
-     (only used inside the .pwa-shell wrapper)
-     ════════════════════════════════════════════════════════════ */
-  const PwaPanel = ({ title, icon, count, defaultOpen = true, children }) => {
-    const [open, setOpen] = useState(defaultOpen);
-    return (
-      <div className={`panel ${open ? "" : "collapsed"}`}>
-        <button
-          className="panel-head"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-        >
-          <span className="ph-icon">{icon}</span>
-          <span className="ph-title">{title}</span>
-          {count != null && <span className="ph-count">{count}</span>}
-          <span className="ph-chev">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </span>
-        </button>
-        {open && <div className="panel-body">{children}</div>}
-      </div>
-    );
-  };
-
-  const PwaList = ({ items, render, empty, initial = 3, keyExtractor }) => {
-    const [expanded, setExpanded] = useState(false);
-    if (!items || items.length === 0) {
-      return <div className="list-empty">{empty || "Nothing here yet"}</div>;
-    }
-    const visible = expanded ? items : items.slice(0, initial);
-    return (
-      <>
-        {visible.map((item, i) => {
-          const k = keyExtractor ? keyExtractor(item, i) : (item?.id ?? i);
-          return <Fragment key={k}>{render(item, i)}</Fragment>;
-        })}
-        {items.length > initial && (
-          <button className="list-more" onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "Show less" : `Show all (${items.length})`}
-          </button>
-        )}
-      </>
-    );
-  };
-
-  /* Desktop counterpart to PwaList: renders a `wrap`-supplied container
-     (space-y-2 stack, table <tbody>, grid, etc.) with only the first
-     `initial` items, plus a "Show more" button that reveals the rest.
-     Each of the desktop panels below (Task Manager, Workers Today,
-     Orders table, Low Stock) uses this instead of dumping every row
-     into the DOM at once. */
-  const ExpandableSection = ({
-    items,
-    renderItem,
-    initial = 5,
-    keyExtractor,
-    wrap,
-    buttonWrap,
-  }) => {
-    const [expanded, setExpanded] = useState(false);
-    const visible = expanded ? items : items.slice(0, initial);
-    const list = visible.map((item, i) => (
-      <Fragment key={keyExtractor ? keyExtractor(item, i) : (item?.id ?? i)}>
-        {renderItem(item, i)}
-      </Fragment>
-    ));
-    const button = items.length > initial && (
-      <button
-        onClick={() => setExpanded((e) => !e)}
-        className="w-full text-xs font-semibold py-2 rounded-md transition-colors"
-        style={{ color: "var(--accent)", background: "var(--surface-2)" }}
-      >
-        {expanded ? "Show less" : `Show more (${items.length - initial})`}
-      </button>
-    );
-    return (
-      <>
-        {wrap ? wrap(list) : list}
-        {buttonWrap ? buttonWrap(button) : button}
-      </>
-    );
-  };
-
-  const PwaPipelineMini = ({ counts }) => {
-    const total = counts.reduce((s, c) => s + c.value, 0) || 0;
-    return (
-      <div className="list-item" style={{ padding: 12 }}>
-        <div
-          style={{
-            display: "flex",
-            height: 8,
-            borderRadius: 4,
-            overflow: "hidden",
-            background: "var(--surface-2)",
-          }}
-        >
-          {counts.map((c) =>
-            c.value > 0 ? (
-              <div
-                key={c.key}
-                style={{
-                  width: `${(c.value / Math.max(1, total)) * 100}%`,
-                  background: c.color,
-                }}
-              />
-            ) : null,
-          )}
-        </div>
-        <div
-          style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}
-        >
-          {counts.map((c) => (
-            <div key={c.key} className="row" style={{ fontSize: 11 }}>
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 2,
-                  background: c.color,
-                  display: "inline-block",
-                }}
-              />
-              <span className="muted">{c.label}</span>
-              <span style={{ fontWeight: 600 }}>{c.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   /* ════════════════════════════════════════════════════════════
      RECENT TRIPS — last 5 across all vehicles
@@ -3109,7 +3131,7 @@ export default function HomeDashboard() {
         </span>
       }
     >
-      <RecentTripsList />
+      {RecentTripsList({})}
     </DesktopCollapsiblePanel>
   );
 
@@ -3121,7 +3143,7 @@ export default function HomeDashboard() {
       count={recentTrips.length}
       defaultOpen
     >
-      <RecentTripsList compact />
+      {RecentTripsList({ compact: true })}
     </PwaPanel>
   );
 
@@ -4003,7 +4025,7 @@ export default function HomeDashboard() {
 
       {/* Recent Trips — same data as the desktop panel, but
           compact row layout to fit the narrow PWA column. */}
-      <RecentTripsPanelPwa />
+      {RecentTripsPanelPwa()}
     </div>
   );
 
@@ -4165,8 +4187,15 @@ export default function HomeDashboard() {
 
   /* ════════════════════════════════════════════════════════════
      DESKTOP RENDER — restored 1:1 from the original
+     NOTE: this is a JSX *variable*, not a component function.
+     Defining it as `() => (...)` and rendering `<DesktopRender />`
+     made React treat it as a brand-new component type on every
+     single re-render (filter change, toast, 30s notification tick,
+     etc.), which unmounted and remounted the ENTIRE dashboard each
+     time — that's the "refreshing/rerendering itself" bug. Keeping
+     it as plain JSX lets React reconcile normally.
      ════════════════════════════════════════════════════════════ */
-  const DesktopRender = () => (
+  const desktopView = (
     <div className="p-6">
       {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
@@ -5043,7 +5072,7 @@ export default function HomeDashboard() {
 
             {/* Recent Trips — last 5 across the whole fleet, now
                beside Last 5 Purchase Orders instead of the right rail */}
-            <RecentTripsPanelDesktop />
+            {RecentTripsPanelDesktop()}
           </div>
         </div>
 
@@ -5279,7 +5308,7 @@ export default function HomeDashboard() {
     { id: "orders", label: "Orders", icon: Icons.orders },
   ];
 
-  const PwaShell = () => (
+  const pwaView = (
     <div className="pwa-shell">
       <header className="pwa-header">
         <div className="pwa-header-row">
@@ -5338,10 +5367,10 @@ export default function HomeDashboard() {
       </header>
 
       <main className="pwa-main">
-        {pwaTab === "home" && <PwaHomeTab />}
-        {pwaTab === "money" && <PwaMoneyTab />}
-        {pwaTab === "workshop" && <PwaWorkshopTab />}
-        {pwaTab === "orders" && <PwaOrdersTab />}
+        {pwaTab === "home" && PwaHomeTab()}
+        {pwaTab === "money" && PwaMoneyTab()}
+        {pwaTab === "workshop" && PwaWorkshopTab()}
+        {pwaTab === "orders" && PwaOrdersTab()}
       </main>
 
       <nav className="pwa-tabbar" role="tablist" aria-label="Main navigation">
@@ -5371,7 +5400,7 @@ export default function HomeDashboard() {
   return (
     <>
       <GlobalStyles />
-      {isMobile ? <PwaShell /> : <DesktopRender />}
+      {isMobile ? pwaView : desktopView}
 
       {/* MODALS (shared by both layouts) */}
       <OrderFormModal
