@@ -1478,10 +1478,13 @@ export default function LedgerClient() {
         </button>
       </div>
 
-      {/* ─── Entries table ─── */}
+      {/* ─── Entries table (tablet/desktop) ─── */}
 
       <div className="flex-1 overflow-auto">
-        <table className="w-full text-left text-sm" style={{ minWidth: 720 }}>
+        <table
+          className="w-full text-left text-sm hidden md:table"
+          style={{ minWidth: 720 }}
+        >
           <thead
             className="sticky top-0 z-10"
             style={{ background: "var(--surface-2)" }}
@@ -1674,6 +1677,142 @@ export default function LedgerClient() {
             )}
           </tbody>
         </table>
+
+        {/* ─── Entries list (phone) ─── */}
+
+        <div className="md:hidden">
+          {filtered.map((e) => {
+            const meta = TYPE_META[e.type];
+            const desc = describeEntry(e);
+            const Icon = meta.icon;
+
+            return (
+              <div
+                key={`${e.type}-${e.id}`}
+                className="p-3"
+                style={{ borderTop: "1px solid var(--border)" }}
+              >
+                <div className="flex items-start gap-2.5">
+                  <span
+                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: `${meta.color}15`, color: meta.color }}
+                  >
+                    <Icon />
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">
+                          {desc.main}
+                        </div>
+                        {desc.sub && (
+                          <div
+                            className="text-xs mt-0.5 truncate"
+                            style={{ color: "var(--ink-muted)" }}
+                          >
+                            {desc.sub}
+                          </div>
+                        )}
+                      </div>
+
+                      <div
+                        className="text-sm font-bold tabular-nums shrink-0 text-right"
+                        style={{ color: meta.color }}
+                      >
+                        {meta.sign}
+                        {getAmount(e).toLocaleString()}
+                        <div
+                          className="text-[10px] font-normal"
+                          style={{ color: "var(--ink-muted)" }}
+                        >
+                          DZD
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className="text-[11px] shrink-0"
+                          style={{ color: "var(--ink-muted)" }}
+                        >
+                          {e.date}
+                        </span>
+                        <StageBadge stage={e.type} />
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => openEdit(e)}
+                          className="btn-ghost p-1.5"
+                          title="Edit entry"
+                        >
+                          <Icons.edit />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(e.id, e.type)}
+                          className="btn-ghost p-1.5 hover:text-[var(--stage-contract)]"
+                          title="Delete entry"
+                        >
+                          <Icons.trash />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {filtered.length === 0 && (
+            <div
+              className="px-4 py-16 text-center flex flex-col items-center gap-2"
+              style={{ color: "var(--ink-muted)" }}
+            >
+              <Icons.trend />
+              <p className="text-sm">
+                No outcomes in {MONTHS[viewMonth]} {viewYear}.
+              </p>
+              <button
+                onClick={() => openCreate("WORKER_PAYMENT")}
+                className="btn-primary text-xs mt-2"
+              >
+                <Icons.plus /> Add First Outcome
+              </button>
+            </div>
+          )}
+
+          {filtered.length > 0 && (
+            <div
+              className="p-3 flex items-center justify-between"
+              style={{
+                background: "var(--surface-2)",
+                borderTop: "2px solid var(--border)",
+              }}
+            >
+              <span
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "var(--ink-muted)" }}
+              >
+                {MONTHS[viewMonth]} total
+              </span>
+
+              <span
+                className="text-sm font-bold tabular-nums"
+                style={{ color: "var(--ink)" }}
+              >
+                {monthTotals.total.toLocaleString()}{" "}
+                <span
+                  className="text-xs font-normal"
+                  style={{ color: "var(--ink-muted)" }}
+                >
+                  DZD
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ─── Modal ─── */}
