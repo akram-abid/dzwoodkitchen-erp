@@ -17,7 +17,10 @@ import {
   deletePaymentClient,
 } from "../api/payments/payments";
 import { fetchWorkers } from "../api/workers/workers";
-import { getAllMaterialsClient } from "../../lib/api_helpers/materials";
+import {
+  getAllMaterialsClient,
+  adjustStockClient,
+} from "../../lib/api_helpers/materials";
 
 /* ─── Icons ─── */
 const Icons = {
@@ -1072,25 +1075,25 @@ const toServerPayload = (order, { workerIdByName, clientIdByName } = {}) => ({
 
   delivery_notes:
     order.technical &&
-      (order.technical.truckDistance !== "" ||
-        order.technical.floor !== "" ||
-        (order.technical.fee !== "" && Number(order.technical.fee) > 0))
+    (order.technical.truckDistance !== "" ||
+      order.technical.floor !== "" ||
+      (order.technical.fee !== "" && Number(order.technical.fee) > 0))
       ? [
-        {
-          truck_distance_km:
-            order.technical.truckDistance === ""
-              ? null
-              : Number(order.technical.truckDistance),
+          {
+            truck_distance_km:
+              order.technical.truckDistance === ""
+                ? null
+                : Number(order.technical.truckDistance),
 
-          floor:
-            order.technical.floor === ""
-              ? null
-              : Number(order.technical.floor),
+            floor:
+              order.technical.floor === ""
+                ? null
+                : Number(order.technical.floor),
 
-          lift_cost:
-            order.technical.fee === "" ? 0 : Number(order.technical.fee) || 0,
-        },
-      ]
+            lift_cost:
+              order.technical.fee === "" ? 0 : Number(order.technical.fee) || 0,
+          },
+        ]
       : [],
 });
 
@@ -1413,7 +1416,6 @@ const ReadyToDeliverModal = ({
     onConfirm({ ...pendingConfirm, materialsUsed: usedMaterials });
   };
 
-
   return (
     <Modal
       isOpen={isOpen}
@@ -1470,8 +1472,8 @@ const ReadyToDeliverModal = ({
                 skipToMaterials
                   ? onClose()
                   : setStep(
-                    pendingConfirm?.missingItems?.length ? "partial" : "ask",
-                  )
+                      pendingConfirm?.missingItems?.length ? "partial" : "ask",
+                    )
               }
             >
               {skipToMaterials ? "Cancel" : "← Back"}
@@ -1533,7 +1535,9 @@ const ReadyToDeliverModal = ({
                 disabled={materialsLoading}
               >
                 <option value="">
-                  {materialsLoading ? "Loading materials…" : "— select material —"}
+                  {materialsLoading
+                    ? "Loading materials…"
+                    : "— select material —"}
                 </option>
                 {materialsCatalog.map((m) => (
                   <option key={m.id} value={m.dbId}>
@@ -1545,10 +1549,11 @@ const ReadyToDeliverModal = ({
                 type="number"
                 min="0.01"
                 step="0.01"
-                placeholder={`Qty${materialDraft.material_id
-                  ? ` (${materialUnitFor(materialDraft.material_id)})`
-                  : ""
-                  }`}
+                placeholder={`Qty${
+                  materialDraft.material_id
+                    ? ` (${materialUnitFor(materialDraft.material_id)})`
+                    : ""
+                }`}
                 className="col-span-3 px-2 py-1.5 rounded-md text-sm outline-none text-center"
                 style={{
                   background: "var(--surface)",
@@ -1586,7 +1591,9 @@ const ReadyToDeliverModal = ({
             <button
               type="button"
               onClick={addMaterialLine}
-              disabled={!materialDraft.material_id || !Number(materialDraft.quantity)}
+              disabled={
+                !materialDraft.material_id || !Number(materialDraft.quantity)
+              }
               className="w-full flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-md transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
@@ -2289,17 +2296,17 @@ const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
         prev.map((r) =>
           r.id === row.id
             ? {
-              id: updated.id,
-              amount: Number(updated.amount) || amt,
-              date:
-                (updated.payment_date &&
-                  new Date(updated.payment_date)
-                    .toISOString()
-                    .split("T")[0]) ||
-                editDraft.payment_date ||
-                r.date,
-              note: updated.note ?? editDraft.note ?? "",
-            }
+                id: updated.id,
+                amount: Number(updated.amount) || amt,
+                date:
+                  (updated.payment_date &&
+                    new Date(updated.payment_date)
+                      .toISOString()
+                      .split("T")[0]) ||
+                  editDraft.payment_date ||
+                  r.date,
+                note: updated.note ?? editDraft.note ?? "",
+              }
             : r,
         ),
       );
@@ -2411,8 +2418,9 @@ const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
                       background: isEditing
                         ? "var(--accent-soft)"
                         : "rgba(16,185,129,0.08)",
-                      border: `1px solid ${isEditing ? "var(--accent)" : "rgba(16,185,129,0.25)"
-                        }`,
+                      border: `1px solid ${
+                        isEditing ? "var(--accent)" : "rgba(16,185,129,0.25)"
+                      }`,
                     }}
                   >
                     {isEditing ? (
@@ -2680,8 +2688,18 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState("");
   const [editingId, setEditingId] = useState(null);
-  const [draft, setDraft] = useState({ material_id: "", quantity: "", unit: "", note: "" });
-  const [editDraft, setEditDraft] = useState({ material_id: "", quantity: "", unit: "", note: "" });
+  const [draft, setDraft] = useState({
+    material_id: "",
+    quantity: "",
+    unit: "",
+    note: "",
+  });
+  const [editDraft, setEditDraft] = useState({
+    material_id: "",
+    quantity: "",
+    unit: "",
+    note: "",
+  });
   const [pendingRows, setPendingRows] = useState([]); // queued locally, not saved yet
   const [busy, setBusy] = useState(false);
 
@@ -2751,7 +2769,9 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
       alert("Quantity must be a positive number.");
       return;
     }
-    const mat = catalog.find((m) => String(m.dbId) === String(draft.material_id));
+    const mat = catalog.find(
+      (m) => String(m.dbId) === String(draft.material_id),
+    );
     if (!mat) {
       alert("Please select a material.");
       return;
@@ -2799,6 +2819,20 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
           note: created.note ?? p.note ?? "",
           date: new Date().toISOString().split("T")[0],
         });
+
+        // Mirror the Materials page's Quick Adjust "OUT" so stock reflects
+        // what this order just consumed.
+        try {
+          await adjustStockClient(created.material_id ?? p.material_id, {
+            type: "OUT",
+            quantity: Number(created.quantity) || p.quantity,
+          });
+        } catch (stockErr) {
+          console.error("Failed to reduce material stock:", stockErr);
+          alert(
+            `"${p.name}" was logged on the order, but its stock could not be reduced automatically. Please adjust it from the Materials page.`,
+          );
+        }
       } catch (err) {
         console.error("Failed to save material consumption:", err);
         failed.push(p);
@@ -2850,22 +2884,60 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
       const mat = catalog.find(
         (m) => String(m.dbId) === String(editDraft.material_id),
       );
+      const newMaterialId = updated.material_id ?? editDraft.material_id;
+      const newQuantity = Number(updated.quantity) || qty;
+
       setRows((prev) =>
         prev.map((r) =>
           r.id === row.id
             ? {
-              id: updated.id,
-              materialId: updated.material_id ?? editDraft.material_id,
-              code: updated.material?.code ?? mat?.id ?? r.code,
-              name: updated.material?.name ?? mat?.name ?? r.name,
-              unit: updated.unit || editDraft.unit || r.unit,
-              quantity: Number(updated.quantity) || qty,
-              note: updated.note ?? editDraft.note ?? "",
-              date: r.date,
-            }
+                id: updated.id,
+                materialId: newMaterialId,
+                code: updated.material?.code ?? mat?.id ?? r.code,
+                name: updated.material?.name ?? mat?.name ?? r.name,
+                unit: updated.unit || editDraft.unit || r.unit,
+                quantity: newQuantity,
+                note: updated.note ?? editDraft.note ?? "",
+                date: r.date,
+              }
             : r,
         ),
       );
+
+      // Reconcile stock against what was previously deducted for this row.
+      try {
+        if (String(newMaterialId) === String(row.materialId)) {
+          const delta = newQuantity - row.quantity;
+          if (delta > 0) {
+            await adjustStockClient(newMaterialId, {
+              type: "OUT",
+              quantity: delta,
+            });
+          } else if (delta < 0) {
+            await adjustStockClient(newMaterialId, {
+              type: "IN",
+              quantity: -delta,
+            });
+          }
+        } else {
+          // Material itself changed — give back the old material's stock
+          // and deduct from the new one.
+          await adjustStockClient(row.materialId, {
+            type: "IN",
+            quantity: row.quantity,
+          });
+          await adjustStockClient(newMaterialId, {
+            type: "OUT",
+            quantity: newQuantity,
+          });
+        }
+      } catch (stockErr) {
+        console.error("Failed to reconcile material stock:", stockErr);
+        alert(
+          "Material entry was updated, but stock could not be reconciled automatically. Please check the Materials page.",
+        );
+      }
+
       setEditingId(null);
       onChange?.();
     } catch (err) {
@@ -2883,6 +2955,21 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
       await deleteMaterialConsumptionClient(row.id);
       setRows((prev) => prev.filter((r) => r.id !== row.id));
       if (editingId === row.id) cancelEdit();
+
+      // Removing a consumption entry means the material was never actually
+      // used, so give the stock back — mirrors Quick Adjust "IN".
+      try {
+        await adjustStockClient(row.materialId, {
+          type: "IN",
+          quantity: row.quantity,
+        });
+      } catch (stockErr) {
+        console.error("Failed to restore material stock:", stockErr);
+        alert(
+          `"${row.name}" entry was deleted, but its stock could not be restored automatically. Please adjust it from the Materials page.`,
+        );
+      }
+
       onChange?.();
     } catch (err) {
       console.error("Failed to delete material consumption:", err);
@@ -3138,15 +3225,13 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
         </div>
 
         {/* Add new (queued locally — nothing is saved until you click Save) */}
-        <div
-          className="pt-3"
-          style={{ borderTop: "1px dashed var(--border)" }}
-        >
+        <div className="pt-3" style={{ borderTop: "1px dashed var(--border)" }}>
           <p
             className="text-xs mb-2 font-bold uppercase tracking-wider"
             style={{ color: "var(--ink-muted)" }}
           >
-            Add material{pendingRows.length > 0 ? " (queued, not saved yet)" : ""}
+            Add material
+            {pendingRows.length > 0 ? " (queued, not saved yet)" : ""}
           </p>
 
           {pendingRows.length > 0 && (
@@ -3200,7 +3285,10 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
 
           <div
             className="space-y-2 p-2.5 rounded-lg"
-            style={{ background: "var(--bg)", border: "1px solid var(--border)" }}
+            style={{
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+            }}
           >
             <div className="grid grid-cols-12 gap-2">
               <select
@@ -3215,7 +3303,9 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
                 disabled={catalogLoading}
               >
                 <option value="">
-                  {catalogLoading ? "Loading materials…" : "— select material —"}
+                  {catalogLoading
+                    ? "Loading materials…"
+                    : "— select material —"}
                 </option>
                 {catalog.map((m) => (
                   <option key={m.id} value={m.dbId}>
@@ -3259,7 +3349,8 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
               className="w-full flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-md transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
-              <Icons.plus /> Add material{pendingRows.length > 0 ? " (queue another)" : ""}
+              <Icons.plus /> Add material
+              {pendingRows.length > 0 ? " (queue another)" : ""}
             </button>
           </div>
         </div>
@@ -3380,7 +3471,9 @@ const OrderFormModal = ({
     dueDate: "",
     stage: "APPOINTMENT",
     worker: "Unassigned",
-    items: [{ name: "", qty: 1, unit: "pcs", l: "", w: "", h: "", unit_price: 0 }],
+    items: [
+      { name: "", qty: 1, unit: "pcs", l: "", w: "", h: "", unit_price: 0 },
+    ],
     payments: [],
     missingItems: [],
     technical: { truckDistance: "", floor: "", fee: "" },
@@ -3395,9 +3488,9 @@ const OrderFormModal = ({
         amount: initialData.amount.toString(),
         meters: initialData.meters != null ? initialData.meters.toString() : "",
         clientType: initialData.clientType || "Individual",
-        items: (initialData.items || []).map(i => ({
+        items: (initialData.items || []).map((i) => ({
           ...i,
-          unit_price: i.unit_price || 0
+          unit_price: i.unit_price || 0,
         })),
         payments: initialData.payments || [],
         missingItems: initialData.missingItems || [],
@@ -3423,7 +3516,9 @@ const OrderFormModal = ({
         dueDate: "",
         stage: "APPOINTMENT",
         worker: "Unassigned",
-        items: [{ name: "", qty: 1, unit: "pcs", l: "", w: "", h: "", unit_price: 0 }],
+        items: [
+          { name: "", qty: 1, unit: "pcs", l: "", w: "", h: "", unit_price: 0 },
+        ],
         payments: [],
         missingItems: [],
         technical: { truckDistance: "", floor: "", fee: "" },
@@ -3490,20 +3585,22 @@ const OrderFormModal = ({
         due_date: formData.dueDate ? new Date(formData.dueDate) : null,
         state: formData.stage.toLowerCase(),
         address: formData.address,
-        order_items: formData.items.filter((i) => i.name).map((item) => ({
-          name: item.name,
-          quantity: Number(item.qty) || 1,
-          unit: item.unit || "pcs",
-          length_cm: item.l ? parseFloat(item.l) : null,
-          width_cm: item.w ? parseFloat(item.w) : null,
-          height_cm: item.h ? parseFloat(item.h) : null,
-          unit_price: item.unit_price ? parseFloat(item.unit_price) : null
-        })),
+        order_items: formData.items
+          .filter((i) => i.name)
+          .map((item) => ({
+            name: item.name,
+            quantity: Number(item.qty) || 1,
+            unit: item.unit || "pcs",
+            length_cm: item.l ? parseFloat(item.l) : null,
+            width_cm: item.w ? parseFloat(item.w) : null,
+            height_cm: item.h ? parseFloat(item.h) : null,
+            unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+          })),
       };
     } else {
       // Orders page format (default)
       data = {
-        id: initialData?.id,  // ADD THIS LINE
+        id: initialData?.id, // ADD THIS LINE
         client: formData.client,
         phone: formData.phone,
         clientType: formData.clientType || "Individual",
@@ -3514,15 +3611,17 @@ const OrderFormModal = ({
         dueDate: formData.dueDate,
         stage: formData.stage,
         worker: formData.worker !== "Unassigned" ? formData.worker : null,
-        items: formData.items.filter((i) => i.name).map((item) => ({
-          name: item.name,
-          qty: Number(item.qty) || 1,
-          unit: item.unit || "pcs",
-          l: item.l ? parseFloat(item.l) : 0,
-          w: item.w ? parseFloat(item.w) : 0,
-          h: item.h ? parseFloat(item.h) : 0,
-          unit_price: item.unit_price ? parseFloat(item.unit_price) : null
-        })),
+        items: formData.items
+          .filter((i) => i.name)
+          .map((item) => ({
+            name: item.name,
+            qty: Number(item.qty) || 1,
+            unit: item.unit || "pcs",
+            l: item.l ? parseFloat(item.l) : 0,
+            w: item.w ? parseFloat(item.w) : 0,
+            h: item.h ? parseFloat(item.h) : 0,
+            unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+          })),
         payments: [],
         missingItems: [],
         technical: {},
@@ -4118,7 +4217,11 @@ const OrderFormModal = ({
                     }}
                     value={item.unit_price || 0}
                     onChange={(e) =>
-                      handleItemChange(index, "unit_price", Number(e.target.value))
+                      handleItemChange(
+                        index,
+                        "unit_price",
+                        Number(e.target.value),
+                      )
                     }
                   />
                 </div>
@@ -4202,19 +4305,20 @@ const handlePrint = (order) => {
       <thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Dimensions</th></tr></thead>
       <tbody>
         ${(order.items || [])
-        .map(
-          (i) => `<tr>
+          .map(
+            (i) => `<tr>
           <td>${i.name}</td>
           <td style="text-align:right">${i.qty} ${i.unit}</td>
           <td style="text-align:right;font-family:monospace">${i.l > 0 || i.w > 0 || i.h > 0 ? `${i.l}cm × ${i.w}cm × ${i.h}cm` : "—"}</td>
         </tr>`,
-        )
-        .join("")}
+          )
+          .join("")}
         ${(order.items || []).length === 0 ? '<tr><td colspan="3" style="text-align:center;color:#888;padding:18px">No items listed.</td></tr>' : ""}
       </tbody>
     </table>
 
-    ${(order.missingItems || []).length > 0
+    ${
+      (order.missingItems || []).length > 0
         ? `
     <h2 class="danger">${blocking ? "🚫 BLOCKED — " : ""}Missing Parts (${order.missingItems.length})</h2>
     <div class="${blocking ? "blocked-box" : ""}">
@@ -4222,20 +4326,20 @@ const handlePrint = (order) => {
         <thead><tr><th>Part</th><th style="text-align:right">Qty</th><th>Notes</th></tr></thead>
         <tbody>
           ${order.missingItems
-          .map(
-            (p) => `<tr>
+            .map(
+              (p) => `<tr>
             <td><strong>${p.name}</strong></td>
             <td style="text-align:right">${p.qty} ${p.unit}</td>
             <td style="font-style:italic;color:#666">${p.notes || ""}</td>
           </tr>`,
-          )
-          .join("")}
+            )
+            .join("")}
         </tbody>
       </table>
     </div>
     `
         : ""
-      }
+    }
 
     <h2>Financial</h2>
     <table>
@@ -4322,10 +4426,10 @@ export default function OrdersClient() {
   // back to the deep-linked order on every re-render.
   useEffect(() => {
     fetch("/api/clients")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (data.data) {
-          const formatted = data.data.map(c => ({
+          const formatted = data.data.map((c) => ({
             id: c.id,
             client: c.name,
             phone: c.phone,
@@ -4336,7 +4440,7 @@ export default function OrdersClient() {
           setAllClients(formatted);
         }
       })
-      .catch(err => console.error("Failed to load clients:", err));
+      .catch((err) => console.error("Failed to load clients:", err));
   }, []);
 
   useEffect(() => {
@@ -4589,7 +4693,7 @@ export default function OrdersClient() {
           l: Number(i.length_cm) || 0,
           w: Number(i.width_cm) || 0,
           h: Number(i.height_cm) || 0,
-          unit_price: Number(i.unit_price) || 0
+          unit_price: Number(i.unit_price) || 0,
         })),
         payments: (updated.payments || []).map((p) => ({
           id: p.id,
@@ -4603,18 +4707,16 @@ export default function OrdersClient() {
           unit: c.unit ?? "pcs",
           notes: c.notes ?? "",
         })),
-        materialsUsed: (updated.order_material_consumptions || []).map(
-          (c) => ({
-            id: c.id,
-            materialId: c.material_id,
-            code: c.material?.code ?? "",
-            name: c.material?.name ?? "Unknown material",
-            unit: c.unit || c.material?.default_unit || "",
-            quantity: Number(c.quantity) || 0,
-            note: c.note ?? "",
-            date: toDateStr(c.created_at),
-          }),
-        ),
+        materialsUsed: (updated.order_material_consumptions || []).map((c) => ({
+          id: c.id,
+          materialId: c.material_id,
+          code: c.material?.code ?? "",
+          name: c.material?.name ?? "Unknown material",
+          unit: c.unit || c.material?.default_unit || "",
+          quantity: Number(c.quantity) || 0,
+          note: c.note ?? "",
+          date: toDateStr(c.created_at),
+        })),
         technical: {
           truckDistance: dn.truck_distance_km ?? "",
           floor: dn.floor ?? "",
@@ -4742,7 +4844,6 @@ export default function OrdersClient() {
       console.error("Failed to change stage:", err);
       alert("Failed to change stage. Please try again.");
     }
-
   };
 
   const handleReadyConfirm = async ({ missingItems, stage, materialsUsed }) => {
@@ -4764,15 +4865,26 @@ export default function OrdersClient() {
       if (materialsUsed && materialsUsed.length > 0) {
         try {
           await Promise.all(
-            materialsUsed.map((m) =>
-              createMaterialConsumptionClient({
+            materialsUsed.map(async (m) => {
+              await createMaterialConsumptionClient({
                 order_id: assigningOrderId,
                 material_id: m.material_id,
                 quantity: m.quantity,
                 unit: m.unit || undefined,
                 note: m.note || undefined,
-              }),
-            ),
+              });
+
+              // Mirror the Materials page's Quick Adjust "OUT" so stock
+              // reflects what this order consumed.
+              try {
+                await adjustStockClient(m.material_id, {
+                  type: "OUT",
+                  quantity: m.quantity,
+                });
+              } catch (stockErr) {
+                console.error("Failed to reduce material stock:", stockErr);
+              }
+            }),
           );
         } catch (matErr) {
           console.error("Failed to record material consumption:", matErr);
@@ -4803,7 +4915,6 @@ export default function OrdersClient() {
     }
   };
 
-
   const handleUpdateTechnical = async (field, value) => {
     const order = orders.find((o) => o.id === selectedId);
     if (!order) return;
@@ -4822,7 +4933,6 @@ export default function OrdersClient() {
     } catch (err) {
       console.error("Failed to update technical:", err);
     }
-
   };
 
   const SortIcon = ({ col }) => {
@@ -5097,7 +5207,11 @@ export default function OrdersClient() {
                   const missingCount = (o.missingItems || []).length;
                   const isBlocked = hasBlockingMissing(o);
                   // Color priority: overdue = red, missing parts = orange
-                  const rowAccent = isOverdue ? "red" : isBlocked ? "orange" : null;
+                  const rowAccent = isOverdue
+                    ? "red"
+                    : isBlocked
+                      ? "orange"
+                      : null;
                   const techFee = Number(o.technical?.fee) || 0;
                   return (
                     <tr
@@ -5272,7 +5386,11 @@ export default function OrdersClient() {
                 const missingCount = (o.missingItems || []).length;
                 const isBlocked = hasBlockingMissing(o);
                 // Color priority: overdue = red, missing parts = orange (synced with desktop)
-                const rowAccent = isOverdue ? "red" : isBlocked ? "orange" : null;
+                const rowAccent = isOverdue
+                  ? "red"
+                  : isBlocked
+                    ? "orange"
+                    : null;
                 return (
                   <div
                     key={o.id}
@@ -6140,7 +6258,9 @@ function OrderDetailPanel({
                     style={{ color: "var(--ink-muted)" }}
                   >
                     {m.date && <span>{m.date}</span>}
-                    {m.note && <span className="italic truncate">{m.note}</span>}
+                    {m.note && (
+                      <span className="italic truncate">{m.note}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -6218,7 +6338,10 @@ function OrderDetailPanel({
                     )}
 
                     {item.unit_price > 0 && (
-                      <span className="font-bold" style={{ color: "var(--accent)" }}>
+                      <span
+                        className="font-bold"
+                        style={{ color: "var(--accent)" }}
+                      >
                         {formatDZD(item.unit_price)} / {item.unit}
                       </span>
                     )}
@@ -6273,8 +6396,6 @@ function OrderDetailPanel({
       </div>
     </div>
   );
-
 }
 
-
-export { OrderFormModal }
+export { OrderFormModal };
