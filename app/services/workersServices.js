@@ -1,6 +1,38 @@
 import { prisma } from "../../lib/prisma";
 import bcrypt from "bcryptjs";
 
+
+export async function login({ email, password }) {
+  const worker = await prisma.workers.findUnique({
+    where: { email },
+  });
+
+  if (!worker) throw new Error("Invalid credentials");
+
+  const valid = await bcrypt.compare(password, worker.password_hash);
+  if (!valid) throw new Error("Invalid credentials");
+
+  const token = jwt.sign(
+    {
+      userId: worker.id,
+      role: "WORKER",
+    },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  return {
+    token,
+    user: {
+      id: worker.id,
+      name: worker.full_name,
+      email: worker.email,
+      role: "WORKER",
+    },
+  };
+}
+
+
 async function getAllWorkers() {
     const workers = await prisma.workers.findMany({
         include: {
