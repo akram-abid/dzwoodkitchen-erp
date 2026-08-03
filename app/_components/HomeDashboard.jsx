@@ -150,11 +150,16 @@ const GlobalStyles = () => (
        a flex layout can't be broken that way. */
     .pwa-shell {
       height: 100vh;
-      height: 100svh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
       background: var(--bg);
       overflow: hidden;
+      /* Single source of truth for the tab bar's height. Both the
+         fixed tabbar itself and the scrollable main area's bottom
+         padding read from this, so the reserved space can never
+         drift out of sync with the tabbar's real rendered height. */
+      --pwa-tabbar-h: 64px;
     }
     .pwa-shell .pwa-header {
       flex: 0 0 auto;
@@ -169,19 +174,15 @@ const GlobalStyles = () => (
       max-width: 720px; margin: 0 auto;
     }
     .pwa-shell .pwa-main {
-      /* This is the key to the tabbar never overlapping content: main
-         is a normal flex-column child (flex: 1 1 auto) that shrinks to
-         fit whatever space is left after the header above and the
-         tabbar below take theirs — not a fixed-position overlay problem
-         to solve with padding/spacer guesswork. min-height: 0 is required
-         here so the flex item actually shrinks and scrolls internally
-         instead of overflowing its allotted space. */
       flex: 1 1 auto;
       min-height: 0;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
-      padding: 12px 12px 16px;
+      /* Always leave room for the fixed tabbar below, plus a little
+         breathing room, so the last item in any list/panel never
+         ends up hidden behind it. */
+      padding: 12px 12px calc(var(--pwa-tabbar-h) + 24px + env(safe-area-inset-bottom));
       max-width: 720px; margin: 0 auto;
       width: 100%;
       /* hide the scrollbar itself while keeping scroll working */
@@ -190,20 +191,20 @@ const GlobalStyles = () => (
     }
     .pwa-shell .pwa-main::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
-    /* bottom tab bar — a normal flex sibling (NOT position:fixed), so
-       it always occupies its own real space at the bottom of the
-       column and .pwa-main is guaranteed to end above it. A fixed
-       overlay was tried before and depends on being positioned
-       relative to the true viewport, which can silently break if any
-       ancestor outside this component sets a transform/filter; a
-       normal flex child has no such failure mode. */
+    /* bottom tab bar */
     .pwa-shell .pwa-tabbar {
-      flex: 0 0 auto;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
       display: flex;
       background: var(--surface);
       border-top: 1px solid var(--border);
       padding-bottom: env(safe-area-inset-bottom);
       box-shadow: 0 -6px 20px rgba(0,0,0,.18);
+      transform: translateY(0);
+      transition: transform .25s ease;
+      will-change: transform;
+    }
+    .pwa-shell .pwa-tabbar.pwa-tabbar-hidden {
+      transform: translateY(100%);
     }
     .pwa-shell .tab-btn {
       flex: 1; min-height: 56px;
@@ -302,7 +303,7 @@ const GlobalStyles = () => (
     }
     .show-more-btn:hover { background: var(--surface-2); }
 
-    .pwa-shell .tab-pane { animation: tabIn .18s ease-out; }
+    .pwa-shell .tab-pane { animation: tabIn .18s ease-out; padding-bottom: 24px; }
     @keyframes tabIn {
       from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: none; }
@@ -2301,36 +2302,100 @@ export default function HomeDashboard() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // No JS measurement needed for tabbar spacing anymore — .pwa-tabbar is
-  // a normal flex sibling of .pwa-main inside the flex-column .pwa-shell,
-  // so the browser's layout guarantees .pwa-main never extends behind it.
+  // Measure the tabbar's REAL rendered height and write it straight onto
+  // the shell as an inline CSS var + fallback padding on the scroll
+  // container. This is deliberately not left to a hardcoded CSS number:
+  // if font scaling, safe-area insets, or anything else changes how tall
+  // the tabbar actually is, the reserved space below the content follows
+  // it automatically instead of drifting out of sync again.
   const pwaShellRef = useRef(null);
   const pwaTabbarRef = useRef(null);
   const pwaMainRef = useRef(null);
 
-  // Belt-and-suspenders on top of the 100svh CSS: some mobile browsers
-  // (and device emulators) can momentarily report a viewport height on
-  // first paint that's taller than what's actually visible, before
-  // settling to the real size. Pinning the shell to the exact measured
-  // window.innerHeight side-steps that entirely — it's not a CSS unit
-  // subject to any negotiation, just the real number.
   useEffect(() => {
     if (!isMobile) return;
+    const tabbarEl = pwaTabbarRef.current;
     const shellEl = pwaShellRef.current;
-    if (!shellEl) return;
+    const mainEl = pwaMainRef.current;
+    if (!tabbarEl || !shellEl || !mainEl) return;
 
-    const setExactHeight = () => {
-      shellEl.style.height = `${window.innerHeight}px`;
+    let lastHeight = 0;
+    const applyHeight = () => {
+      const h = tabbarEl.offsetHeight;
+      if (!h || h === lastHeight) return;
+      lastHeight = h;
+      shellEl.style.setProperty("--pwa-tabbar-h", `${h}px`);
+      // Belt-and-suspenders: also set the padding directly as an inline
+      // style, so it wins even if some other stylesheet's ".pwa-main"
+      // rule happens to have higher specificity than ours.
+      mainEl.style.paddingBottom = `${h + 24}px`;
     };
 
-    setExactHeight();
-    window.addEventListener("resize", setExactHeight);
-    window.addEventListener("orientationchange", setExactHeight);
+    applyHeight();
+
+    const ro = new ResizeObserver(applyHeight);
+    ro.observe(tabbarEl);
+    window.addEventListener("resize", applyHeight);
+    window.addEventListener("orientationchange", applyHeight);
+
     return () => {
-      window.removeEventListener("resize", setExactHeight);
-      window.removeEventListener("orientationchange", setExactHeight);
+      ro.disconnect();
+      window.removeEventListener("resize", applyHeight);
+      window.removeEventListener("orientationchange", applyHeight);
     };
-  }, [isMobile]);
+  }, [isMobile, pwaTab]);
+
+  // Auto-hide the tabbar on scroll-down, reveal it on scroll-up — the
+  // usual mobile app pattern. Toggling a class directly on the DOM node
+  // (rather than React state) keeps this smooth since scroll fires a lot;
+  // re-rendering the whole tree on every tick would be wasteful and janky.
+  useEffect(() => {
+    if (!isMobile) return;
+    const mainEl = pwaMainRef.current;
+    const tabbarEl = pwaTabbarRef.current;
+    if (!mainEl || !tabbarEl) return;
+
+    const HIDE_CLASS = "pwa-tabbar-hidden";
+    const THRESHOLD = 8; // px of scroll before we react, avoids jitter
+    const REVEAL_NEAR_BOTTOM = 24; // always show once near the very bottom
+
+    let lastY = mainEl.scrollTop;
+    let ticking = false;
+
+    const update = () => {
+      ticking = false;
+      const y = mainEl.scrollTop;
+      const delta = y - lastY;
+      const maxScroll = mainEl.scrollHeight - mainEl.clientHeight;
+      const nearTop = y <= THRESHOLD;
+      const nearBottom = maxScroll - y <= REVEAL_NEAR_BOTTOM;
+
+      if (nearTop || nearBottom) {
+        tabbarEl.classList.remove(HIDE_CLASS);
+      } else if (delta > THRESHOLD) {
+        tabbarEl.classList.add(HIDE_CLASS);
+      } else if (delta < -THRESHOLD) {
+        tabbarEl.classList.remove(HIDE_CLASS);
+      }
+
+      lastY = y;
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    };
+
+    // Reset to visible whenever the active tab changes (new content,
+    // scroll position resets to 0 too) so switching tabs never leaves
+    // the bar hidden with no way to see it again.
+    tabbarEl.classList.remove(HIDE_CLASS);
+    lastY = mainEl.scrollTop;
+
+    mainEl.addEventListener("scroll", onScroll, { passive: true });
+    return () => mainEl.removeEventListener("scroll", onScroll);
+  }, [isMobile, pwaTab]);
 
   /* ─────── data loaders ─────── */
   const loadAll = useCallback(async () => {
@@ -3570,6 +3635,10 @@ export default function HomeDashboard() {
             </div>
           </PwaPanel>
         </div>
+        <div
+          aria-hidden="true"
+          style={{ height: "var(--pwa-tabbar-h, 64px)" }}
+        />
       </div>
     );
   };
@@ -3790,6 +3859,10 @@ export default function HomeDashboard() {
           </div>
         </div>
       </PwaPanel>
+      <div
+        aria-hidden="true"
+        style={{ height: "var(--pwa-tabbar-h, 64px)" }}
+      />
     </div>
   );
 
@@ -4067,6 +4140,10 @@ export default function HomeDashboard() {
       {/* Recent Trips — same data as the desktop panel, but
           compact row layout to fit the narrow PWA column. */}
       {RecentTripsPanelPwa()}
+      <div
+        aria-hidden="true"
+        style={{ height: "var(--pwa-tabbar-h, 64px)" }}
+      />
     </div>
   );
 
@@ -4180,6 +4257,10 @@ export default function HomeDashboard() {
           }}
         />
       </PwaPanel>
+      <div
+        aria-hidden="true"
+        style={{ height: "var(--pwa-tabbar-h, 64px)" }}
+      />
     </div>
   );
 
