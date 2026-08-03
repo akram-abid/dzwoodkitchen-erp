@@ -155,11 +155,6 @@ const GlobalStyles = () => (
       flex-direction: column;
       background: var(--bg);
       overflow: hidden;
-      /* Single source of truth for the tab bar's height. Both the
-         fixed tabbar itself and the scrollable main area's bottom
-         padding read from this, so the reserved space can never
-         drift out of sync with the tabbar's real rendered height. */
-      --pwa-tabbar-h: 64px;
     }
     .pwa-shell .pwa-header {
       flex: 0 0 auto;
@@ -174,16 +169,19 @@ const GlobalStyles = () => (
       max-width: 720px; margin: 0 auto;
     }
     .pwa-shell .pwa-main {
+      /* This is the key to the tabbar never overlapping content: main
+         is a normal flex-column child (flex: 1 1 auto) that shrinks to
+         fit whatever space is left after the header above and the
+         tabbar below take theirs — not a fixed-position overlay problem
+         to solve with padding/spacer guesswork. min-height: 0 is required
+         here so the flex item actually shrinks and scrolls internally
+         instead of overflowing its allotted space. */
       flex: 1 1 auto;
       min-height: 0;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
-      /* Bottom space for the fixed tabbar is handled by a real spacer
-         element at the end of the content (see the spacer div rendered
-         as the last child of <main>), not by padding here — that keeps
-         there being exactly one source of truth for it. */
-      padding: 12px 12px 0;
+      padding: 12px 12px 16px;
       max-width: 720px; margin: 0 auto;
       width: 100%;
       /* hide the scrollbar itself while keeping scroll working */
@@ -192,9 +190,15 @@ const GlobalStyles = () => (
     }
     .pwa-shell .pwa-main::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
-    /* bottom tab bar */
+    /* bottom tab bar — a normal flex sibling (NOT position:fixed), so
+       it always occupies its own real space at the bottom of the
+       column and .pwa-main is guaranteed to end above it. A fixed
+       overlay was tried before and depends on being positioned
+       relative to the true viewport, which can silently break if any
+       ancestor outside this component sets a transform/filter; a
+       normal flex child has no such failure mode. */
     .pwa-shell .pwa-tabbar {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+      flex: 0 0 auto;
       display: flex;
       background: var(--surface);
       border-top: 1px solid var(--border);
@@ -2297,44 +2301,12 @@ export default function HomeDashboard() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Measure the tabbar's REAL rendered height and write it straight onto
-  // the shell as an inline CSS var + fallback padding on the scroll
-  // container. This is deliberately not left to a hardcoded CSS number:
-  // if font scaling, safe-area insets, or anything else changes how tall
-  // the tabbar actually is, the reserved space below the content follows
-  // it automatically instead of drifting out of sync again.
+  // No JS measurement needed for tabbar spacing anymore — .pwa-tabbar is
+  // a normal flex sibling of .pwa-main inside the flex-column .pwa-shell,
+  // so the browser's layout guarantees .pwa-main never extends behind it.
   const pwaShellRef = useRef(null);
   const pwaTabbarRef = useRef(null);
   const pwaMainRef = useRef(null);
-
-  useEffect(() => {
-    if (!isMobile) return;
-    const tabbarEl = pwaTabbarRef.current;
-    const shellEl = pwaShellRef.current;
-    const mainEl = pwaMainRef.current;
-    if (!tabbarEl || !shellEl || !mainEl) return;
-
-    let lastHeight = 0;
-    const applyHeight = () => {
-      const h = tabbarEl.offsetHeight;
-      if (!h || h === lastHeight) return;
-      lastHeight = h;
-      shellEl.style.setProperty("--pwa-tabbar-h", `${h}px`);
-    };
-
-    applyHeight();
-
-    const ro = new ResizeObserver(applyHeight);
-    ro.observe(tabbarEl);
-    window.addEventListener("resize", applyHeight);
-    window.addEventListener("orientationchange", applyHeight);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", applyHeight);
-      window.removeEventListener("orientationchange", applyHeight);
-    };
-  }, [isMobile, pwaTab]);
 
   /* ─────── data loaders ─────── */
   const loadAll = useCallback(async () => {
@@ -5337,19 +5309,6 @@ export default function HomeDashboard() {
         {pwaTab === "money" && PwaMoneyTab()}
         {pwaTab === "workshop" && PwaWorkshopTab()}
         {pwaTab === "orders" && PwaOrdersTab()}
-
-        {/* Plain spacer block, not CSS padding. This is a real element
-            taking real space in normal flow at the very end of the
-            content, so the last item can never end up flush against
-            the fixed tabbar below — guaranteed regardless of any
-            padding/specificity/effect-timing issue elsewhere. */}
-        <div
-          aria-hidden="true"
-          style={{
-            height: "calc(88px + env(safe-area-inset-bottom))",
-            flexShrink: 0,
-          }}
-        />
       </main>
 
       <nav
