@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { UserRole } from "@prisma/client";
+//import { UserRole } from "@prisma/client";
 
 export async function createUser({ name, email, password }) {
   const password_hash = await bcrypt.hash(password, 10);
@@ -19,7 +19,7 @@ export async function createUser({ name, email, password }) {
         name,
         email,
         password_hash,
-        role: UserRole.WORKER,
+        role: "WORKER",
         worker_id: worker.id,
       },
     });
