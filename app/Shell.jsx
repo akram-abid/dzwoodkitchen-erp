@@ -34,16 +34,25 @@ const navItems = [
   { id: 'Materials', href: '/materials', icon: Icons.materials },
   { id: 'Suppliers', href: '/suppliers', icon: Icons.suppliers },
   { id: 'Budgets', href: '/atelier', icon: Icons.budgets },
-  { id: 'Vehicles', href:'/fleet', icon: Icons.vehicles}
+  { id: 'Vehicles', href:'/fleet', icon: Icons.vehicles},
+  { id: 'Vehiclesw', href:'/login', icon: Icons.vehicles},
 ];
 
 const SIDEBAR_EXPANDED = 232;   // ~w-58
 const SIDEBAR_COLLAPSED = 72;   // ~w-18
 
+// Routes that should render without the app shell (sidebar/header),
+// e.g. auth pages. Matches the path itself or any sub-path under it.
+const NO_SHELL_ROUTES = ['/login', '/signup', '/register'];
+
 export default function Shell({ children }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isNoShellRoute = NO_SHELL_ROUTES.some(
+    route => pathname === route || pathname.startsWith(`${route}/`)
+  );
 
   // Auto-collapse on smaller screens
   useEffect(() => {
@@ -66,6 +75,10 @@ export default function Shell({ children }) {
     return match ? match.id : 'Home';
   };
   const activeNav = getActive(pathname);
+
+  if (isNoShellRoute) {
+    return <>{children}</>;
+  }
 
   const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED;
 
