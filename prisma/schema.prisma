@@ -512,7 +512,7 @@ model material_purchase_items {
 
 model other_expenses {
   id                Int      @id @default(autoincrement())
-  other_category_id Int
+  other_category_id Int?
   date              DateTime @db.Date
   amount            Decimal  @db.Decimal(10, 2)
   reference         String?  @db.VarChar(100)
@@ -521,7 +521,7 @@ model other_expenses {
   created_at        DateTime @default(now()) @db.Timestamp(6)
   updated_at        DateTime @default(now()) @db.Timestamp(6)
 
-  category other_expense_categories @relation(fields: [other_category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  category other_expense_categories? @relation(fields: [other_category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([other_category_id], map: "idx_other_expenses_category_id")
   @@index([date], map: "idx_other_expenses_date")

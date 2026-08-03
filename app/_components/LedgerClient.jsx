@@ -490,8 +490,12 @@ const describeEntry = (e) => {
       };
     }
 
-    case "OTHER_EXPENSE":
-      return { main: e.otherCategory || e.category || "—", sub: e.note || "" };
+    case "OTHER_EXPENSE": {
+      const cat = e.otherCategory || e.category || "";
+      return cat
+        ? { main: cat, sub: e.note || "" }
+        : { main: e.note || "—", sub: "" };
+    }
 
     default:
       return { main: "", sub: "" };
@@ -1167,14 +1171,11 @@ export default function LedgerClient() {
       } else if (newType === "OTHER_EXPENSE") {
         const amt = parseFloat(form.amount);
         if (!amt || amt <= 0) throw new Error("Amount must be greater than 0");
-        if (!form.category?.trim()) throw new Error("Category is required");
         if (!form.note?.trim()) throw new Error("Note is required");
 
-        const catId = otherCatNameToId(form.category.trim());
-        if (!catId)
-          throw new Error(
-            `Category "${form.category}" not found — pick from the existing list`,
-          );
+        const catId = form.category?.trim()
+          ? otherCatNameToId(form.category.trim())
+          : null;
 
         payload = {
           type: "OTHER_EXPENSE",
@@ -2426,8 +2427,7 @@ export default function LedgerClient() {
 
                 <Field
                   label="Category"
-                  required
-                  hint="Pick from existing categories"
+                  hint="Optional — pick from existing categories"
                 >
                   <input
                     list="other-categories-list"
