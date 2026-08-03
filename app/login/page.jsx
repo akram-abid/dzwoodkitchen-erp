@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 /* ─── Design tokens — mirror your globals.css variables ─── */
 const STAGES = [
@@ -11,7 +12,7 @@ const STAGES = [
   { name: "Completed", color: "var(--stage-completed)", count: 18 },
 ];
 
-/* ─── Icons (inline so we don't need lucide) ─── */
+/* ─── Icons ─── */
 const Icon = {
   Mail: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -55,6 +56,17 @@ const Icon = {
       <line x1="12" x2="12.01" y1="16" y2="16" />
     </svg>
   ),
+  X: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  ),
+  Key: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4" />
+    </svg>
+  ),
   Home: () => (
     <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9 12 3l9 6v12H3z" />
@@ -63,7 +75,7 @@ const Icon = {
   ),
 };
 
-/* ─── Logo with fallback (BIG) ─── */
+/* ─── Logo with fallback ─── */
 function BrandLogo() {
   const [errored, setErrored] = useState(false);
   if (errored) {
@@ -85,7 +97,7 @@ function BrandLogo() {
   );
 }
 
-/* ─── Toast sub-component ─── */
+/* ─── Toast ─── */
 function Toast({ message, type = "success", onClose }) {
   useEffect(() => {
     const t = setTimeout(onClose, 3500);
@@ -109,7 +121,7 @@ function Toast({ message, type = "success", onClose }) {
   );
 }
 
-/* ─── Activity card with animated stage bars ─── */
+/* ─── Activity card ─── */
 function ActivityCard() {
   const maxCount = Math.max(...STAGES.map((s) => s.count));
   return (
@@ -147,22 +159,167 @@ function ActivityCard() {
   );
 }
 
+/* ─── Forgot password modal ─── */
+function ForgotPasswordModal({ onClose }) {
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      // API returns the same success message whether the account exists
+      // or not — that's intentional (prevents user enumeration).
+      if (!res.ok && res.status !== 200) {
+        throw new Error("Something went wrong. Please try again.");
+      }
+      setSent(true);
+    } catch (err) {
+      setError(err.message || "Could not send reset link.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  // Close on Escape
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="lp-modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="lp-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="forgot-title"
+      >
+        <button
+          className="lp-modal-close"
+          onClick={onClose}
+          aria-label="Close"
+          type="button"
+        >
+          <Icon.X />
+        </button>
+
+        <div className="lp-modal-icon">
+          <Icon.Key />
+        </div>
+
+        {sent ? (
+          <>
+            <h3 id="forgot-title" className="lp-modal-title">Check your inbox</h3>
+            <p className="lp-modal-sub">
+              If an account exists for <strong>{email}</strong>, we've sent a
+              password reset link. It expires in 1 hour.
+            </p>
+            <button
+              className="lp-btn-primary"
+              onClick={onClose}
+              type="button"
+              style={{ marginTop: 8 }}
+            >
+              Got it
+            </button>
+          </>
+        ) : (
+          <>
+            <h3 id="forgot-title" className="lp-modal-title">Forgot your password?</h3>
+            <p className="lp-modal-sub">
+              No worries — enter the email tied to your account and we'll
+              send you a reset link.
+            </p>
+            <form onSubmit={handleSubmit} noValidate>
+              <div className="lp-field" style={{ marginBottom: 12 }}>
+                <label className="lp-label" htmlFor="forgot-email">Email</label>
+                <div className="lp-input-wrap">
+                  <input
+                    className="lp-input"
+                    id="forgot-email"
+                    name="email"
+                    type="email"
+                    placeholder="you@dzwood.com"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                  <span className="lp-input-icon">
+                    <Icon.Mail />
+                  </span>
+                </div>
+                {error && <div className="lp-modal-err">{error}</div>}
+              </div>
+
+              <div className="lp-modal-actions">
+                <button
+                  type="button"
+                  className="lp-btn-ghost"
+                  onClick={onClose}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="lp-btn-primary"
+                  disabled={sending}
+                  style={{ width: "auto", padding: "0 22px", animation: "none" }}
+                >
+                  {sending ? "Sending…" : "Send reset link"}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main page ─── */
 export default function Login() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [showForgot, setShowForgot] = useState(false);
   const shakeRef = useRef(null);
 
   function showToast(message, type = "success") {
     setToast({ message, type, key: Date.now() });
   }
 
-  function handleSubmit(e) {
+  function triggerShake() {
+    if (!shakeRef.current) return;
+    shakeRef.current.classList.remove("lp-shake");
+    void shakeRef.current.offsetWidth;
+    shakeRef.current.classList.add("lp-shake");
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
+
+    // ── Client-side validation first (don't even hit the API for garbage) ──
     if (!email.trim() || !password) {
       showToast("Please fill in both email and password.", "error");
       triggerShake();
@@ -175,17 +332,73 @@ export default function Login() {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      showToast("Signed in — welcome back!");
-    }, 1200);
-  }
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // credentials: "include" so the httpOnly `token` cookie sticks
+        credentials: "include",
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
 
-  function triggerShake() {
-    if (!shakeRef.current) return;
-    shakeRef.current.classList.remove("lp-shake");
-    void shakeRef.current.offsetWidth;
-    shakeRef.current.classList.add("lp-shake");
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // 401/400 → bad creds. Anything else → server error.
+        const msg =
+          res.status === 401 || res.status === 400
+            ? "Invalid email or password."
+            : data?.error || "Sign in failed. Please try again.";
+        showToast(msg, "error");
+        triggerShake();
+        return;
+      }
+
+      // ── Success ──
+      // Server returns { loginData: { token, user: { id, name, email, role } } }
+      // Note: `role` is a BOOLEAN (true = admin), not a string.
+      const { user, token } = data.loginData || {};
+      if (!token || !user) {
+        showToast("Unexpected response from server.", "error");
+        return;
+      }
+
+      // Stash a tiny non-sensitive user blob for the client UI.
+      // The real auth happens via the httpOnly cookie set by the server.
+      try {
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            // store the boolean — components should check `role === true` for admin
+            isAdmin: user.role === true,
+          })
+        );
+      } catch {
+          /* localStorage may be blocked — non-fatal, the cookie is what matters */
+      }
+
+      showToast("Signed in — welcome back!");
+
+      // Small delay so the user actually sees the success toast
+      setTimeout(() => {
+        router.push("/");
+        router.refresh();
+      }, 400);
+    } catch (err) {
+      // Network error / server down
+      showToast(
+        err?.message
+          ? `Network error: ${err.message}`
+          : "Could not reach the server. Check your connection.",
+        "error"
+      );
+      triggerShake();
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -213,8 +426,13 @@ export default function Login() {
           font-size: 12px; color: var(--ink-muted);
           background: linear-gradient(to bottom, rgba(10,13,20,0.9), transparent);
         }
-        .lp-utility a { color: var(--ink-muted); text-decoration: none; transition: color .2s ease; }
-        .lp-utility a:hover { color: var(--ink); }
+        .lp-utility a, .lp-utility button {
+          color: var(--ink-muted); text-decoration: none;
+          background: none; border: none; font-family: inherit; font-size: inherit;
+          cursor: pointer; padding: 0;
+          transition: color .2s ease;
+        }
+        .lp-utility a:hover, .lp-utility button:hover { color: var(--ink); }
         .lp-status-pill {
           display: inline-flex; align-items: center; gap: 8px;
           padding: 6px 12px; border-radius: 999px;
@@ -264,8 +482,6 @@ export default function Login() {
           position: relative; z-index: 1; height: 100%;
           display: flex; flex-direction: column; justify-content: space-between;
         }
-
-        /* BIG brand block */
         .lp-brand {
           display: flex; align-items: center; gap: 22px;
           animation: lp-fadeUp .6s ease-out;
@@ -281,8 +497,7 @@ export default function Login() {
           position: relative;
         }
         .lp-brand-mark::after {
-          content: "";
-          position: absolute; inset: 0; border-radius: inherit;
+          content: ""; position: absolute; inset: 0; border-radius: inherit;
           background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 50%);
           pointer-events: none;
         }
@@ -426,6 +641,7 @@ export default function Login() {
           background: var(--surface-2);
           box-shadow: 0 0 0 4px var(--accent-soft);
         }
+        .lp-input:disabled { opacity: .6; cursor: not-allowed; }
         .lp-input-wrap:focus-within .lp-input-icon { color: var(--accent); }
         .lp-pw-toggle {
           position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
@@ -434,9 +650,8 @@ export default function Login() {
           cursor: pointer; padding: 4px; border-radius: 6px;
           display: flex; transition: all .2s ease;
         }
-        .lp-pw-toggle:hover {
-          color: var(--ink); background: var(--surface-2);
-        }
+        .lp-pw-toggle:hover { color: var(--ink); background: var(--surface-2); }
+        .lp-pw-toggle:disabled { cursor: not-allowed; }
 
         .lp-row-between {
           display: flex; align-items: center; justify-content: space-between;
@@ -466,9 +681,12 @@ export default function Login() {
         }
         .lp-forgot {
           color: var(--accent); text-decoration: none;
-          font-weight: 500; font-size: 13px; transition: opacity .15s ease;
+          font-weight: 500; font-size: 13px;
+          background: none; border: none; padding: 0; cursor: pointer;
+          font-family: inherit;
+          transition: opacity .15s ease;
         }
-        .lp-forgot:hover { opacity: .8; }
+        .lp-forgot:hover { opacity: .8; text-decoration: underline; }
 
         .lp-btn-primary {
           width: 100%; height: 46px;
@@ -481,11 +699,11 @@ export default function Login() {
           box-shadow: 0 4px 14px rgba(59,130,246,.3);
           animation: lp-fadeUp .5s ease-out .32s both;
         }
-        .lp-btn-primary:hover {
+        .lp-btn-primary:hover:not(:disabled) {
           background: #2563eb; transform: translateY(-1px);
           box-shadow: 0 6px 20px rgba(59,130,246,.45);
         }
-        .lp-btn-primary:active {
+        .lp-btn-primary:active:not(:disabled) {
           transform: translateY(0);
           box-shadow: 0 2px 8px rgba(59,130,246,.3);
         }
@@ -511,6 +729,82 @@ export default function Login() {
           transition: opacity .15s ease;
         }
         .lp-signup a:hover { opacity: .8; }
+
+        /* modal */
+        .lp-modal-backdrop {
+          position: fixed; inset: 0; z-index: 200;
+          background: rgba(0,0,0,.6);
+          backdrop-filter: blur(4px);
+          animation: lp-fadeIn .15s ease-out;
+          display: flex; align-items: center; justify-content: center;
+          padding: 24px;
+        }
+        @keyframes lp-fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .lp-modal {
+          position: relative;
+          width: 100%; max-width: 420px;
+          background: var(--surface); border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 32px 28px;
+          box-shadow: 0 24px 60px rgba(0,0,0,.5);
+          animation: lp-modalIn .2s ease-out;
+        }
+        @keyframes lp-modalIn {
+          from { opacity: 0; transform: translateY(8px) scale(.97); }
+          to { opacity: 1; transform: none; }
+        }
+        .lp-modal-close {
+          position: absolute; top: 14px; right: 14px;
+          width: 30px; height: 30px;
+          background: var(--surface-2); border: 1px solid var(--border);
+          border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+          color: var(--ink); cursor: pointer;
+          transition: all .15s ease;
+        }
+        .lp-modal-close:hover {
+          background: var(--surface-3, #232838);
+          border-color: var(--border-2, #353b4d);
+        }
+        .lp-modal-icon {
+          width: 48px; height: 48px; border-radius: 12px;
+          background: var(--accent-soft);
+          color: var(--accent);
+          display: flex; align-items: center; justify-content: center;
+          margin-bottom: 16px;
+        }
+        .lp-modal-title {
+          font-size: 20px; font-weight: 700;
+          letter-spacing: -.015em;
+          margin-bottom: 8px; color: var(--ink);
+        }
+        .lp-modal-sub {
+          font-size: 13.5px; line-height: 1.55;
+          color: var(--ink-muted);
+          margin-bottom: 20px;
+        }
+        .lp-modal-err {
+          font-size: 11.5px; color: var(--stage-contract);
+          margin-top: 6px;
+        }
+        .lp-modal-actions {
+          display: flex; justify-content: flex-end; gap: 8px;
+          margin-top: 16px;
+        }
+        .lp-btn-ghost {
+          background: transparent;
+          color: var(--ink-muted);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 0 18px; height: 42px;
+          font-family: inherit; font-size: 13.5px; font-weight: 600;
+          cursor: pointer;
+          transition: all .15s ease;
+        }
+        .lp-btn-ghost:hover {
+          background: var(--surface-2);
+          color: var(--ink);
+        }
 
         /* toast */
         .lp-toast {
@@ -614,6 +908,7 @@ export default function Login() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
                   required
                 />
                 <span className="lp-input-icon">
@@ -634,6 +929,7 @@ export default function Login() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
                   required
                 />
                 <span className="lp-input-icon">
@@ -644,6 +940,7 @@ export default function Login() {
                   className="lp-pw-toggle"
                   onClick={() => setShowPw((s) => !s)}
                   aria-label={showPw ? "Hide password" : "Show password"}
+                  disabled={loading}
                 >
                   {showPw ? <Icon.EyeOff /> : <Icon.Eye />}
                 </button>
@@ -656,10 +953,17 @@ export default function Login() {
                   type="checkbox"
                   checked={remember}
                   onChange={(e) => setRemember(e.target.checked)}
+                  disabled={loading}
                 />
                 <span>Remember me</span>
               </label>
-              <a href="#" className="lp-forgot">Forgot password?</a>
+              <button
+                type="button"
+                className="lp-forgot"
+                onClick={() => setShowForgot(true)}
+              >
+                Forgot password?
+              </button>
             </div>
 
             <button
@@ -677,6 +981,10 @@ export default function Login() {
           </form>
         </section>
       </div>
+
+      {showForgot && (
+        <ForgotPasswordModal onClose={() => setShowForgot(false)} />
+      )}
 
       {toast && (
         <Toast
