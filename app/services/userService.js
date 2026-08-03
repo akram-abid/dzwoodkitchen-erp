@@ -1,39 +1,27 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { UserRole } from "@prisma/client";
 
-export async function createUser({
-  name,
-  email,
-  password,
-  role_id,
-  worker_id,
-  phone,
-  hire_date,
-  payment_type,
-  hourlyRate,
-  meterRate,
-}) {
+export async function createUser({ name, email, password }) {
   const password_hash = await bcrypt.hash(password, 10);
 
   return prisma.$transaction(async (tx) => {
-    let finalWorkerId = worker_id ?? null;
+    // Create worker
+    const worker = await tx.workers.create({
+      data: {
+        full_name: name,
+      },
+    });
 
-    if (!finalWorkerId && payment_type) {
-      const createdWorker = await tx.workers.create({
-        data: {
-          full_name: name,
-          phone: phone ?? null,
-          hire_date: hire_date ?? null,
-          payment_type,
-          hourlyRate: hourlyRate ?? null,
-          meterRate: meterRate ?? null,
-        },
-      });
-      finalWorkerId = createdWorker.id;
-    }
-
+    // Create user
     return tx.users.create({
-      data: { name, email, password_hash, role_id, worker_id: finalWorkerId },
+      data: {
+        name,
+        email,
+        password_hash,
+        role: UserRole.WORKER,
+        worker_id: worker.id,
+      },
     });
   });
 }
