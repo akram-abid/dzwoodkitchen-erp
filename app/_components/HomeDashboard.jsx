@@ -2222,6 +2222,13 @@ export default function HomeDashboard() {
     },
     [router],
   );
+  const openWorker = useCallback(
+    (workerId) => {
+      if (!workerId) return;
+      router.push(`/workers?worker=${encodeURIComponent(workerId)}`);
+    },
+    [router],
+  );
 
   /* ─────── data state ─────── */
   const [workers, setWorkers] = useState([]);
@@ -3891,7 +3898,19 @@ export default function HomeDashboard() {
             const isPresent = status === "PRESENT";
             const isAbsent = status === "ABSENT";
             return (
-              <div className="list-item row">
+              <div
+                className="list-item row"
+                role="button"
+                tabIndex={0}
+                onClick={() => openWorker(w.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openWorker(w.id);
+                  }
+                }}
+                style={{ cursor: "pointer" }}
+              >
                 <div
                   style={{
                     width: 36,
@@ -3933,7 +3952,10 @@ export default function HomeDashboard() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setWorkerStatus(w.id, cycleAttendance(status))}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setWorkerStatus(w.id, cycleAttendance(status));
+                  }}
                   style={{
                     padding: "6px 10px",
                     borderRadius: 6,
@@ -4749,7 +4771,19 @@ export default function HomeDashboard() {
                     const name =
                       w.full_name || w.shortName || w.name || "Worker";
                     return (
-                      <div className="relative flex items-center gap-3 p-3 rounded-lg panel-hover">
+                      <div
+                        className="relative flex items-center gap-3 p-3 rounded-lg panel-hover"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openWorker(w.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            openWorker(w.id);
+                          }
+                        }}
+                        style={{ cursor: "pointer" }}
+                      >
                         <div className="relative shrink-0">
                           <div
                             className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold"
@@ -4793,9 +4827,10 @@ export default function HomeDashboard() {
                         </div>
                         <AttendanceBadge
                           status={status}
-                          onCycle={() =>
-                            setWorkerStatus(w.id, cycleAttendance(status))
-                          }
+                          onCycle={(e) => {
+                            e?.stopPropagation?.();
+                            setWorkerStatus(w.id, cycleAttendance(status));
+                          }}
                         />
                       </div>
                     );

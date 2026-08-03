@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, memo, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 // for attendance functionalities
 import { batchUpdateAttendance, createTimeEntry, updateTimeEntry, deleteTimeEntryApiCall, createPayment, deletePaymentApiCall } from "@/lib/api_helpers/workers.js";
 import useAttendanceBatchUpdates from "../../hooks/useAttendanceBatchUpdates";
@@ -2159,12 +2160,20 @@ export default function WorkersApp({ workersData, orders = [] }) {
   // useEffect(() => {
   //   setToday(formatDate(new Date()));
   // }, []);
-  const [screen, setScreen] = useState("list");
+  const searchParams = useSearchParams();
+  const workerParam = searchParams.get("worker");
+  const [screen, setScreen] = useState(workerParam ? "detail" : "list");
   const [activeTab, setActiveTab] = useState("attendance");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [selectedId, setSelectedId] = useState(workersData[0]?.id || null);
+  const [selectedId, setSelectedId] = useState(() => {
+    if (workerParam) {
+      const match = workersData.find((w) => String(w.id) === String(workerParam));
+      if (match) return match.id;
+    }
+    return workersData[0]?.id || null;
+  });
   const [year, setYearState] = useState(CURRENT_YEAR);
   const [weekIndex, setWeekIndexState] = useState(() => {
     const weeks = getYearWeeks(CURRENT_YEAR);
@@ -2261,6 +2270,18 @@ export default function WorkersApp({ workersData, orders = [] }) {
     setActiveTab("attendance");
     setScreen("detail");
   }, []);
+
+  // Keep the selected worker in sync with the ?worker= query param, so
+  // clicking a worker on the Home dashboard (which navigates here via
+  // /workers?worker=<id>) opens straight into that worker's detail view —
+  // even if this page was already mounted (client-side nav won't remount it).
+  useEffect(() => {
+    if (!workerParam) return;
+    const match = workersData.find((w) => String(w.id) === String(workerParam));
+    if (match && match.id !== selectedId) {
+      openWorker(match.id);
+    }
+  }, [workerParam, workersData, openWorker, selectedId]);
 
   const goBack = useCallback(() => setScreen("list"), []);
 
