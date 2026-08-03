@@ -363,6 +363,19 @@ const GlobalStyles = () => (
       -webkit-tap-highlight-color: transparent;
     }
     .pwa-shell .pwa-cta:active { opacity: .9; }
+
+    /* ─── PO detail popup + print ───
+       The popup itself renders on-screen using the app's normal
+       modal chrome. The .po-print-area sits off-screen at all times
+       and is only revealed by the @media print rule below, so
+       window.print() picks up a clean black-on-white invoice
+       instead of the popup's on-screen chrome/backdrop. */
+    .po-print-area { position: absolute; left: -9999px; top: 0; }
+    @media print {
+      body * { visibility: hidden; }
+      .po-print-area, .po-print-area * { visibility: visible; }
+      .po-print-area { position: absolute; left: 0; top: 0; width: 100%; }
+    }
   `}</style>
 );
 
@@ -710,6 +723,22 @@ const Icons = {
       <path d="m6 6 12 12" />
     </svg>
   ),
+  printer: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect width="12" height="8" x="6" y="14" />
+    </svg>
+  ),
   check: () => (
     <svg
       width="12"
@@ -1017,6 +1046,414 @@ const initials = (name) =>
     .join("")
     .toUpperCase();
 const safe = (v, fb = []) => (Array.isArray(v) ? v : fb);
+
+/* ═══════════════════════════════════════════════════════════════════
+   PO DETAIL POPUP + PRINT
+
+   Clicking a row in "Last 5 Purchase Orders" (desktop or PWA) opens
+   this. It shows the full PO — supplier, date, every line item, and
+   the total — plus a Print button that renders a plain black-on-
+   white invoice into .po-print-area and fires window.print(). That
+   area is hidden on screen and only revealed by the @media print
+   rule in GlobalStyles, so the printed page never contains the
+   dashboard's on-screen chrome.
+═══════════════════════════════════════════════════════════════════ */
+
+const formatPODate = (d) =>
+  d
+    ? new Date(d).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "—";
+
+function PrintablePO({ po }) {
+  if (!po) return null;
+  const supplierObj = po.supplierObj;
+  return (
+    <div
+      style={{
+        padding: 24,
+        fontFamily: "Arial, Helvetica, sans-serif",
+        color: "#000",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          borderBottom: "2px solid #000",
+          paddingBottom: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>Purchase Order</div>
+          <div style={{ fontSize: 12, color: "#555" }}>
+            #{po.id}
+            {po.reference ? ` · Ref: ${po.reference}` : ""}
+          </div>
+        </div>
+        <div style={{ textAlign: "right", fontSize: 12 }}>
+          <div>Date: {formatPODate(po.date)}</div>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            fontSize: 11,
+            textTransform: "uppercase",
+            color: "#555",
+            marginBottom: 2,
+            letterSpacing: 0.5,
+          }}
+        >
+          Supplier
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>
+          {supplierObj?.name || po.supplier}
+        </div>
+        {supplierObj?.address && (
+          <div style={{ fontSize: 12 }}>{supplierObj.address}</div>
+        )}
+        {supplierObj?.phone && (
+          <div style={{ fontSize: 12 }}>Tel: {supplierObj.phone}</div>
+        )}
+        {(supplierObj?.nif || supplierObj?.rc) && (
+          <div style={{ fontSize: 12 }}>
+            {supplierObj.nif ? `NIF: ${supplierObj.nif}` : ""}
+            {supplierObj.nif && supplierObj.rc ? "  ·  " : ""}
+            {supplierObj.rc ? `RC: ${supplierObj.rc}` : ""}
+          </div>
+        )}
+      </div>
+
+      {po.note && (
+        <div style={{ fontSize: 12, fontStyle: "italic", marginBottom: 12 }}>
+          {po.note}
+        </div>
+      )}
+
+      <table
+        style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}
+      >
+        <thead>
+          <tr style={{ borderBottom: "1px solid #000" }}>
+            <th style={{ textAlign: "left", padding: "6px 4px" }}>
+              Material
+            </th>
+            <th style={{ textAlign: "right", padding: "6px 4px" }}>Qty</th>
+            <th style={{ textAlign: "left", padding: "6px 4px" }}>Unit</th>
+            <th style={{ textAlign: "right", padding: "6px 4px" }}>
+              Unit price
+            </th>
+            <th style={{ textAlign: "right", padding: "6px 4px" }}>
+              Line total
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {safe(po.items).map((it, i) => (
+            <tr key={it.id ?? i} style={{ borderBottom: "1px solid #ddd" }}>
+              <td style={{ padding: "6px 4px" }}>
+                {it.material_name || it.name || "—"}
+              </td>
+              <td style={{ padding: "6px 4px", textAlign: "right" }}>
+                {Number(it.quantity ?? 0).toLocaleString("en-US")}
+              </td>
+              <td style={{ padding: "6px 4px" }}>{it.unit}</td>
+              <td style={{ padding: "6px 4px", textAlign: "right" }}>
+                {fmtDZD(it.unit_price ?? it.price)}
+              </td>
+              <td style={{ padding: "6px 4px", textAlign: "right" }}>
+                {fmtDZD(
+                  it.line_total ??
+                    Number(it.quantity || 0) *
+                      Number(it.unit_price || it.price || 0),
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginTop: 16,
+          paddingTop: 12,
+          borderTop: "2px solid #000",
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 700 }}>
+          Total: {fmtDZD(po.total)}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 40, fontSize: 11, color: "#777" }}>
+        Printed on {new Date().toLocaleDateString("en-GB")}
+      </div>
+    </div>
+  );
+}
+
+function PODetailModal({ po, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  if (!po) return null;
+  const supplierObj = po.supplierObj;
+
+  return (
+    <>
+      <div className="modal-backdrop" onClick={onClose} />
+      <div
+        className="modal"
+        style={{ width: "min(560px, calc(100vw - 32px))" }}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            padding: "16px 20px",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>PO #{po.id}</div>
+            <div
+              className="muted"
+              style={{ fontSize: 12, marginTop: 2 }}
+            >
+              {supplierObj?.name || po.supplier}
+              {" · "}
+              {formatPODate(po.date)}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            title="Close"
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              width: 30,
+              height: 30,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--ink)",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            <Icons.x />
+          </button>
+        </div>
+
+        <div style={{ padding: 20 }}>
+          {supplierObj && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--ink-muted)",
+                marginBottom: 14,
+                lineHeight: 1.5,
+              }}
+            >
+              {supplierObj.address && <div>{supplierObj.address}</div>}
+              {supplierObj.phone && <div>Tel: {supplierObj.phone}</div>}
+              {(supplierObj.nif || supplierObj.rc) && (
+                <div>
+                  {supplierObj.nif ? `NIF: ${supplierObj.nif}` : ""}
+                  {supplierObj.nif && supplierObj.rc ? "  ·  " : ""}
+                  {supplierObj.rc ? `RC: ${supplierObj.rc}` : ""}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div
+            className="muted"
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: ".04em",
+              marginBottom: 8,
+            }}
+          >
+            Items ({safe(po.items).length})
+          </div>
+
+          <div
+            className="scroll-x"
+            style={{ maxHeight: 320, overflowY: "auto" }}
+          >
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      padding: "6px 4px",
+                      color: "var(--ink-muted)",
+                      fontWeight: 600,
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    Material
+                  </th>
+                  <th
+                    style={{
+                      textAlign: "right",
+                      padding: "6px 4px",
+                      color: "var(--ink-muted)",
+                      fontWeight: 600,
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    Qty
+                  </th>
+                  <th
+                    style={{
+                      textAlign: "right",
+                      padding: "6px 4px",
+                      color: "var(--ink-muted)",
+                      fontWeight: 600,
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    Unit price
+                  </th>
+                  <th
+                    style={{
+                      textAlign: "right",
+                      padding: "6px 4px",
+                      color: "var(--ink-muted)",
+                      fontWeight: 600,
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    Line total
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {safe(po.items).map((it, i) => (
+                  <tr key={it.id ?? i}>
+                    <td
+                      style={{
+                        padding: "7px 4px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {it.material_name || it.name || "—"}
+                    </td>
+                    <td
+                      style={{
+                        padding: "7px 4px",
+                        textAlign: "right",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {Number(it.quantity ?? 0).toLocaleString("en-US")}{" "}
+                      {it.unit}
+                    </td>
+                    <td
+                      style={{
+                        padding: "7px 4px",
+                        textAlign: "right",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {fmtDZD(it.unit_price ?? it.price)}
+                    </td>
+                    <td
+                      style={{
+                        padding: "7px 4px",
+                        textAlign: "right",
+                        fontWeight: 600,
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      {fmtDZD(
+                        it.line_total ??
+                          Number(it.quantity || 0) *
+                            Number(it.unit_price || it.price || 0),
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: 16,
+              paddingTop: 14,
+              borderTop: "1px solid var(--border)",
+            }}
+          >
+            <button
+              onClick={() => window.print()}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 14px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--ink)",
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              <Icons.printer /> Print
+            </button>
+            <div style={{ textAlign: "right" }}>
+              <div
+                className="muted"
+                style={{
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: ".04em",
+                }}
+              >
+                Total
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>
+                {fmtDZD(po.total)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Off-screen printable version, revealed only by @media print */}
+      <div className="po-print-area">
+        <PrintablePO po={po} />
+      </div>
+    </>
+  );
+}
 
 /* Pulls today's attendance status off of a raw worker record, trying
    every shape we've seen APIs use for this. This exists because the
@@ -2239,6 +2676,7 @@ export default function HomeDashboard() {
   const [ledger, setLedger] = useState([]);
   const [ledgerRefs, setLedgerRefs] = useState({ workers: [], suppliers: [] });
   const [recentPOs, setRecentPOs] = useState([]);
+  const [poDetail, setPoDetail] = useState(null); // PO clicked from "Last 5 Purchases"
   const [tasks, setTasks] = useState([]);
   /* ── Fleet / trips ──
      The fleet page owns the full trip CRUD UI; the dashboard just shows
@@ -2494,7 +2932,11 @@ export default function HomeDashboard() {
           if (r.status === "fulfilled" && r.value) {
             const list = safe(r.value?.operations);
             list.forEach((po) => {
-              allPOs.push({ ...po, supplier: supList[i].name });
+              allPOs.push({
+                ...po,
+                supplier: supList[i].name,
+                supplierObj: supList[i],
+              });
             });
           }
         });
@@ -4092,7 +4534,11 @@ export default function HomeDashboard() {
             initial={5}
             keyExtractor={(po) => po.id}
             render={(po) => (
-              <div className="list-item">
+              <div
+                className="list-item"
+                onClick={() => setPoDetail(po)}
+                style={{ cursor: "pointer" }}
+              >
                 <div className="row" style={{ marginBottom: 8 }}>
                   <div className="grow">
                     <div style={{ fontWeight: 600 }}>PO #{po.id}</div>
@@ -5051,6 +5497,8 @@ export default function HomeDashboard() {
                     {recentPOs.map((po, idx) => (
                       <div
                         key={po.id ?? idx}
+                        onClick={() => setPoDetail(po)}
+                        className="cursor-pointer"
                         style={
                           idx > 0
                             ? {
@@ -5486,6 +5934,9 @@ export default function HomeDashboard() {
       {isMobile ? pwaView : desktopView}
 
       {/* MODALS (shared by both layouts) */}
+      {poDetail && (
+        <PODetailModal po={poDetail} onClose={() => setPoDetail(null)} />
+      )}
       <OrderFormModal
         isOpen={modal?.type === "NEW_ORDER"}
         onClose={() => setModal(null)}
