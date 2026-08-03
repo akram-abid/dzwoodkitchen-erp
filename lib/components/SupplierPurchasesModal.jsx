@@ -13,6 +13,8 @@ import {
   deleteMaterialPurchaseItemClient,
 } from "../api_helpers/materialPurchase.js";
 
+import { fetchLedgerReferenceData } from "../api_helpers/ledger.js";
+
 /* ─── icons (inline, no extra deps) ─── */
 
 const Icons = {
@@ -147,6 +149,23 @@ const Icons = {
       <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
       <path d="m3.3 7 8.7 5 8.7-5" />
       <path d="M12 22V12" />
+    </svg>
+  ),
+
+  printer: () => (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect width="12" height="8" x="6" y="14" />
     </svg>
   ),
 };
@@ -340,6 +359,34 @@ function EditPurchaseModal({
   const [topError, setTopError] = useState(null);
 
   const [submitting, setSubmitting] = useState(false);
+
+  /* ── material catalog, for the type-ahead dropdown on "Material name" ──
+     Same source LedgerClient.jsx uses, so both pages suggest from the
+     same list of known materials. */
+
+  const [materialCatalog, setMaterialCatalog] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const refs = await fetchLedgerReferenceData();
+        if (!cancelled) setMaterialCatalog(refs?.materialCatalog || []);
+      } catch {
+        // Non-fatal — the field still works as a free-text input.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const materialIdByName = useMemo(
+    () => new Map(materialCatalog.map((m) => [m.name, m.id])),
+    [materialCatalog],
+  );
 
   const setItem = (idx, patch) => {
     setItems((prev) =>
@@ -748,10 +795,15 @@ function EditPurchaseModal({
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
+                        list={`supplier-materials-${it.id || `new-${idx}`}`}
                         value={it.material_name}
-                        onChange={(e) =>
-                          setItem(idx, { material_name: e.target.value })
-                        }
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          setItem(idx, {
+                            material_name: name,
+                            material_id: materialIdByName.get(name) ?? null,
+                          });
+                        }}
                         placeholder="Material name"
                         maxLength={150}
                         className="flex-1 px-2 py-2 sm:py-1.5 rounded-md text-sm outline-none"
@@ -763,6 +815,12 @@ function EditPurchaseModal({
                           border: `1px solid ${itemErrs.material_name ? C.red : "var(--border)"}`,
                         }}
                       />
+
+                      <datalist id={`supplier-materials-${it.id || `new-${idx}`}`}>
+                        {materialCatalog.map((m) => (
+                          <option key={m.id} value={m.name} />
+                        ))}
+                      </datalist>
 
                       <button
                         type="button"
@@ -916,6 +974,219 @@ function EditPurchaseModal({
 
 /* ═══════════════════════════════════════════════════════════════════
 
+   PRINT LAYOUTS
+
+   Plain black-on-white markup, independent of the app's theme (--ink
+   etc. vars), since it's meant for paper, not screen. Rendered
+   off-screen at all times and only revealed by the .print-area /
+   @media print rules on the top-level modal, so window.print() can
+   pick it up.
+
+═══════════════════════════════════════════════════════════════════ */
+
+const PrintSupplierBlock = ({ supplier }) => (
+  <div style={{ marginBottom: 16 }}>
+    <div
+      style={{
+        fontSize: 11,
+        textTransform: "uppercase",
+        color: "#555",
+        marginBottom: 2,
+        letterSpacing: 0.5,
+      }}
+    >
+      Supplier
+    </div>
+    <div style={{ fontSize: 14, fontWeight: 700 }}>{supplier?.name}</div>
+    {supplier?.address && (
+      <div style={{ fontSize: 12 }}>{supplier.address}</div>
+    )}
+    {supplier?.phone && (
+      <div style={{ fontSize: 12 }}>Tel: {supplier.phone}</div>
+    )}
+    {(supplier?.nif || supplier?.rc) && (
+      <div style={{ fontSize: 12 }}>
+        {supplier.nif ? `NIF: ${supplier.nif}` : ""}
+        {supplier.nif && supplier.rc ? "  ·  " : ""}
+        {supplier.rc ? `RC: ${supplier.rc}` : ""}
+      </div>
+    )}
+  </div>
+);
+
+const PrintItemsTable = ({ items, dense }) => (
+  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: dense ? 11 : 12 }}>
+    <thead>
+      <tr style={{ borderBottom: "1px solid #000" }}>
+        <th style={{ textAlign: "left", padding: dense ? "4px" : "6px 4px" }}>
+          Material
+        </th>
+        <th style={{ textAlign: "right", padding: dense ? "4px" : "6px 4px" }}>
+          Qty
+        </th>
+        <th style={{ textAlign: "left", padding: dense ? "4px" : "6px 4px" }}>
+          Unit
+        </th>
+        <th style={{ textAlign: "right", padding: dense ? "4px" : "6px 4px" }}>
+          Unit price
+        </th>
+        <th style={{ textAlign: "right", padding: dense ? "4px" : "6px 4px" }}>
+          Line total
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      {(items || []).map((it) => (
+        <tr key={it.id} style={{ borderBottom: "1px solid #ddd" }}>
+          <td style={{ padding: dense ? "4px" : "6px 4px" }}>
+            {it.material_name ?? it.material ?? "—"}
+          </td>
+          <td style={{ padding: dense ? "4px" : "6px 4px", textAlign: "right" }}>
+            {Number(it.quantity ?? 0).toLocaleString("en-US")}
+          </td>
+          <td style={{ padding: dense ? "4px" : "6px 4px" }}>{it.unit}</td>
+          <td style={{ padding: dense ? "4px" : "6px 4px", textAlign: "right" }}>
+            {formatDZD(it.unit_price)}
+          </td>
+          <td style={{ padding: dense ? "4px" : "6px 4px", textAlign: "right" }}>
+            {formatDZD(it.line_total)}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+);
+
+/* Single facture / purchase, printed alone */
+
+function PrintableFacture({ supplier, op }) {
+  if (!op) return null;
+
+  return (
+    <div style={{ padding: 24, fontFamily: "Arial, Helvetica, sans-serif", color: "#000" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          borderBottom: "2px solid #000",
+          paddingBottom: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>Purchase Invoice</div>
+          <div style={{ fontSize: 12, color: "#555" }}>
+            #{op.id}
+            {op.reference ? ` · Ref: ${op.reference}` : ""}
+          </div>
+        </div>
+
+        <div style={{ textAlign: "right", fontSize: 12 }}>
+          <div>Date: {formatDate(op.date)}</div>
+        </div>
+      </div>
+
+      <PrintSupplierBlock supplier={supplier} />
+
+      {op.note && (
+        <div style={{ fontSize: 12, fontStyle: "italic", marginBottom: 12 }}>
+          {op.note}
+        </div>
+      )}
+
+      <PrintItemsTable items={op.items} />
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginTop: 16,
+          paddingTop: 12,
+          borderTop: "2px solid #000",
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 700 }}>
+          Total: {formatDZD(op.total)}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 40, fontSize: 11, color: "#777" }}>
+        Printed on {new Date().toLocaleDateString("en-GB")}
+      </div>
+    </div>
+  );
+}
+
+/* All factures for the currently viewed period (a single month, or the
+   whole year when no month is selected) */
+
+function PrintableStatement({ supplier, operations, year, month, monthNames, summary }) {
+  const periodLabel = month
+    ? `${monthNames?.full?.[month - 1] ?? ""} ${year}`
+    : `Full year ${year}`;
+
+  return (
+    <div style={{ padding: 24, fontFamily: "Arial, Helvetica, sans-serif", color: "#000" }}>
+      <div style={{ borderBottom: "2px solid #000", paddingBottom: 12, marginBottom: 16 }}>
+        <div style={{ fontSize: 20, fontWeight: 700 }}>Purchases Statement</div>
+        <div style={{ fontSize: 12, color: "#555" }}>{periodLabel}</div>
+      </div>
+
+      <PrintSupplierBlock supplier={supplier} />
+
+      {(operations || []).length === 0 && (
+        <div style={{ fontSize: 12, color: "#555" }}>
+          No purchases recorded for this period.
+        </div>
+      )}
+
+      {(operations || []).map((op) => (
+        <div key={op.id} style={{ marginBottom: 20, pageBreakInside: "avoid" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: 12,
+              fontWeight: 700,
+              marginBottom: 4,
+            }}
+          >
+            <span>
+              {formatDate(op.date)}
+              {op.reference ? ` · ${op.reference}` : ""} · #{op.id}
+            </span>
+            <span>{formatDZD(op.total)}</span>
+          </div>
+
+          <PrintItemsTable items={op.items} dense />
+        </div>
+      ))}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginTop: 8,
+          paddingTop: 12,
+          borderTop: "2px solid #000",
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 700 }}>
+          Grand total ({summary?.count ?? 0} operation
+          {(summary?.count ?? 0) === 1 ? "" : "s"}): {formatDZD(summary?.total)}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 40, fontSize: 11, color: "#777" }}>
+        Printed on {new Date().toLocaleDateString("en-GB")}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+
    TOP-LEVEL MODAL
 
    year/month nav, operations list with read view + per-row CRUD
@@ -962,6 +1233,26 @@ export default function SupplierPurchasesModal({
   const [busy, setBusy] = useState(false);
 
   const [topError, setTopError] = useState(null);
+
+  /* ── printing ──
+     printJob is either { type: "single", op } for one facture, or
+     { type: "period" } to print everything currently in view (which
+     is naturally "this month" whenever a month tab is selected). */
+
+  const [printJob, setPrintJob] = useState(null);
+
+  useEffect(() => {
+    if (!printJob) return;
+    // let the printable block render before invoking the browser dialog
+    const t = setTimeout(() => window.print(), 60);
+    return () => clearTimeout(t);
+  }, [printJob]);
+
+  useEffect(() => {
+    const clearJob = () => setPrintJob(null);
+    window.addEventListener("afterprint", clearJob);
+    return () => window.removeEventListener("afterprint", clearJob);
+  }, []);
 
   /* ── load purchases ── */
 
@@ -1124,6 +1415,24 @@ export default function SupplierPurchasesModal({
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .print-area {
+          position: fixed;
+          left: -10000px;
+          top: 0;
+          width: 800px;
+          background: #fff;
+        }
+        @media print {
+          body * { visibility: hidden !important; }
+          .print-area, .print-area * { visibility: visible !important; }
+          .print-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+          }
+        }
       `}</style>
 
       <div
@@ -1299,6 +1608,29 @@ export default function SupplierPurchasesModal({
           )}
         </div>
 
+        {/* Print controls — prints everything currently in view, i.e.
+            the selected month, or the whole year if "All" is active */}
+
+        <div
+          className="px-4 sm:px-5 py-2 flex items-center justify-end shrink-0"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
+          <button
+            className="text-xs px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 active:opacity-80"
+            onClick={() => setPrintJob({ type: "period" })}
+            disabled={loading || operations.length === 0}
+            title="Print all factures for this period"
+            style={{
+              background: "var(--surface-2)",
+              color: "var(--ink)",
+              opacity: loading || operations.length === 0 ? 0.5 : 1,
+            }}
+          >
+            <Icons.printer />
+            Print {month ? monthNames?.full?.[month - 1] : "year"} {year}
+          </button>
+        </div>
+
         {/* Body */}
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
@@ -1401,6 +1733,19 @@ export default function SupplierPurchasesModal({
 
                       {!isConfirming ? (
                         <>
+                          <button
+                            className="p-2 rounded-md active:opacity-70"
+                            onClick={() => setPrintJob({ type: "single", op })}
+                            disabled={isDeleting}
+                            title="Print this facture"
+                            style={{
+                              color: "var(--ink-muted)",
+                              background: "transparent",
+                            }}
+                          >
+                            <Icons.printer />
+                          </button>
+
                           <button
                             className="p-2 rounded-md active:opacity-70"
                             onClick={() =>
@@ -1706,6 +2051,26 @@ export default function SupplierPurchasesModal({
           onSaved={onEditSaved}
         />
       )}
+
+      {/* Print-only area — off-screen normally, becomes the whole
+          printed page via the .print-area / @media print rules above */}
+
+      <div className="print-area">
+        {printJob?.type === "single" && (
+          <PrintableFacture supplier={supplier} op={printJob.op} />
+        )}
+
+        {printJob?.type === "period" && (
+          <PrintableStatement
+            supplier={supplier}
+            operations={operations}
+            year={year}
+            month={month}
+            monthNames={monthNames}
+            summary={summary}
+          />
+        )}
+      </div>
     </div>
   );
 }
