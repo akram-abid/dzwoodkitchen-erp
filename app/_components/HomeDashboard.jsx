@@ -150,7 +150,7 @@ const GlobalStyles = () => (
        a flex layout can't be broken that way. */
     .pwa-shell {
       height: 100vh;
-      height: 100dvh;
+      height: 100svh;
       display: flex;
       flex-direction: column;
       background: var(--bg);
@@ -2307,6 +2307,30 @@ export default function HomeDashboard() {
   const pwaShellRef = useRef(null);
   const pwaTabbarRef = useRef(null);
   const pwaMainRef = useRef(null);
+
+  // Belt-and-suspenders on top of the 100svh CSS: some mobile browsers
+  // (and device emulators) can momentarily report a viewport height on
+  // first paint that's taller than what's actually visible, before
+  // settling to the real size. Pinning the shell to the exact measured
+  // window.innerHeight side-steps that entirely — it's not a CSS unit
+  // subject to any negotiation, just the real number.
+  useEffect(() => {
+    if (!isMobile) return;
+    const shellEl = pwaShellRef.current;
+    if (!shellEl) return;
+
+    const setExactHeight = () => {
+      shellEl.style.height = `${window.innerHeight}px`;
+    };
+
+    setExactHeight();
+    window.addEventListener("resize", setExactHeight);
+    window.addEventListener("orientationchange", setExactHeight);
+    return () => {
+      window.removeEventListener("resize", setExactHeight);
+      window.removeEventListener("orientationchange", setExactHeight);
+    };
+  }, [isMobile]);
 
   /* ─────── data loaders ─────── */
   const loadAll = useCallback(async () => {
