@@ -84,6 +84,7 @@ Three ways to create a user, same endpoint — behavior depends on what you send
 { "name": "Karim", "email": "k@x.com", "password": "pass", "role_id": 2, "worker_id": 7 }
 ```
 
+
 **3. Create the worker + login together in one call:**
 Send `payment_type` (no `worker_id`) → worker gets auto-created.
 ```json
@@ -99,8 +100,6 @@ Send `payment_type` (no `worker_id`) → worker gets auto-created.
   "meterRate": null
 }
 ```
-`name` is reused for `workers.full_name` — don't send it twice.
-Rule: **`payment_type` present → worker created. Absent → skipped.**
 
 **Get:** created user object (`201`)
 
