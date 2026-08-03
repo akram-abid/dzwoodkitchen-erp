@@ -48,9 +48,7 @@ export default function Shell({ children }) {
   // Auto-collapse on smaller screens
   useEffect(() => {
     const onResize = () => {
-      if (window.innerWidth < 1024) {
-        setCollapsed(true);
-      }
+      setCollapsed(window.innerWidth < 1280);
     };
     onResize();
     window.addEventListener('resize', onResize);
@@ -71,11 +69,13 @@ export default function Shell({ children }) {
 
   const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED;
 
-  const SidebarContent = (
+  // Parameterized so the mobile drawer can always render expanded (with
+  // labels) regardless of the desktop `collapsed` toggle state.
+  const renderSidebarContent = (isCollapsed, { showCollapseToggle = false } = {}) => (
     <>
       {/* Brand */}
       <div
-        className={`flex items-center h-14 shrink-0 ${collapsed ? 'justify-center px-2' : 'gap-3 px-5'}`}
+        className={`flex items-center h-14 shrink-0 ${isCollapsed ? 'justify-center px-2' : 'gap-3 px-5'}`}
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <div
@@ -84,7 +84,7 @@ export default function Shell({ children }) {
         >
           DW
         </div>
-        {!collapsed && (
+        {!isCollapsed && (
           <span className="font-semibold text-[15px] tracking-tight truncate">
             DZ Wood Kitchen
           </span>
@@ -99,50 +99,52 @@ export default function Shell({ children }) {
             <Link
               key={item.id}
               href={item.href}
-              title={collapsed ? item.id : undefined}
-              className={`nav-item ${isActive ? 'active' : ''} ${collapsed ? 'justify-center px-2' : ''}`}
+              title={isCollapsed ? item.id : undefined}
+              className={`nav-item ${isActive ? 'active' : ''} ${isCollapsed ? 'justify-center px-2' : ''}`}
               style={{ display: 'flex', textDecoration: 'none' }}
             >
               <item.icon />
-              {!collapsed && <span className="text-[15px]">{item.id}</span>}
+              {!isCollapsed && <span className="text-[15px]">{item.id}</span>}
             </Link>
           );
         })}
       </nav>
 
       {/* Collapse toggle (desktop only) */}
-      <button
-        onClick={() => setCollapsed(c => !c)}
-        className="hidden lg:flex items-center justify-center h-9 mx-3 mb-2 rounded-md btn-ghost"
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      >
-        {collapsed ? <Icons.collapseRight /> : (
-          <>
-            <Icons.collapseLeft />
-            {!collapsed && <span className="ml-2 text-[13px]">Collapse</span>}
-          </>
-        )}
-      </button>
+      {showCollapseToggle && (
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          className="hidden lg:flex items-center justify-center h-9 mx-3 mb-2 rounded-md btn-ghost"
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? <Icons.collapseRight /> : (
+            <>
+              <Icons.collapseLeft />
+              <span className="ml-2 text-[13px]">Collapse</span>
+            </>
+          )}
+        </button>
+      )}
 
       {/* User */}
       <div
-        className={`mx-3 mb-3 rounded-lg panel-hover cursor-pointer ${collapsed ? 'p-2 flex justify-center' : 'px-4 py-3'}`}
+        className={`mx-3 mb-3 rounded-lg panel-hover cursor-pointer ${isCollapsed ? 'p-2 flex justify-center' : 'px-4 py-3'}`}
         style={{ border: '1px solid var(--border)' }}
       >
-        <div className={`flex items-center ${collapsed ? '' : 'gap-3'}`}>
+        <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
           <div
             className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
             style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
           >
             YO
           </div>
-          {!collapsed && (
+          {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <div className="text-[15px] font-medium truncate">Amine B.</div>
               <div className="text-xs" style={{ color: 'var(--ink-muted)' }}>Admin</div>
             </div>
           )}
-          {!collapsed && <Icons.chevron />}
+          {!isCollapsed && <Icons.chevron />}
         </div>
       </div>
     </>
@@ -162,7 +164,7 @@ export default function Shell({ children }) {
           borderRight: '1px solid var(--border)',
         }}
       >
-        {SidebarContent}
+        {renderSidebarContent(collapsed, { showCollapseToggle: true })}
       </aside>
 
       {/* Mobile Drawer */}
@@ -183,7 +185,7 @@ export default function Shell({ children }) {
           borderRight: '1px solid var(--border)',
         }}
       >
-        {SidebarContent}
+        {renderSidebarContent(false)}
       </aside>
 
       {/* Main */}
