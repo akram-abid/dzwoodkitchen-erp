@@ -155,6 +155,11 @@ const GlobalStyles = () => (
       flex-direction: column;
       background: var(--bg);
       overflow: hidden;
+      /* Single source of truth for the tab bar's height. Both the
+         fixed tabbar itself and the scrollable main area's bottom
+         padding read from this, so the reserved space can never
+         drift out of sync with the tabbar's real rendered height. */
+      --pwa-tabbar-h: 64px;
     }
     .pwa-shell .pwa-header {
       flex: 0 0 auto;
@@ -174,7 +179,11 @@ const GlobalStyles = () => (
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
-      padding: 12px 12px calc(24px + 72px + env(safe-area-inset-bottom));
+      /* Bottom space for the fixed tabbar is handled by a real spacer
+         element at the end of the content (see the spacer div rendered
+         as the last child of <main>), not by padding here — that keeps
+         there being exactly one source of truth for it. */
+      padding: 12px 12px 0;
       max-width: 720px; margin: 0 auto;
       width: 100%;
       /* hide the scrollbar itself while keeping scroll working */
@@ -2287,6 +2296,45 @@ export default function HomeDashboard() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // Measure the tabbar's REAL rendered height and write it straight onto
+  // the shell as an inline CSS var + fallback padding on the scroll
+  // container. This is deliberately not left to a hardcoded CSS number:
+  // if font scaling, safe-area insets, or anything else changes how tall
+  // the tabbar actually is, the reserved space below the content follows
+  // it automatically instead of drifting out of sync again.
+  const pwaShellRef = useRef(null);
+  const pwaTabbarRef = useRef(null);
+  const pwaMainRef = useRef(null);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const tabbarEl = pwaTabbarRef.current;
+    const shellEl = pwaShellRef.current;
+    const mainEl = pwaMainRef.current;
+    if (!tabbarEl || !shellEl || !mainEl) return;
+
+    let lastHeight = 0;
+    const applyHeight = () => {
+      const h = tabbarEl.offsetHeight;
+      if (!h || h === lastHeight) return;
+      lastHeight = h;
+      shellEl.style.setProperty("--pwa-tabbar-h", `${h}px`);
+    };
+
+    applyHeight();
+
+    const ro = new ResizeObserver(applyHeight);
+    ro.observe(tabbarEl);
+    window.addEventListener("resize", applyHeight);
+    window.addEventListener("orientationchange", applyHeight);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", applyHeight);
+      window.removeEventListener("orientationchange", applyHeight);
+    };
+  }, [isMobile, pwaTab]);
 
   /* ─────── data loaders ─────── */
   const loadAll = useCallback(async () => {
@@ -5227,7 +5275,7 @@ export default function HomeDashboard() {
   ];
 
   const pwaView = (
-    <div className="pwa-shell">
+    <div className="pwa-shell" ref={pwaShellRef}>
       <header className="pwa-header">
         <div className="pwa-header-row">
           <div className="grow" style={{ minWidth: 0 }}>
@@ -5284,14 +5332,32 @@ export default function HomeDashboard() {
         </div>
       </header>
 
-      <main className="pwa-main">
+      <main className="pwa-main" ref={pwaMainRef}>
         {pwaTab === "home" && PwaHomeTab()}
         {pwaTab === "money" && PwaMoneyTab()}
         {pwaTab === "workshop" && PwaWorkshopTab()}
         {pwaTab === "orders" && PwaOrdersTab()}
+
+        {/* Plain spacer block, not CSS padding. This is a real element
+            taking real space in normal flow at the very end of the
+            content, so the last item can never end up flush against
+            the fixed tabbar below — guaranteed regardless of any
+            padding/specificity/effect-timing issue elsewhere. */}
+        <div
+          aria-hidden="true"
+          style={{
+            height: "calc(88px + env(safe-area-inset-bottom))",
+            flexShrink: 0,
+          }}
+        />
       </main>
 
-      <nav className="pwa-tabbar" role="tablist" aria-label="Main navigation">
+      <nav
+        className="pwa-tabbar"
+        ref={pwaTabbarRef}
+        role="tablist"
+        aria-label="Main navigation"
+      >
         {PWA_TABS.map((t) => {
           const IconComp = t.icon;
           return (
