@@ -1,4 +1,5 @@
 import { prisma } from "../../lib/prisma";
+import bcrypt from "bcrypt";
 
 async function getAllWorkers() {
     const workers = await prisma.workers.findMany({
@@ -31,10 +32,15 @@ async function getAllWorkers() {
     })
 }
 
+
 async function createWorker(data) {
+    const password_hash = await bcrypt.hash(data.password, 10);
+
     const worker = await prisma.workers.create({
         data: {
             full_name: data.full_name,
+            email: data.email,
+            password_hash,
             phone: data.phone || null,
             payment_type: data.payment_type,
             hourlyRate: data.hourlyRate || null,
@@ -47,6 +53,7 @@ async function createWorker(data) {
     return {
         id: worker.id,
         full_name: worker.full_name,
+        email: worker.email,
         phone: worker.phone,
         payment_type: worker.payment_type,
         hourlyRate: worker.hourlyRate ? Number(worker.hourlyRate) : null,
