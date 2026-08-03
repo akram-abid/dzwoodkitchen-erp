@@ -40,5 +40,5 @@ export async function login({ email, password }) {
     { expiresIn: "7d" }
   );
 
-  return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role.name === "admin"} };
+  return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role.name} };
 }
