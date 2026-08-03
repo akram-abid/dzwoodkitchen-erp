@@ -984,6 +984,27 @@ function EditPurchaseModal({
 
 ═══════════════════════════════════════════════════════════════════ */
 
+/* ─── print branding ───
+   Point this at wherever the logo file ends up in /public (Next.js
+   serves anything in /public from the site root, so "/logo.png"
+   → public/logo.png). Swap the path if you place it elsewhere. */
+
+import Image from "next/image";
+import logo from "../../public/logo.png";
+
+const PrintLogo = () => (
+  <div style={{ textAlign: "center", marginBottom: 16 }}>
+    <img
+      src="./logo.png"
+      alt="Company logo"
+      style={{ height: 64, width: "auto", objectFit: "contain", margin: "0 auto" }}
+      onError={(e) => {
+        e.currentTarget.style.display = "none";
+      }}
+    />
+  </div>
+);
+
 const PrintSupplierBlock = ({ supplier }) => (
   <div style={{ marginBottom: 16 }}>
     <div
@@ -1064,6 +1085,8 @@ function PrintableFacture({ supplier, op }) {
 
   return (
     <div style={{ padding: 24, fontFamily: "Arial, Helvetica, sans-serif", color: "#000" }}>
+      <PrintLogo />
+
       <div
         style={{
           display: "flex",
@@ -1128,9 +1151,22 @@ function PrintableStatement({ supplier, operations, year, month, monthNames, sum
 
   return (
     <div style={{ padding: 24, fontFamily: "Arial, Helvetica, sans-serif", color: "#000" }}>
-      <div style={{ borderBottom: "2px solid #000", paddingBottom: 12, marginBottom: 16 }}>
-        <div style={{ fontSize: 20, fontWeight: 700 }}>Purchases Statement</div>
-        <div style={{ fontSize: 12, color: "#555" }}>{periodLabel}</div>
+      <PrintLogo />
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          borderBottom: "2px solid #000",
+          paddingBottom: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>Purchases Statement</div>
+          <div style={{ fontSize: 12, color: "#555" }}>{periodLabel}</div>
+        </div>
       </div>
 
       <PrintSupplierBlock supplier={supplier} />
