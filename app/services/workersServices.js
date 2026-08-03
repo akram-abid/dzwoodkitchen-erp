@@ -1,5 +1,5 @@
 import { prisma } from "../../lib/prisma";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 async function getAllWorkers() {
     const workers = await prisma.workers.findMany({
