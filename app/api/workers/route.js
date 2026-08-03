@@ -32,25 +32,3 @@ export async function POST(request) {
     }
 }
 
-
-export async function POST(request) {
-  try {
-    const { email, password } = await request.json();
-
-    const { token, user } = await login({ email, password });
-
-    return NextResponse.json({
-      token,
-      user,
-    });
-  } catch (error) {
-    console.error("Worker login failed:", error);
-
-    return NextResponse.json(
-      {
-        error: error.message || "Invalid credentials",
-      },
-      { status: 401 }
-    );
-  }
-}
