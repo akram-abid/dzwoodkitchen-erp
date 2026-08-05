@@ -3,6 +3,9 @@ import jwt from "jsonwebtoken";
 
 export function proxy(req) {
 
+return NextResponse.next();
+
+/*
   const path = req.nextUrl.pathname;
 
   // public routes
@@ -29,7 +32,7 @@ export function proxy(req) {
     return NextResponse.next();
   } catch {
     return NextResponse.json({ message: "Invalid token" }, { status: 401 });
-  }
+  }*/
 }
 
 export const config = {
