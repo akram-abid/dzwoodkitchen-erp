@@ -10,7 +10,7 @@
 // `prisma.otherExpenseCategory`, not `prisma.other_expense_categories`.
 // Search-and-replace as needed; the shape of the data/logic won't change.
 
-import { PrismaClient } from "../app/generated/prisma/client";
+import { PrismaClient, worker_payment_type } from "../app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
