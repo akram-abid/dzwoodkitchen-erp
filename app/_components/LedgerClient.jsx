@@ -636,11 +636,13 @@ export default function LedgerClient() {
         getAllCategoriesClient().catch(() => []),
       ]);
 
+      console.log('entries: ', entriesRes.data)
       setEntries(entriesRes.data || []);
       setWorkers(refs.workers || []);
       setSuppliers(refs.suppliers || []);
       setMaterialCatalog(refs.materialCatalog || []);
       setMaterialCategories(matCats || []);
+      console.log('others : ', refs.otherCategories)
       setOtherCategories(refs.otherCategories || []);
     } catch (err) {
       console.error("[LedgerClient] loadData:", err);
@@ -897,17 +899,17 @@ export default function LedgerClient() {
 
     const outcomeRows = outcomes.length
       ? outcomes
-          .map((e) => {
-            const meta = TYPE_META[e.type];
-            const desc = describeEntry(e);
-            return `<tr>
+        .map((e) => {
+          const meta = TYPE_META[e.type];
+          const desc = describeEntry(e);
+          return `<tr>
             <td>${e.date}</td>
             <td><span class="badge" style="background:${meta.color}15;color:${meta.color}">${meta.label}</span></td>
             <td>${desc.main}${desc.sub ? `<div class="sub">${desc.sub}</div>` : ""}</td>
             <td style="text-align:right;font-weight:600;color:${meta.color}">${meta.sign}${getAmount(e).toLocaleString()} DZD</td>
           </tr>`;
-          })
-          .join("")
+        })
+        .join("")
       : `<tr><td colspan="4" class="empty">No outcomes recorded this week.</td></tr>`;
 
     const w = window.open("", "_blank", "width=900,height=800");
