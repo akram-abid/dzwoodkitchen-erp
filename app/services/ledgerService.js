@@ -318,6 +318,9 @@ export async function getEntries({
       : [],
   ]);
 
+
+  console.log('result of otherRows in ledgerServices: ', otherRows)
+
   // Merge + tag + sort by date desc
 
   const merged = [

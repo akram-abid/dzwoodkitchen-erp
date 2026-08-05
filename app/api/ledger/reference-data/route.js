@@ -53,6 +53,8 @@ export async function GET() {
       }),
     ]);
 
+    console.log('result of otherCategories in /reference-data route file: ', otherCategories)
+
     return NextResponse.json({
       workers,
       suppliers,

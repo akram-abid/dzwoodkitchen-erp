@@ -636,13 +636,13 @@ export default function LedgerClient() {
         getAllCategoriesClient().catch(() => []),
       ]);
 
-      console.log('entries: ', entriesRes.data)
+      console.log('fetch entries front: ', entriesRes.data)
       setEntries(entriesRes.data || []);
       setWorkers(refs.workers || []);
       setSuppliers(refs.suppliers || []);
       setMaterialCatalog(refs.materialCatalog || []);
       setMaterialCategories(matCats || []);
-      console.log('others : ', refs.otherCategories)
+      console.log('others front : ', refs.otherCategories)
       setOtherCategories(refs.otherCategories || []);
     } catch (err) {
       console.error("[LedgerClient] loadData:", err);
