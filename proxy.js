@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 
 export function proxy(req) {
+  
+  // public routes
+  if (path === "/api/login" || path === "/api/setup") {
+    return NextResponse.next();
+  }
+
   const token = req.cookies.get("token")?.value;
   if (!token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
