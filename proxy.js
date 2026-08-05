@@ -6,7 +6,7 @@ export function proxy(req) {
   const path = req.nextUrl.pathname;
 
   // public routes
-  if (path === "/api/login" || path === "/api/setup") {
+  if (path.startsWith("/api/login") || path.startsWith("/api/setup")) {
     return NextResponse.next();
   }
 
