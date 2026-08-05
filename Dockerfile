@@ -41,4 +41,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
 
 # CMD ["sh", "-c", "set -a; . /run/secrets/env_prod; set +a; npx prisma migrate deploy && exec node server.js"]
-CMD ["sh", "-c", "set -a; . /run/secrets/env_prod; set +a; npx prisma migrate deploy && node prisma/seed.js && exec node server.js"]
+CMD ["sh", "-c", "set -a; . /run/secrets/env_prod; set +a; npx prisma migrate deploy && npx tsx prisma/seed.ts && exec node server.js"]

@@ -10,9 +10,15 @@
 // `prisma.otherExpenseCategory`, not `prisma.other_expense_categories`.
 // Search-and-replace as needed; the shape of the data/logic won't change.
 
-const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcryptjs");
-const prisma = new PrismaClient();
+import { PrismaClient } from "../app/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import bcrypt from "bcryptjs";
+
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL!,
+});
+
+const prisma = new PrismaClient({ adapter });
 
 const SALT_ROUNDS = 10;
 
