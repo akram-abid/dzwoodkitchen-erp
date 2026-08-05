@@ -7,7 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 // Runs once — creates the first admin account, then locks itself forever.
 export async function bootstrapAdmin({ name, email, password }) {
   const existingAdmin = await prisma.users.findFirst({
-    where: { role: "ADMIN"},
+    where: { role: "ADMIN" },
   });
   if (existingAdmin) throw new Error("Admin already exists — setup locked");
 
@@ -21,7 +21,6 @@ export async function bootstrapAdmin({ name, email, password }) {
 export async function login({ email, password }) {
   const user = await prisma.users.findUnique({
     where: { email },
-    include: { role: true },
   });
   if (!user) throw new Error("Invalid credentials");
 
@@ -34,5 +33,5 @@ export async function login({ email, password }) {
     { expiresIn: "7d" }
   );
 
-  return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role} };
+  return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
 }

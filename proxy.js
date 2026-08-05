@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 
 export function proxy(req) {
-  
+
+  const path = req.nextUrl.pathname;
+
   // public routes
   if (path === "/api/login" || path === "/api/setup") {
     return NextResponse.next();
@@ -18,7 +20,6 @@ export function proxy(req) {
       algorithms: ["HS256"],
     });
 
-    const path = req.nextUrl.pathname;
     const isWorker = !payload.role || payload.role === "WORKER";
 
     if (isWorker && !path.startsWith("/api/workers")) {
