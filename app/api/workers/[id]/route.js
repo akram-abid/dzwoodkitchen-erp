@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getWorkerById } from "../../../services/workersServices";
+import { getWorkerById } from "@/app/services/workersServices";
 
 
 // GET /api/workers/id get worker by id
