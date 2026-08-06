@@ -1075,25 +1075,25 @@ const toServerPayload = (order, { workerIdByName, clientIdByName } = {}) => ({
 
   delivery_notes:
     order.technical &&
-    (order.technical.truckDistance !== "" ||
-      order.technical.floor !== "" ||
-      (order.technical.fee !== "" && Number(order.technical.fee) > 0))
+      (order.technical.truckDistance !== "" ||
+        order.technical.floor !== "" ||
+        (order.technical.fee !== "" && Number(order.technical.fee) > 0))
       ? [
-          {
-            truck_distance_km:
-              order.technical.truckDistance === ""
-                ? null
-                : Number(order.technical.truckDistance),
+        {
+          truck_distance_km:
+            order.technical.truckDistance === ""
+              ? null
+              : Number(order.technical.truckDistance),
 
-            floor:
-              order.technical.floor === ""
-                ? null
-                : Number(order.technical.floor),
+          floor:
+            order.technical.floor === ""
+              ? null
+              : Number(order.technical.floor),
 
-            lift_cost:
-              order.technical.fee === "" ? 0 : Number(order.technical.fee) || 0,
-          },
-        ]
+          lift_cost:
+            order.technical.fee === "" ? 0 : Number(order.technical.fee) || 0,
+        },
+      ]
       : [],
 });
 
@@ -1472,8 +1472,8 @@ const ReadyToDeliverModal = ({
                 skipToMaterials
                   ? onClose()
                   : setStep(
-                      pendingConfirm?.missingItems?.length ? "partial" : "ask",
-                    )
+                    pendingConfirm?.missingItems?.length ? "partial" : "ask",
+                  )
               }
             >
               {skipToMaterials ? "Cancel" : "← Back"}
@@ -1549,11 +1549,10 @@ const ReadyToDeliverModal = ({
                 type="number"
                 min="0.01"
                 step="0.01"
-                placeholder={`Qty${
-                  materialDraft.material_id
-                    ? ` (${materialUnitFor(materialDraft.material_id)})`
-                    : ""
-                }`}
+                placeholder={`Qty${materialDraft.material_id
+                  ? ` (${materialUnitFor(materialDraft.material_id)})`
+                  : ""
+                  }`}
                 className="col-span-3 px-2 py-1.5 rounded-md text-sm outline-none text-center"
                 style={{
                   background: "var(--surface)",
@@ -2296,17 +2295,17 @@ const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
         prev.map((r) =>
           r.id === row.id
             ? {
-                id: updated.id,
-                amount: Number(updated.amount) || amt,
-                date:
-                  (updated.payment_date &&
-                    new Date(updated.payment_date)
-                      .toISOString()
-                      .split("T")[0]) ||
-                  editDraft.payment_date ||
-                  r.date,
-                note: updated.note ?? editDraft.note ?? "",
-              }
+              id: updated.id,
+              amount: Number(updated.amount) || amt,
+              date:
+                (updated.payment_date &&
+                  new Date(updated.payment_date)
+                    .toISOString()
+                    .split("T")[0]) ||
+                editDraft.payment_date ||
+                r.date,
+              note: updated.note ?? editDraft.note ?? "",
+            }
             : r,
         ),
       );
@@ -2418,9 +2417,8 @@ const PaymentsModal = ({ isOpen, onClose, order, onChange }) => {
                       background: isEditing
                         ? "var(--accent-soft)"
                         : "rgba(16,185,129,0.08)",
-                      border: `1px solid ${
-                        isEditing ? "var(--accent)" : "rgba(16,185,129,0.25)"
-                      }`,
+                      border: `1px solid ${isEditing ? "var(--accent)" : "rgba(16,185,129,0.25)"
+                        }`,
                     }}
                   >
                     {isEditing ? (
@@ -2891,15 +2889,15 @@ const MaterialConsumptionsModal = ({ isOpen, onClose, order, onChange }) => {
         prev.map((r) =>
           r.id === row.id
             ? {
-                id: updated.id,
-                materialId: newMaterialId,
-                code: updated.material?.code ?? mat?.id ?? r.code,
-                name: updated.material?.name ?? mat?.name ?? r.name,
-                unit: updated.unit || editDraft.unit || r.unit,
-                quantity: newQuantity,
-                note: updated.note ?? editDraft.note ?? "",
-                date: r.date,
-              }
+              id: updated.id,
+              materialId: newMaterialId,
+              code: updated.material?.code ?? mat?.id ?? r.code,
+              name: updated.material?.name ?? mat?.name ?? r.name,
+              unit: updated.unit || editDraft.unit || r.unit,
+              quantity: newQuantity,
+              note: updated.note ?? editDraft.note ?? "",
+              date: r.date,
+            }
             : r,
         ),
       );
@@ -3539,8 +3537,8 @@ const OrderFormModal = ({
     setFormData((prev) => ({
       ...prev,
       items: [
-        ...prev.items,
         { name: "", qty: 1, unit: "pcs", l: "", w: "", h: "", unit_price: 0 },
+        ...prev.items,
       ],
     }));
   const removeItem = (index) =>
@@ -4305,20 +4303,19 @@ const handlePrint = (order) => {
       <thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Dimensions</th></tr></thead>
       <tbody>
         ${(order.items || [])
-          .map(
-            (i) => `<tr>
+        .map(
+          (i) => `<tr>
           <td>${i.name}</td>
           <td style="text-align:right">${i.qty} ${i.unit}</td>
           <td style="text-align:right;font-family:monospace">${i.l > 0 || i.w > 0 || i.h > 0 ? `${i.l}cm × ${i.w}cm × ${i.h}cm` : "—"}</td>
         </tr>`,
-          )
-          .join("")}
+        )
+        .join("")}
         ${(order.items || []).length === 0 ? '<tr><td colspan="3" style="text-align:center;color:#888;padding:18px">No items listed.</td></tr>' : ""}
       </tbody>
     </table>
 
-    ${
-      (order.missingItems || []).length > 0
+    ${(order.missingItems || []).length > 0
         ? `
     <h2 class="danger">${blocking ? "🚫 BLOCKED — " : ""}Missing Parts (${order.missingItems.length})</h2>
     <div class="${blocking ? "blocked-box" : ""}">
@@ -4326,20 +4323,20 @@ const handlePrint = (order) => {
         <thead><tr><th>Part</th><th style="text-align:right">Qty</th><th>Notes</th></tr></thead>
         <tbody>
           ${order.missingItems
-            .map(
-              (p) => `<tr>
+          .map(
+            (p) => `<tr>
             <td><strong>${p.name}</strong></td>
             <td style="text-align:right">${p.qty} ${p.unit}</td>
             <td style="font-style:italic;color:#666">${p.notes || ""}</td>
           </tr>`,
-            )
-            .join("")}
+          )
+          .join("")}
         </tbody>
       </table>
     </div>
     `
         : ""
-    }
+      }
 
     <h2>Financial</h2>
     <table>
