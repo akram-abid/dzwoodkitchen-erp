@@ -3,33 +3,33 @@ import bcrypt from "bcryptjs";
 
 
 export async function login({ email, password }) {
-  const worker = await prisma.workers.findUnique({
-    where: { email },
-  });
+    const worker = await prisma.workers.findUnique({
+        where: { email },
+    });
 
-  if (!worker) throw new Error("Invalid credentials");
+    if (!worker) throw new Error("Invalid credentials");
 
-  const valid = await bcrypt.compare(password, worker.password_hash);
-  if (!valid) throw new Error("Invalid credentials");
+    const valid = await bcrypt.compare(password, worker.password_hash);
+    if (!valid) throw new Error("Invalid credentials");
 
-  const token = jwt.sign(
-    {
-      userId: worker.id,
-      role: "WORKER",
-    },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+    const token = jwt.sign(
+        {
+            userId: worker.id,
+            role: "WORKER",
+        },
+        JWT_SECRET,
+        { expiresIn: "7d" }
+    );
 
-  return {
-    token,
-    user: {
-      id: worker.id,
-      name: worker.full_name,
-      email: worker.email,
-      role: "WORKER",
-    },
-  };
+    return {
+        token,
+        user: {
+            id: worker.id,
+            name: worker.full_name,
+            email: worker.email,
+            role: "WORKER",
+        },
+    };
 }
 
 
@@ -62,6 +62,36 @@ async function getAllWorkers() {
             sold: w.sold || 0,
         };
     })
+}
+
+async function getWorkerById(id) {
+    const worker = await prisma.workers.findUnique({
+        where: { id: parseInt(id) },
+        include: {
+            attendance: true,
+            timeEntries: true,
+            assignments: true,
+            workersPayments: true,
+        }
+    });
+
+    if (!worker) return null;
+
+    const nameParts = worker.full_name.trim().split(/\s+/);
+    const first = nameParts[0] || "";
+    const last = nameParts[1] || "";
+
+    return {
+        ...worker,
+        attendance: worker.attendance.reduce((acc, record) => {
+            acc[record.date.toISOString().split("T")[0]] = record.status;
+            return acc;
+        }, {}),
+        shortName: first ? first[0].toUpperCase() + (last ? '. ' + last : '') : "",
+        initials: (first[0] || "").toUpperCase() + (last[0] || "").toUpperCase(),
+        payments: worker.workersPayments,
+        sold: worker.sold || 0,
+    };
 }
 
 
@@ -111,7 +141,6 @@ async function createTimeEntry(workerId, data) {
         },
     });
 
-    await recalculateWorkerSold(workerId);
 
     return entry;
 }
@@ -130,7 +159,6 @@ async function updateTimeEntry(timeEntryId, data) {
         },
     });
 
-    await recalculateWorkerSold(entry.workerId);
 
     return entry;
 }
@@ -140,7 +168,6 @@ async function deleteTimeEntry(timeEntryId) {
         where: { id: Number(timeEntryId) },
     });
 
-    await recalculateWorkerSold(entry.workerId);
 
     return entry;
 }
@@ -158,7 +185,6 @@ async function createPayment(workerId, data) {
         },
     });
 
-    await recalculateWorkerSold(workerId);
     return payment;
 }
 
@@ -167,52 +193,9 @@ async function deletePayment(paymentId) {
         where: { id: Number(paymentId) },
     });
 
-    await recalculateWorkerSold(payment.workerId);
     return payment;
 }
 
-async function updateAllWorkersSold() {
-    const now = new Date();
-    const prevMonthKey = formatDate(now).slice(0, 7);
-
-    // Check if already updated this month
-    const config = await prisma.systemConfig.findUnique({
-        where: { id: "soldUpdate" }
-    });
-
-    if (config?.lastUpdate === prevMonthKey) {
-        return { success: true, message: `Already updated for ${prevMonthKey}` };
-    }
-
-    // Get all workers with their data
-    const workers = await prisma.workers.findMany({
-        include: {
-            timeEntries: true,
-            workersPayments: true
-        }
-    });
-
-    // For each worker, calculate and update
-    for (const worker of workers) {
-        const earned = getMonthlyEarnings(worker, prevMonthKey);
-        const paid = getMonthlyPayments(worker, prevMonthKey);
-        const balance = earned - paid;
-
-        await prisma.workers.update({
-            where: { id: worker.id },
-            data: { sold: worker.sold + balance }
-        });
-    }
-
-    // Save last update
-    await prisma.systemConfig.upsert({
-        where: { id: "soldUpdate" },
-        update: { lastUpdate: prevMonthKey },
-        create: { lastUpdate: prevMonthKey }
-    });
-
-    return { success: true, updated: workers.length };
-}
 
 // helper functions 
 // from lib/prisma/workers.js 
@@ -267,58 +250,13 @@ const getMonthlyPayments = (w, vKey) =>
         .reduce((s, p) => s + p.amount, 0);
 
 
-
-export async function recalculateWorkerSold(workerId) {
-    const worker = await prisma.workers.findUnique({
-        where: { id: parseInt(workerId) },
-        include: {
-            timeEntries: true,
-            assignments: true,
-            workersPayments: true,
-        },
-    });
-
-    if (!worker) throw new Error("Worker not found");
-
-    let totalEarnings = 0;
-
-    if (worker.payment_type === "hours") {
-        for (const entry of worker.timeEntries) {
-            const [inH, inM] = entry.clockIn.split(":").map(Number);
-            const [outH, outM] = entry.clockOut.split(":").map(Number);
-            const hours = outH + outM / 60 - (inH + inM / 60) + (entry.extraHours || 0);
-            totalEarnings += hours * (worker.hourlyRate || 0);
-        }
-    } else if (worker.payment_type === "meters") {
-        for (const assignment of worker.assignments) {
-            totalEarnings += assignment.meters * (worker.meterRate || 0);
-        }
-    }
-
-    const totalPayments = worker.workersPayments.reduce(
-        (sum, p) => sum + p.amount,
-        0
-    );
-
-    // sold = previousSold + totalEarnings - totalPayments
-    const sold = (worker.sold || 0) + totalEarnings - totalPayments;
-
-    // Update worker
-    await prisma.workers.update({
-        where: { id: parseInt(workerId) },
-        data: { sold },
-    });
-
-    return sold;
-}
-
 export {
     getAllWorkers,
+    getWorkerById,
     createWorker,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
     createPayment,
     deletePayment,
-    updateAllWorkersSold
 }

@@ -2231,6 +2231,24 @@ export default function WorkersApp({ workersData, orders = [] }) {
 
   /* ─── Memoized derivations ─── */
   const selected = useMemo(() => workers.find((w) => w.id === selectedId) || workers[0] || null, [workers, selectedId]);
+  const refreshWorker = useCallback(async () => {
+    if (!selectedId) return;
+    try {
+      const res = await fetch(`/api/workers/${selectedId}`);
+      const data = await res.json();
+      if (data.data) {
+        setWorkers((prev) =>
+          prev.map((w) =>
+            w.id === selectedId
+              ? { ...w, sold: data.data.sold }
+              : w
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Failed to refresh worker:", err);
+    }
+  }, [selectedId]);
   const yearWeeks = useMemo(() => getYearWeeks(year), [year]);
   const currentWeek = useMemo(() => getWeekDates(year, weekIndex), [year, weekIndex]);
   const vKey = useMemo(() => monthKey(viewYear, viewMonth), [viewYear, viewMonth]);
@@ -2248,8 +2266,8 @@ export default function WorkersApp({ workersData, orders = [] }) {
   const monthlyEarned = useMemo(() => getMonthlyEarnings(selected, vKey, orders), [selected, vKey, orders]);
   const monthlyPaid = useMemo(() => getMonthlyPayments(selected, vKey), [selected, vKey]);
   const monthlyBalance = useMemo(
-    () => (selected?.sold || 0) + monthlyEarned - monthlyPaid,
-    [selected?.sold, monthlyEarned, monthlyPaid]
+    () => selected?.sold || 0,
+    [selected?.sold]
   );
 
   const monthlyEntries = useMemo(() => getMonthlyTimeEntries(selected, vKey), [selected, vKey]);
@@ -2297,6 +2315,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
   };
 
   const addTimeEntry = useCallback(async (entry) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       let result;
@@ -2329,6 +2348,8 @@ export default function WorkersApp({ workersData, orders = [] }) {
         })
       );
 
+      await refreshWorker();
+
       setShowTimeEntryModal(false);
       setEditingEntry(null);
 
@@ -2354,6 +2375,9 @@ export default function WorkersApp({ workersData, orders = [] }) {
           };
         })
       );
+
+      await refreshWorker();
+
     } catch (error) {
       console.error("Failed to delete:", error);
     }
@@ -2372,6 +2396,8 @@ export default function WorkersApp({ workersData, orders = [] }) {
           };
         })
       );
+      await refreshWorker();
+
 
       setShowPaymentModal(false);
     } catch (error) {
@@ -2394,6 +2420,9 @@ export default function WorkersApp({ workersData, orders = [] }) {
           };
         })
       );
+      await refreshWorker();
+
+
     } catch (error) {
       console.error("Failed to delete payment:", error);
     }
@@ -2466,7 +2495,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
           onJumpToToday={goTodayWeek} onPrevMonth={goPrevMonth} onNextMonth={goNextMonth}
           onTodayMonth={goCurrentMonth} onAttendanceClick={setAttendance}
           weekRangeLabel={weekRangeLabel} monthlyEarned={monthlyEarned}
-          monthlyPaid={monthlyPaid} monthlyBalance={(selected?.sold || 0) + monthlyEarned - monthlyPaid}
+          monthlyPaid={monthlyPaid} monthlyBalance={selected?.sold || 0}
           monthlyEntries={monthlyEntries} onAddTimeEntry={openAddTimeEntry}
           monthlyMetersData={monthlyMetersData}
           onEditTimeEntry={openEditTimeEntry} onDeleteTimeEntry={deleteTimeEntry}
