@@ -1,7 +1,5 @@
-CREATE OR REPLACE FUNCTION public.update_worker_sold_from_payments()
- RETURNS trigger
- LANGUAGE plpgsql
-AS $function$
+CREATE OR REPLACE FUNCTION update_worker_sold_from_payments()
+RETURNS TRIGGER AS $$
 DECLARE
   worker_id_val INT;
   total_earnings FLOAT;
@@ -53,4 +51,9 @@ BEGIN
   
   RETURN NEW;
 END;
-$function$
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_sold_payments
+AFTER INSERT OR UPDATE OR DELETE ON "WorkersPayments"
+FOR EACH ROW
+EXECUTE FUNCTION update_worker_sold_from_payments();

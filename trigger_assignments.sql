@@ -1,7 +1,5 @@
-CREATE OR REPLACE FUNCTION public.update_worker_sold_from_assignments()
- RETURNS trigger
- LANGUAGE plpgsql
-AS $function$
+CREATE OR REPLACE FUNCTION update_worker_sold_from_assignments()
+RETURNS TRIGGER AS $$
 DECLARE
   total_meters FLOAT;
   earnings FLOAT;
@@ -46,4 +44,9 @@ BEGIN
   
   RETURN NEW;
 END;
-$function$
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_sold_assignments
+AFTER INSERT OR UPDATE OR DELETE ON "Assignment"
+FOR EACH ROW
+EXECUTE FUNCTION update_worker_sold_from_assignments();
