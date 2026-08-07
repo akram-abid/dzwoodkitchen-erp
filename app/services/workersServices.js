@@ -164,7 +164,6 @@ async function updateTimeEntry(timeEntryId, data) {
 }
 
 async function deleteTimeEntry(timeEntryId) {
-    console.log('timeEntryId: ', timeEntryId)
     const entry = await prisma.timeEntries.delete({
         where: { id: Number(timeEntryId) },
     });
