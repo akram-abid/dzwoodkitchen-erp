@@ -18,17 +18,17 @@ enum UserRole {
 }
 
 model users {
-  id            Int      @id @default(autoincrement())
-  name          String   @db.VarChar(150)
-  email         String   @unique @db.VarChar(255)
+  id            Int    @id @default(autoincrement())
+  name          String @db.VarChar(150)
+  email         String @unique @db.VarChar(255)
   password_hash String
 
-  role          UserRole @default(WORKER)
+  role UserRole @default(WORKER)
 
-  worker_id     Int?     @unique
+  worker_id Int? @unique
 
-  created_at    DateTime @default(now()) @db.Timestamp(6)
-  updated_at    DateTime @updatedAt @db.Timestamp(6)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
 
   passwordResetToken PasswordResetToken?
 }
@@ -231,28 +231,28 @@ model vehicle_maintenance {
 // =============================================================
 
 model workers {
-  id            Int                 @id @default(autoincrement())
-  full_name     String              @db.VarChar(150)
-  email         String              @unique @db.VarChar(255)
+  id            Int    @id @default(autoincrement())
+  full_name     String @db.VarChar(150)
+  email         String @unique @db.VarChar(255)
   password_hash String
 
-  phone         String?             @db.VarChar(30)
-  hire_date     DateTime?           @db.Date
-  payment_type  worker_payment_type
+  phone        String?             @db.VarChar(30)
+  hire_date    DateTime?           @db.Date
+  payment_type worker_payment_type
 
-  created_at    DateTime            @default(now()) @db.Timestamp(6)
-  updated_at    DateTime            @updatedAt @db.Timestamp(6)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
 
-  hourlyRate    Float?
-  meterRate     Float?
-  sold          Float               @default(0)
+  hourlyRate Float?
+  meterRate  Float?
+  sold       Float  @default(0)
 
-  orders                    orders[]
-  attendance                Attendance[]
-  timeEntries               TimeEntries[]
-  assignments               Assignment[]
-  workersPayments           WorkersPayments[]
-  material_stock_movements  material_stock_movements[]
+  orders                   orders[]
+  attendance               Attendance[]
+  timeEntries              TimeEntries[]
+  assignments              Assignment[]
+  workersPayments          WorkersPayments[]
+  material_stock_movements material_stock_movements[]
 }
 
 model Attendance {
@@ -293,10 +293,11 @@ model Assignment {
 // On-the-spot partial payments / advances to workers
 // (different from worker_payments which is the formal bi-weekly wage in treasury)
 model WorkersPayments {
-  id     Int      @id @default(autoincrement())
+  id     Int          @id @default(autoincrement())
   amount Float
   date   DateTime
   note   String?
+  type   payment_type @default(NORMAL)
 
   workerId Int
   worker   workers @relation(fields: [workerId], references: [id])
@@ -584,4 +585,9 @@ enum task_priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum payment_type {
+  NORMAL
+  ADDITIONAL // for extra, bonus payment
 }
