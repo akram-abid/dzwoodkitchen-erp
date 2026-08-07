@@ -1,19 +1,26 @@
 CREATE OR REPLACE FUNCTION update_worker_sold_from_time_entries()
 RETURNS TRIGGER AS $$
 DECLARE
-  worker_sold FLOAT;
+  worker_id_var INTEGER;
   total_hours FLOAT;
   earnings FLOAT;
   hourly_rate FLOAT;
   total_payments FLOAT;
 BEGIN
+  -- Resolve the worker id from OLD on DELETE, NEW otherwise
+  IF TG_OP = 'DELETE' THEN
+    worker_id_var := OLD."workerId";
+  ELSE
+    worker_id_var := NEW."workerId";
+  END IF;
+
   -- Get the worker's hourly rate
   SELECT "hourlyRate" INTO hourly_rate 
   FROM workers 
-  WHERE id = NEW."workerId";
+  WHERE id = worker_id_var;
   
   IF hourly_rate IS NULL THEN
-    RETURN NEW;
+    RETURN NULL;
   END IF;
   
   -- Calculate total hours for this worker
@@ -23,7 +30,7 @@ BEGIN
     "extraHours"
   ), 0) INTO total_hours
   FROM "TimeEntries"
-  WHERE "workerId" = NEW."workerId";
+  WHERE "workerId" = worker_id_var;
   
   -- Calculate earnings
   earnings = total_hours * hourly_rate;
@@ -31,15 +38,15 @@ BEGIN
   -- Get total payments
   SELECT COALESCE(SUM(amount), 0) INTO total_payments
   FROM "WorkersPayments"
-  WHERE "workerId" = NEW."workerId";
+  WHERE "workerId" = worker_id_var;
   
   -- Update sold: earnings - payments
   UPDATE workers 
   SET sold = earnings - total_payments,
       updated_at = NOW()
-  WHERE id = NEW."workerId";
+  WHERE id = worker_id_var;
   
-  RETURN NEW;
+  RETURN NULL; -- AFTER trigger, return value is ignored
 END;
 $$ LANGUAGE plpgsql;
 
