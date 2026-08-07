@@ -22,11 +22,11 @@ export async function PUT(request, { params }) {
 }
 
 // DELETE /api/workers/[id]/time-entries/timeEntryId
-
 export async function DELETE(request, { params }) {
     try {
         const { timeEntryId } = await params;
 
+        console.log('timeEntryId: ', timeEntryId)
         await deleteTimeEntry(timeEntryId)
 
         return NextResponse.json({ success: true });

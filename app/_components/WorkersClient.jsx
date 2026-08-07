@@ -2236,6 +2236,7 @@ export default function WorkersApp({ workersData, orders = [] }) {
     try {
       const res = await fetch(`/api/workers/${selectedId}`);
       const data = await res.json();
+      console.log(data.data)
       if (data.data) {
         setWorkers((prev) =>
           prev.map((w) =>
