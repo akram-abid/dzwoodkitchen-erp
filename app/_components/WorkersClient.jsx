@@ -36,6 +36,36 @@ const GlobalStyles = () => (
 
 /* ─── Icons ─── */
 const Icons = {
+  eye: (p) => (
+    <svg
+      width={p?.size ?? 16}
+      height={p?.size ?? 16}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  eyeOff: (p) => (
+    <svg
+      width={p?.size ?? 16}
+      height={p?.size ?? 16}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" x2="23" y1="1" y2="23" />
+    </svg>
+  ),
   inbox: () => <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></svg>,
   search: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>),
   x: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>),
@@ -1992,6 +2022,9 @@ const DetailScreen = memo(function DetailScreen({
 const AddWorkerModal = ({ isOpen, onClose, onSave, getWorkerStatus, orders }) => {
   const [form, setForm] = useState({
     full_name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
     phone: "",
     payment_type: "hours",
     hourlyRate: "",
@@ -2000,10 +2033,16 @@ const AddWorkerModal = ({ isOpen, onClose, onSave, getWorkerStatus, orders }) =>
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.full_name.trim()) return setError("Name is required");
+    if (!form.email.trim()) return setError("Email is required");
+    if (!form.password.trim()) return setError("Password is required");
+    if (form.password.length < 6) return setError("Password must be at least 6 characters");
+    if (form.password !== form.confirmPassword) return setError("Passwords do not match");
     if (form.payment_type === "hours" && !form.hourlyRate) return setError("Hourly rate required");
     if (form.payment_type === "meters" && !form.meterRate) return setError("Meter rate required");
 
@@ -2011,6 +2050,8 @@ const AddWorkerModal = ({ isOpen, onClose, onSave, getWorkerStatus, orders }) =>
     try {
       const payload = {
         full_name: form.full_name.trim(),
+        email: form.email.trim(),
+        password: form.password,
         phone: form.phone || null,
         payment_type: form.payment_type,
         hourlyRate: form.payment_type === "hours" ? parseFloat(form.hourlyRate) : null,
@@ -2045,7 +2086,17 @@ const AddWorkerModal = ({ isOpen, onClose, onSave, getWorkerStatus, orders }) =>
 
       onSave(newWorker);
       onClose();
-      setForm({ full_name: "", phone: "", payment_type: "hours", hourlyRate: "", meterRate: "", hire_date: formatDate(new Date()) });
+      setForm({
+        full_name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        phone: "",
+        payment_type: "hours",
+        hourlyRate: "",
+        meterRate: "",
+        hire_date: formatDate(new Date())
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -2081,6 +2132,63 @@ const AddWorkerModal = ({ isOpen, onClose, onSave, getWorkerStatus, orders }) =>
                 autoFocus
               />
             </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Email *</label>
+              <input
+                type="email"
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                value={form.email}
+                onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="worker@dzwood.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Password *</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none pr-10"
+                  style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                  value={form.password}
+                  onChange={(e) => setForm(f => ({ ...f, password: e.target.value }))}
+                  placeholder="Min 6 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  style={{ color: "var(--ink-muted)" }}
+                >
+                  {showPassword ? <Icons.eyeOff /> : <Icons.eye />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Confirm Password *</label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none pr-10"
+                  style={{ background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" }}
+                  value={form.confirmPassword}
+                  onChange={(e) => setForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                  placeholder="Confirm password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  style={{ color: "var(--ink-muted)" }}
+                >
+                  {showConfirmPassword ? <Icons.eyeOff /> : <Icons.eye />}
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Phone</label>
               <input
@@ -2090,6 +2198,7 @@ const AddWorkerModal = ({ isOpen, onClose, onSave, getWorkerStatus, orders }) =>
                 onChange={(e) => setForm(f => ({ ...f, phone: e.target.value }))}
               />
             </div>
+
             <div>
               <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-muted)" }}>Payment Type *</label>
               <select
@@ -2102,6 +2211,7 @@ const AddWorkerModal = ({ isOpen, onClose, onSave, getWorkerStatus, orders }) =>
                 <option value="meters">Meters</option>
               </select>
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               {form.payment_type === "hours" ? (
                 <div>
@@ -2141,7 +2251,9 @@ const AddWorkerModal = ({ isOpen, onClose, onSave, getWorkerStatus, orders }) =>
                 />
               </div>
             </div>
+
             {error && <div className="text-xs px-3 py-2 rounded-md" style={{ background: "var(--stage-contract)15", color: "var(--stage-contract)" }}>{error}</div>}
+
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={onClose} className="flex-1 text-sm font-medium py-2 rounded-lg" style={{ background: "var(--surface-2)", color: "var(--ink)", border: "1px solid var(--border)" }}>Cancel</button>
               <button type="submit" disabled={saving} className="flex-1 text-sm font-bold py-2 rounded-lg" style={{ background: "var(--accent)", color: "#000" }}>{saving ? "Adding..." : "Add Worker"}</button>
@@ -2236,7 +2348,6 @@ export default function WorkersApp({ workersData, orders = [] }) {
     try {
       const res = await fetch(`/api/workers/${selectedId}`);
       const data = await res.json();
-      console.log(data.data)
       if (data.data) {
         setWorkers((prev) =>
           prev.map((w) =>
