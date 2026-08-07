@@ -174,13 +174,14 @@ async function deleteTimeEntry(timeEntryId) {
 
 
 async function createPayment(workerId, data) {
-    const { date, amount, note } = data;
+    const { date, amount, note, type } = data;
 
     const payment = await prisma.workersPayments.create({
         data: {
             workerId: Number(workerId),
             amount,
             date: new Date(date),
+            type,
             note: note || "",
         },
     });

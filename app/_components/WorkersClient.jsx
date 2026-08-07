@@ -635,7 +635,7 @@ const getMonthlyEarnings = (w, vKey, orders) => {
 
 const getMonthlyPayments = (w, vKey) =>
   (w?.payments || [])
-    .filter((p) => formatDate(p.date).startsWith(vKey))
+    .filter((p) => formatDate(p.date).startsWith(vKey) && p.type !== 'ADDITIONAL')
     .reduce((s, p) => s + p.amount, 0);
 
 const getBalance = (w, vKey, orders) =>
@@ -761,43 +761,87 @@ function TimeEntryForm({ initial, existingDates = [], onSave, onCancel, isSubmit
 function PaymentForm({ onSave, onCancel }) {
   const [date, setDate] = useState(formatDate(new Date()));
   const [amount, setAmount] = useState("");
+  const [type, setType] = useState("NORMAL");
   const [note, setNote] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({ date, amount: parseFloat(amount), note });
+    onSave({ date, amount: parseFloat(amount), type, note });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="text-sm font-medium block mb-1.5" style={{ color: "var(--ink-muted)" }}>Date</label>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required
-          className="w-full text-base p-3 rounded-xl"
-          style={{ border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }} />
+        <label className="text-sm font-medium block mb-1.5" style={{ color: "var(--ink-muted)" }}>Type *</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setType("NORMAL")}
+            className={`py-2 rounded-lg text-sm font-bold transition-all ${type === "NORMAL"
+              ? "bg-green-500/20 text-green-500 border-2 border-green-500"
+              : "bg-[var(--bg)] text-[var(--ink-muted)] border border-[var(--border)]"
+              }`}
+          >
+            📤 Normal
+          </button>
+          <button
+            type="button"
+            onClick={() => setType("ADDITIONAL")}
+            className={`py-2 rounded-lg text-sm font-bold transition-all ${type === "ADDITIONAL"
+              ? "bg-green-500/20 text-green-500 border-2 border-green-500"
+              : "bg-[var(--bg)] text-[var(--ink-muted)] border border-[var(--border)]"
+              }`}
+          >
+            📥 Additional
+          </button>
+        </div>
       </div>
+
       <div>
-        <label className="text-sm font-medium block mb-1.5" style={{ color: "var(--ink-muted)" }}>Amount (DZD)</label>
-        <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 50000" required
+        <label className="text-sm font-medium block mb-1.5" style={{ color: "var(--ink-muted)" }}>Amount (DZD) *</label>
+        <input
+          type="number"
+          min="0"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="e.g. 50000"
+          required
           className="w-full text-base p-3 rounded-xl"
-          style={{ border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }} />
+          style={{ border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }}
+        />
       </div>
+
+      <div>
+        <label className="text-sm font-medium block mb-1.5" style={{ color: "var(--ink-muted)" }}>Date</label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+          className="w-full text-base p-3 rounded-xl"
+          style={{ border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }}
+        />
+      </div>
+
       <div>
         <label className="text-sm font-medium block mb-1.5" style={{ color: "var(--ink-muted)" }}>Note</label>
-        <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Advance, salary, etc."
+        <input
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={type === "NORMAL" ? "Salary, advance, etc." : "Bonus, extra work, etc."}
           className="w-full text-base p-3 rounded-xl"
-          style={{ border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }} />
+          style={{ border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)" }}
+        />
       </div>
+
       <div className="flex gap-3 pt-2">
-        <button type="button" onClick={onCancel} className="flex-1 text-base font-medium py-3 rounded-xl"
-          style={{ background: "var(--surface-2)", color: "var(--ink)", border: "1px solid var(--border)" }}>Cancel</button>
-        <button type="submit" className="flex-1 text-base font-bold py-3 rounded-xl text-white"
-          style={{ background: "var(--accent)" }}>Save</button>
+        <button type="button" onClick={onCancel} className="flex-1 text-base font-medium py-3 rounded-xl" style={{ background: "var(--surface-2)", color: "var(--ink)", border: "1px solid var(--border)" }}>Cancel</button>
+        <button type="submit" className="flex-1 text-base font-bold py-3 rounded-xl text-white" style={{ background: "var(--accent)" }}>Save</button>
       </div>
     </form>
   );
 }
-
 /* ─── Modal Component ─── */
 const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
@@ -1781,9 +1825,37 @@ const DetailScreen = memo(function DetailScreen({
             )}
           </div>
         )}
-
         {activeTab === "payments" && (
           <div className="p-4 space-y-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-3 gap-2">
+              <div
+                className="p-3 rounded-xl text-center"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              >
+                <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--ink-muted)" }}>Total Normal</div>
+                <div className="text-base font-bold" style={{ color: "var(--accent)" }}>
+                  {selected.payments?.filter(p => p.type === "NORMAL").reduce((s, p) => s + p.amount, 0).toLocaleString()} DZD
+                </div>
+                <div className="text-[10px]" style={{ color: "var(--ink-muted)" }}>
+                  {selected.payments?.filter(p => p.type === "NORMAL").length} payments
+                </div>
+              </div>
+              <div
+                className="p-3 rounded-xl text-center"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              >
+                <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--ink-muted)" }}>Total Additional</div>
+                <div className="text-base font-bold" style={{ color: "#16a34a" }}>
+                  {selected.payments?.filter(p => p.type === "ADDITIONAL").reduce((s, p) => s + p.amount, 0).toLocaleString()} DZD
+                </div>
+                <div className="text-[10px]" style={{ color: "var(--ink-muted)" }}>
+                  {selected.payments?.filter(p => p.type === "ADDITIONAL").length} payments
+                </div>
+              </div>
+            </div>
+
+            {/* Payments List */}
             <div className="p-4 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--ink-muted)" }}>Payments</h3>
@@ -1792,20 +1864,33 @@ const DetailScreen = memo(function DetailScreen({
                 </button>
               </div>
               <div className="space-y-2">
-                {selected.payments?.filter((p) => formatDate(p.date).startsWith(vKey)).length === 0 && <div className="text-sm text-center py-6" style={{ color: "var(--ink-muted)" }}>No payments recorded</div>}
-                {selected.payments?.filter((p) => formatDate(p.date).startsWith(vKey)).sort((a, b) => formatDate(b.date).localeCompare(a.date)).map((p) => (
-                  <div key={p.id} className="p-3 rounded-xl flex items-center justify-between" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
-                    <div>
-                      <div className="text-base font-bold" style={{ color: "var(--ink)" }}>{p.amount.toLocaleString()} DZD</div>
-                      <div className="text-xs" style={{ color: "var(--ink-muted)" }}>{formatDate(p.date)} · {p.note}</div>
+                {selected.payments?.filter((p) => formatDate(p.date).startsWith(vKey)).length === 0 && (
+                  <div className="text-sm text-center py-6" style={{ color: "var(--ink-muted)" }}>No payments recorded</div>
+                )}
+                {selected.payments?.filter((p) => formatDate(p.date).startsWith(vKey)).sort((a, b) => formatDate(b.date).localeCompare(a.date)).map((p) => {
+                  const isNormal = p.type === "NORMAL";
+                  return (
+                    <div key={p.id} className="p-3 rounded-xl flex items-center justify-between" style={{ background: "var(--bg)", border: `1px solid ${isNormal ? "var(--accent)30" : "#16a34a30"}` }}>
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                          style={{ background: isNormal ? "var(--accent)20" : "#16a34a20" }}
+                        >
+                          <span>{isNormal ? "📤" : "📥"}</span>
+                        </div>
+                        <div>
+                          <div className="text-base font-bold" style={{ color: isNormal ? "var(--accent)" : "#16a34a" }}>
+                            {isNormal ? "-" : "+"}{p.amount.toLocaleString()} DZD
+                          </div>
+                          <div className="text-xs flex items-center gap-1" style={{ color: "var(--ink-muted)" }}>
+                            {formatDate(p.date)} · {p.note || (isNormal ? "Normal" : "Additional")}
+                          </div>
+                        </div>
+                      </div>
+                      <button onClick={() => onDeletePayment(p.id)} style={{ color: "var(--stage-contract)" }}><Icons.trash /></button>
                     </div>
-                    <button onClick={() => onDeletePayment(p.id)} style={{ color: "var(--stage-contract)" }}><Icons.trash /></button>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 p-3 rounded-xl flex items-center justify-between" style={{ background: "var(--accent-soft)" }}>
-                <span className="text-sm font-bold" style={{ color: "var(--accent)" }}>Total Paid</span>
-                <span className="text-base font-bold" style={{ color: "var(--accent)" }}>{monthlyPaid.toLocaleString()} DZD</span>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -2499,18 +2584,21 @@ export default function WorkersApp({ workersData, orders = [] }) {
     try {
       const result = await createPayment(selectedId, payment);
 
+      const paymentWithType = {
+        ...result.data,
+        type: payment.type || "NORMAL"
+      };
+
       setWorkers((prev) =>
         prev.map((w) => {
           if (w.id !== selectedId) return w;
           return {
             ...w,
-            payments: [...(w.payments || []), result.data],
+            payments: [...(w.payments || []), paymentWithType],
           };
         })
       );
       await refreshWorker();
-
-
       setShowPaymentModal(false);
     } catch (error) {
       console.error("Failed to add payment:", error);

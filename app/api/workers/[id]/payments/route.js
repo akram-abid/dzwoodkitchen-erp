@@ -7,9 +7,9 @@ export async function POST(request, { params }) {
     try {
         const { id } = await params;
         const body = await request.json();
-        const { date, amount, note } = body;
+        const { date, amount, note, type } = body;
 
-        const payment = await createPayment(id, { date, amount, note });
+        const payment = await createPayment(id, { date, amount, note, type });
 
         return NextResponse.json({ success: true, data: payment });
     } catch (error) {

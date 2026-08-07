@@ -38,10 +38,11 @@ BEGIN
   -- Calculate total earnings
   total_earnings = COALESCE(total_hours * hourly_rate, 0) + COALESCE(total_meters * meter_rate, 0);
   
-  -- Calculate total payments
+  -- Calculate total payments (only NORMAL type, ignore ADDITIONAL)
   SELECT COALESCE(SUM(amount), 0) INTO total_payments
   FROM "WorkersPayments"
-  WHERE "workerId" = worker_id_val;
+  WHERE "workerId" = worker_id_val
+    AND type = 'NORMAL';
   
   -- Update sold: earnings - payments
   UPDATE workers 
