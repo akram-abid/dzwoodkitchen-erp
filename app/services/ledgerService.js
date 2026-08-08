@@ -162,6 +162,7 @@ function serialize(type, row) {
     return {
       id: row.id,
 
+      paymentType: row.type,
       type,
 
       date: toDateString(row.date),
@@ -319,7 +320,6 @@ export async function getEntries({
   ]);
 
 
-  console.log('result of otherRows in ledgerServices: ', otherRows)
 
   // Merge + tag + sort by date desc
 

@@ -354,6 +354,15 @@ const TYPE_META = {
   },
 };
 
+const ADDITIONAL_PAYMENT_COLOR = "#FB7185";
+
+const isAdditionalPayment = (e) => {
+  return e.type === "WORKER_PAYMENT" && e.paymentType === "ADDITIONAL";
+}
+
+const getEntryColor = (e) =>
+  isAdditionalPayment(e) ? ADDITIONAL_PAYMENT_COLOR : TYPE_META[e.type].color;
+
 const MONTHS = [
   "January",
   "February",
@@ -473,7 +482,9 @@ const describeEntry = (e) => {
     case "WORKER_PAYMENT":
       return {
         main: `Payment to ${e.worker || "—"}`,
-        sub: e.note || "",
+        sub: isAdditionalPayment(e)
+          ? `Additional :${e.note ? ` · ${e.note}` : ""}`
+          : e.note || "",
       };
 
     case "MATERIAL_PURCHASE": {
@@ -519,6 +530,7 @@ const formFromEntry = (entry) => {
       date: entry.date,
       amount: String(entry.amount),
       worker: entry.worker || "",
+      paymentType: entry.paymentType || "NORMAL",
       note: entry.note || "",
     };
 
@@ -561,6 +573,7 @@ const emptyFormForType = (type, refs) => {
       date: today,
       amount: "",
       worker: firstWorker,
+      paymentType: "NORMAL",
       note: "",
     };
 
@@ -900,11 +913,13 @@ export default function LedgerClient() {
         .map((e) => {
           const meta = TYPE_META[e.type];
           const desc = describeEntry(e);
+          const color = getEntryColor(e);
+          const label = isAdditionalPayment(e) ? "Worker · Additional" : meta.label;
           return `<tr>
             <td>${e.date}</td>
-            <td><span class="badge" style="background:${meta.color}15;color:${meta.color}">${meta.label}</span></td>
+            <td><span class="badge" style="background:${color}15;color:${color}">${label}</span></td>
             <td>${desc.main}${desc.sub ? `<div class="sub">${desc.sub}</div>` : ""}</td>
-            <td style="text-align:right;font-weight:600;color:${meta.color}">${meta.sign}${getAmount(e).toLocaleString()} DZD</td>
+            <td style="text-align:right;font-weight:600;color:${color}">${meta.sign}${getAmount(e).toLocaleString()} DZD</td>
           </tr>`;
         })
         .join("")
@@ -1124,6 +1139,7 @@ export default function LedgerClient() {
           date: form.date,
           amount: amt,
           workerId,
+          paymentType: form.paymentType === "ADDITIONAL" ? "ADDITIONAL" : "NORMAL",
           note: form.note?.trim() || null,
         };
       } else if (newType === "MATERIAL_PURCHASE") {
@@ -1533,6 +1549,7 @@ export default function LedgerClient() {
           <tbody>
             {filtered.map((e) => {
               const meta = TYPE_META[e.type];
+              const entryColor = getEntryColor(e);
               const desc = describeEntry(e);
               const Icon = meta.icon;
 
@@ -1557,13 +1574,21 @@ export default function LedgerClient() {
                       <span
                         className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                         style={{
-                          background: `${meta.color}15`,
-                          color: meta.color,
+                          background: `${entryColor}15`,
+                          color: entryColor,
                         }}
                       >
                         <Icon />
                       </span>
                       <StageBadge stage={e.type} />
+                      {isAdditionalPayment(e) && (
+                        <span
+                          className="badge"
+                          style={{ background: `${ADDITIONAL_PAYMENT_COLOR}15`, color: ADDITIONAL_PAYMENT_COLOR }}
+                        >
+                          Additional
+                        </span>
+                      )}
                     </div>
                   </td>
 
@@ -1588,7 +1613,7 @@ export default function LedgerClient() {
 
                   <td
                     className="px-4 py-3 text-right font-bold tabular-nums whitespace-nowrap"
-                    style={{ color: meta.color }}
+                    style={{ color: entryColor }}
                   >
                     {meta.sign}
                     {getAmount(e).toLocaleString()}
@@ -1684,6 +1709,7 @@ export default function LedgerClient() {
         <div className="md:hidden">
           {filtered.map((e) => {
             const meta = TYPE_META[e.type];
+            const entryColor = getEntryColor(e);
             const desc = describeEntry(e);
             const Icon = meta.icon;
 
@@ -1997,6 +2023,18 @@ export default function LedgerClient() {
                         {w.full_name}
                       </option>
                     ))}
+                  </select>
+                </Field>
+
+                <Field label="Payment Type">
+                  <select
+                    value={form.paymentType || "NORMAL"}
+                    onChange={(e) => setForm((f) => ({ ...f, paymentType: e.target.value }))}
+                    className="px-3 py-2 rounded-md text-sm outline-none focus-ring w-full"
+                    style={inputStyle}
+                  >
+                    <option value="NORMAL">Normal</option>
+                    <option value="ADDITIONAL">Additional</option>
                   </select>
                 </Field>
 

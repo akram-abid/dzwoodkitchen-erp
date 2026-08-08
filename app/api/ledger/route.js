@@ -20,7 +20,6 @@ export async function GET(request) {
       tripId: searchParams.get("tripId") ?? undefined,
     });
 
-    console.log('result of getEntries route file : ', result)
 
     return NextResponse.json(result);
   } catch (err) {
